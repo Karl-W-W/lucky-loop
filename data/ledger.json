@@ -1,0 +1,15 @@
+{
+  "generatedAt": 1784735830000,
+  "commits": [
+    {
+      "sha": "b12f1f7c83f29f43f6b45f74f6efd7a476bfcbc3",
+      "t": 1784735830000,
+      "msg": "Add CLAUDE.md: product context, /war real-data spec, working rules"
+    },
+    {
+      "sha": "0a86c6effa75870c778cefcdafb5270edeaf606c",
+      "t": 1784735777000,
+      "msg": "War Room dashboard — restored from preserved source"
+    }
+  ]
+}

@@ -1,9 +1,10 @@
 {
-  "name": "build-check",
+  "name": "lucky-loop",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/gen-ledger.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

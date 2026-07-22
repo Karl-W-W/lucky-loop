@@ -1,0 +1,23 @@
+{
+  "objectives": [
+    {
+      "id": "O1",
+      "title": "Launch Lucky Loop MVP",
+      "due": "2026-07-31",
+      "keyResults": [
+        {
+          "id": "KR1",
+          "title": "War Room live on Vercel",
+          "progress": 0.8,
+          "note": "deploying today"
+        },
+        {
+          "id": "KR2",
+          "title": "Loop runs end-to-end",
+          "progress": 0.05,
+          "note": "not started — /loop pending"
+        }
+      ]
+    }
+  ]
+}

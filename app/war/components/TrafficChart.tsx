@@ -7,8 +7,16 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { STEP_MIN, type TrafficPoint } from "../data";
 import { fmtDayTime, fmtInt, fmtTime, niceTicks } from "../format";
+
+/* Chassis component: not currently mounted on /war (real-data era, see
+ * CLAUDE.md) — kept ready for the first real time series. Self-contained. */
+export type TrafficPoint = {
+  t: number; // sample end, ms epoch (UTC)
+  web: number;
+  api: number;
+  errors: number;
+};
 
 const M = { top: 14, right: 76, bottom: 30, left: 50 };
 const HEIGHT = 300;
@@ -39,10 +47,12 @@ export default function TrafficChart({
   points,
   rangeLabel,
   daySpan,
+  stepMin = 5,
 }: {
   points: TrafficPoint[];
   rangeLabel: string;
   daySpan: boolean; // range > 24h → date-qualified tick labels
+  stepMin?: number; // minutes per raw sample
 }) {
   const [wrapRef, width] = useMeasuredWidth();
   const [view, setView] = useState<"chart" | "table">("chart");
@@ -51,7 +61,7 @@ export default function TrafficChart({
 
   // Downsample to ≤160 buckets so paths stay light at 7d (2016 raw points).
   const k = Math.max(1, Math.ceil(points.length / 160));
-  const bucketMin = k * STEP_MIN;
+  const bucketMin = k * stepMin;
   const buckets = useMemo<Bucket[]>(() => {
     const out: Bucket[] = [];
     // Chunk from the newest edge backwards so the current bucket is always
