@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "t": 1784737449927,
+    "url": "https://lucky-loop-one.vercel.app",
+    "target": "production",
+    "sha": "096ed6d18c8be84290f52c4938d80ad9cd6d9fc6"
+  }
+]
