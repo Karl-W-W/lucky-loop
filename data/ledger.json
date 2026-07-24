@@ -1,6 +1,11 @@
 {
-  "generatedAt": 1784736695000,
+  "generatedAt": 1784737636000,
   "commits": [
+    {
+      "sha": "8fbfeb3bb2ce1dfdfb8be1cf9df7681fce809abc",
+      "t": 1784737636000,
+      "msg": "Record first production deploy; KR1 to 100%; fill Vercel link"
+    },
     {
       "sha": "096ed6d18c8be84290f52c4938d80ad9cd6d9fc6",
       "t": 1784736695000,
