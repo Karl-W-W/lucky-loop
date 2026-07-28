@@ -1,0 +1,38 @@
+%% Lucky Loop — TARGET architecture. DESIGN: this is the target shape of the
+%% KR2 loop, not a description of what has run. The live state is whatever
+%% /loop renders; this graph is intent, never evidence. Do not present it as
+%% current anywhere. Copy is scoped to the drawing, not to the state of the
+%% world, so it stays true once the first pass ships.
+%%
+%% Architecture pin: the loop runs on a local runner (Mac / DGX), never on
+%% Vercel — the deployed site has no Python runtime. Each pass emits
+%% (a) a SANITIZED JSON artifact committed to the repo and (b) decision +
+%% outcome events written to the private memory vault. /loop and /war then
+%% render the committed artifact — the same committed-JSON pattern as the
+%% ledger in current.mmd.
+%%
+%% CANONICAL SOURCE. The War Room renders a hand-authored HTML/SVG twin of
+%% this graph in app/war/components/ArchitecturePanel.tsx. The two MUST stay
+%% structurally identical: same nodes, same edges, same labels. Change one,
+%% change the other in the same commit. On the page the five stage nodes are
+%% drawn as chips inside the harness box, so the edges leaving Adapt are
+%% drawn leaving that box.
+
+flowchart LR
+  INBOX["gitignored inbox directory<br/>one exported item, no live inbox credentials"]
+
+  subgraph HARNESS["LangGraph harness — local runner (Mac / DGX), NOT on Vercel"]
+    direction LR
+    P["Perceive"] --> D["Decide"] --> A["Act"] --> E["Evaluate"] --> AD["Adapt"]
+    AD -.->|"next pass"| P
+  end
+
+  ART["sanitized run artifact<br/>redacted BEFORE commit, committed to the repo"]
+  BRAIN["decision + outcome events<br/>private memory vault — never published"]
+  BUILD["git commit → npm build"]
+  PAGES["/loop and /war<br/>render the committed artifact"]
+
+  INBOX --> P
+  AD -->|"each pass emits"| ART
+  AD -->|"each pass emits"| BRAIN
+  ART --> BUILD --> PAGES

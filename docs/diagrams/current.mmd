@@ -1,0 +1,21 @@
+%% Lucky Loop — CURRENT architecture. This is what actually ships today
+%% (verified against the repo on 2026-07-28): a build-time JSON pipeline.
+%% There is no database, no API route, and no data source at request time.
+%%
+%% CANONICAL SOURCE. The War Room renders a hand-authored HTML/SVG twin of
+%% this graph in app/war/components/ArchitecturePanel.tsx (no diagram
+%% library, no client JS). The two MUST stay structurally identical: same
+%% nodes, same edges, same labels. Change one, change the other in the same
+%% commit. Prose captions on the page correspond to the %% notes below.
+%%
+%% Note: gen-ledger.mjs exits 0 without writing when `git log` is
+%% unavailable at build time, so the committed ledger.json ships as-is.
+
+flowchart LR
+  GITLOG["git log<br/>commit history in this repo"]
+  GEN["scripts/gen-ledger.mjs<br/>runs as npm prebuild"]
+  DATA["data/*.json — committed to git<br/>the build step above regenerates ledger.json<br/>okrs.json · ledger.json · deploys.json · links.json"]
+  ACC["app/war/data.ts<br/>typed accessors + 5-min time anchor"]
+  WAR["/war<br/>Next.js server render on Vercel"]
+
+  GITLOG --> GEN --> DATA --> ACC --> WAR
