@@ -1,9 +1,19 @@
 {
-  "generatedAt": 1785261122000,
-  "builtAt": 1785261186069,
+  "generatedAt": 1785261360000,
+  "builtAt": 1785261512107,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "c6028c4f203518410185961b0b767bbdd4a58789",
+      "t": 1785261360000,
+      "msg": "fix(war): REPO_PUBLIC=false until the repo actually flips"
+    },
+    {
+      "sha": "7149da75010f66dbdb6beee193a11a05b4008214",
+      "t": 1785261206000,
+      "msg": "integrate(B,C,D): mount ArchitecturePanel, drop orphaned formatters, regen ledger"
+    },
     {
       "sha": "052d89f40ba4cd13c290169d484ce53062e2caa1",
       "t": 1785261122000,
