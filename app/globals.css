@@ -69,3 +69,288 @@ body {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* ---------------------------------------------------------------------------
+ * Homepage (/) — the `.ll-home` scope.
+ *
+ * PURELY ADDITIVE. Every rule below is nested under `.ll-home`, a class only
+ * the homepage renders. Nothing here touches html/body defaults, the --war-*
+ * tokens, or anything .war-root depends on, so /war is unaffected.
+ *
+ * Design system carried over from the retired luckyloop-site: field/ink/pine/
+ * clover/brass, ONE light theme page-wide, ALL-SHARP corners, hairline rules,
+ * sans for display and mono for ledger-ish labels. Brass has a budget of
+ * exactly two uses on the page: .ll-brass-tick and .ll-closer-rule.
+ * ------------------------------------------------------------------------- */
+.ll-home {
+  color-scheme: light;
+
+  --ll-field: #f5f2e9; /* page ground */
+  --ll-field-deep: #eee9db; /* recessed ground */
+  --ll-ink: #22271f; /* body text */
+  --ll-ink-2: #5a6157; /* secondary text — 5.7:1 on field */
+  --ll-pine: #1e3a2f; /* structural dark: display type, links, rules */
+  --ll-clover: #3fa060; /* the single accent — marks only, never text */
+  --ll-brass: #c9a24b; /* rare glint — marks only, never text */
+  --ll-hairline: rgba(30, 58, 47, 0.24);
+  --ll-hairline-soft: rgba(30, 58, 47, 0.13);
+  --ll-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --ll-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  flex: 1 1 auto;
+  background: var(--ll-field);
+  color: var(--ll-ink);
+  font-family: var(--ll-sans);
+  font-size: 1rem;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+
+.ll-home .ll-shell {
+  width: 100%;
+  max-width: 62rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 2.25rem 1.25rem 3.5rem;
+}
+
+@media (min-width: 40rem) {
+  .ll-home .ll-shell {
+    padding: 3.5rem 2rem 5rem;
+  }
+}
+
+/* --- links ---------------------------------------------------------------- */
+.ll-home a {
+  color: var(--ll-pine);
+  text-decoration: underline;
+  text-decoration-color: var(--ll-hairline);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+}
+
+.ll-home a:hover {
+  text-decoration-color: var(--ll-clover);
+}
+
+.ll-home :focus-visible {
+  outline: 2px solid var(--ll-pine);
+  outline-offset: 3px;
+}
+
+/* --- masthead ------------------------------------------------------------- */
+.ll-home .ll-masthead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 2.5rem;
+}
+
+.ll-home .ll-mark {
+  width: 1.625rem;
+  height: 1.625rem;
+  flex: none;
+  color: var(--ll-clover);
+}
+
+.ll-home .ll-wordmark {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ll-pine);
+}
+
+/* --- hero ----------------------------------------------------------------- */
+.ll-home .ll-eyebrow {
+  font-family: var(--ll-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ll-ink-2);
+}
+
+.ll-home .ll-h1 {
+  margin-top: 0.875rem;
+  font-size: clamp(2rem, 6.2vw, 3.25rem);
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: -0.022em;
+  color: var(--ll-pine);
+  text-wrap: balance;
+  max-width: 18ch;
+}
+
+.ll-home .ll-lead {
+  margin-top: 1.5rem;
+  max-width: 46ch;
+  font-size: clamp(1.0625rem, 1.1rem + 0.4vw, 1.25rem);
+  line-height: 1.5;
+}
+
+.ll-home .ll-sub {
+  margin-top: 0.875rem;
+  max-width: 46ch;
+  color: var(--ll-ink-2);
+}
+
+.ll-home .ll-thesis {
+  margin-top: 1.5rem;
+  font-family: var(--ll-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  color: var(--ll-ink-2);
+}
+
+/* --- sections ------------------------------------------------------------- */
+.ll-home .ll-section {
+  margin-top: 3rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--ll-hairline-soft);
+}
+
+.ll-home .ll-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.ll-home .ll-h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ll-pine);
+}
+
+.ll-home .ll-note {
+  font-family: var(--ll-mono);
+  font-size: 0.75rem;
+  color: var(--ll-ink-2);
+}
+
+/* --- the loop rail -------------------------------------------------------- */
+.ll-home .ll-rail {
+  display: grid;
+  grid-template-columns: 1fr;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ll-home .ll-rail-node {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  padding: 0.625rem 0 0.625rem 0.875rem;
+  border-left: 1px solid var(--ll-hairline);
+}
+
+.ll-home .ll-rail-index {
+  font-family: var(--ll-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--ll-ink-2);
+}
+
+.ll-home .ll-rail-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ll-pine);
+}
+
+.ll-home .ll-rail-hint {
+  font-size: 0.875rem;
+  color: var(--ll-ink-2);
+}
+
+.ll-home .ll-rail-return {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.125rem;
+  font-family: var(--ll-mono);
+  font-size: 0.75rem;
+  color: var(--ll-ink-2);
+}
+
+.ll-home .ll-brass-tick {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  background: var(--ll-brass);
+}
+
+@media (min-width: 45rem) {
+  .ll-home .ll-rail {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    border-top: 1px solid var(--ll-hairline);
+  }
+
+  .ll-home .ll-rail-node {
+    padding: 0.875rem 0.75rem 0.25rem 0.875rem;
+  }
+
+  .ll-home .ll-rail-return {
+    justify-content: flex-end;
+  }
+}
+
+/* --- where to look -------------------------------------------------------- */
+.ll-home .ll-strip {
+  border: 1px solid var(--ll-hairline);
+  background: var(--ll-field-deep);
+}
+
+.ll-home .ll-strip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1.25rem;
+  padding: 0.9375rem 1rem;
+}
+
+.ll-home .ll-strip-row + .ll-strip-row {
+  border-top: 1px solid var(--ll-hairline-soft);
+}
+
+.ll-home .ll-strip-key {
+  min-width: 4.5rem;
+  font-family: var(--ll-mono);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--ll-pine);
+}
+
+.ll-home .ll-strip-key--pending {
+  color: var(--ll-ink-2);
+}
+
+.ll-home .ll-strip-val {
+  flex: 1 1 18rem;
+  font-size: 0.9375rem;
+  color: var(--ll-ink-2);
+}
+
+/* --- closer --------------------------------------------------------------- */
+.ll-home .ll-closer {
+  margin-top: 3.5rem;
+}
+
+.ll-home .ll-closer-rule {
+  display: block;
+  width: 3rem;
+  height: 2px;
+  background: var(--ll-brass);
+}
+
+.ll-home .ll-closer-line {
+  margin-top: 1.25rem;
+  max-width: 34ch;
+  font-size: clamp(1.125rem, 1.05rem + 0.9vw, 1.5rem);
+  line-height: 1.32;
+  letter-spacing: -0.012em;
+  color: var(--ll-pine);
+  text-wrap: balance;
+}
