@@ -27,6 +27,12 @@ const dateUTC = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
+const dayUTC = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
+
 export function fmtInt(n: number): string {
   return int.format(Math.round(n));
 }
@@ -49,6 +55,11 @@ export function fmtDayTime(t: number): string {
 
 export function fmtDate(t: number): string {
   return dateUTC.format(new Date(t));
+}
+
+/* Short calendar day, e.g. "Jul 27" — for window labels. */
+export function fmtDay(t: number): string {
+  return dayUTC.format(new Date(t));
 }
 
 /* Feed timestamps: same UTC day as the anchor → "14:03", else "Jul 20, 09:12". */

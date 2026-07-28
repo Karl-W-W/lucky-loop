@@ -7,16 +7,23 @@ const MAX_ROWS = 25;
 export default function LedgerFeed({
   entries,
   anchor,
+  /* The build could not see the whole git history (see isLedgerTruncated in
+   * ../data). The list below is then a floor, and the heading says so. */
+  truncated = false,
 }: {
   entries: LedgerEntry[];
   anchor: number;
+  truncated?: boolean;
 }) {
   const shown = entries.slice(0, MAX_ROWS);
   return (
     <section className="war-card flex h-full flex-col p-4" aria-label="Growth ledger">
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">Growth Ledger</h2>
-        <span className="text-xs text-[var(--war-ink-3)]">commits + deploys · UTC</span>
+        <span className="text-xs text-[var(--war-ink-3)]">
+          commits + deploys · UTC
+          {truncated ? " · history truncated (floor, not the full history)" : ""}
+        </span>
       </div>
       {shown.length === 0 ? (
         <p className="py-6 text-center text-sm text-[var(--war-ink-3)]">No entries yet.</p>

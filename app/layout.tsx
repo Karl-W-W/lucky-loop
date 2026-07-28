@@ -12,9 +12,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/* Root layout metadata — shared by every page, so this is the product-level
+ * description (the War Room sets its own in app/war/page.tsx). It is the OG /
+ * search preview for any link to this site: keep it to what the site actually
+ * shows. */
 export const metadata: Metadata = {
-  title: "War Room — Lucky Loop",
-  description: "Live operations dashboard: traffic, service health, and incidents.",
+  title: "Lucky Loop",
+  description:
+    "An agent harness being built in public: an autonomous loop for everyday admin. Objectives, commits and deploys are published on the Lucky Loop War Room.",
 };
 
 export default function RootLayout({
