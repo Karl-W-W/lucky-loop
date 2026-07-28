@@ -89,6 +89,16 @@ export function getCommits(): Commit[] {
   return ledger.commits;
 }
 
+/* TRUE when the build that produced data/ledger.json ran on a checkout git
+ * could not fully deepen (see scripts/gen-ledger.mjs). The commit list is then
+ * a FLOOR, not the whole history, and every commit-derived number on the page
+ * is a lower bound — so the page must say so rather than present a truncated
+ * history as complete. Rendered by the "Commits · 7d" tile note and the Growth
+ * Ledger heading. */
+export function isLedgerTruncated(): boolean {
+  return ledger.shallow === true;
+}
+
 /** Newest commit timestamp in the ledger — the anchor for commit windows. */
 export function lastCommitAt(): number {
   return getCommits().reduce((max, c) => (c.t > max ? c.t : max), 0);
@@ -120,9 +130,13 @@ export function getLedger(): LedgerEntry[] {
     detail: c.sha.slice(0, 7),
     href: repoUrl ? `${repoUrl}/commit/${c.sha}` : undefined,
   }));
-  /* Only the newest deploy is still serving; superseded deployment URLs are
+  /* PRODUCTION ONLY — one definition of "a deploy" across the whole page, so
+   * the Growth Ledger can never disagree with the "Prod deploys" tile, and an
+   * internal preview/feature-branch deploy can never surface publicly (DoD #4).
+   *
+   * Only the newest deploy is still serving; superseded deployment URLs are
    * not linked (they are auth-walled or gone — see DoD #4). */
-  const all = getDeploys();
+  const all = getProductionDeploys();
   const live = all[0];
   const deploys: LedgerEntry[] = all.map((d) => ({
     id: `d-${d.id ?? d.sha}-${d.t}`,

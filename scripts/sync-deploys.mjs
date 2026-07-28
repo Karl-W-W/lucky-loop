@@ -3,18 +3,50 @@
  * "Prod deploys" tile and the deploy rows of the Growth Ledger.
  *
  * Run it LOCALLY and commit the result. A Vercel build cannot commit back to
- * git, so this is the only path that makes the committed record authoritative
- * (scripts/capture-deploy.mjs covers the gap inside each build).
+ * git, so this is the only path that can reconcile the committed record with
+ * Vercel (scripts/capture-deploy.mjs covers the gap inside each build).
  *
  *   node scripts/sync-deploys.mjs           rewrite data/deploys.json
  *   node scripts/sync-deploys.mjs --check   exit 1 if the committed file drifts
  *                                           from Vercel (no writes) — run this
  *                                           before a launch/verification pass
  *
+ * ---------------------------------------------------------------------------
+ * VERIFICATION STATUS (2026-07-28) — read this before trusting the exit code.
+ *
+ * VERIFIED, by replaying a real `GET /v6/deployments` response for this project
+ * through this exact script (captured live 2026-07-28):
+ *   - the response mapping. `uid || id`, `created ?? createdAt`,
+ *     `meta.githubCommitSha`, and the `state === "READY" && target ===
+ *     "production"` filter all resolve correctly against the live payload, in
+ *     both the raw v6 shape (`uid`) and the normalised shape (`id`).
+ *   - REPRODUCTION: from that response the script rewrites data/deploys.json
+ *     byte-for-byte identical to the committed file. 4 production deploys.
+ *   - `--check` exits 0 when in sync, and exits 1 naming the drifted deploy
+ *     when a deploy is missing on either side.
+ *   - a non-2xx API reply exits 1 and writes nothing.
+ *   - no creator / email / commit-author field can reach data/deploys.json;
+ *     only id, t, url, target, sha are written.
+ *
+ * NOT YET VERIFIED — the one remaining gap:
+ *   - the live HTTP round trip itself (socket + `Authorization: Bearer`). No
+ *     VERCEL_TOKEN has ever been issued for this repo, so no run of this script
+ *     has actually reached api.vercel.com. Everything downstream of the
+ *     response body is proven; the call that fetches it is not.
+ *
+ * So: treat a green `--check` as authoritative ONLY once it has been run once
+ * with a real token. Until then this script is UNVERIFIED end to end. That
+ * single run is assertion (2) of the launch-day runbook in gen-ledger.mjs.
+ * ---------------------------------------------------------------------------
+ *
  * Auth + ids come from the environment, never from the repo:
  *   VERCEL_TOKEN                    required (a read-scoped token is enough)
  *   VERCEL_PROJECT_ID / ORG_ID      or .vercel/project.json (gitignored,
- *                                   created by `vercel link`)
+ *                                   created by `vercel link`). NOTE: this
+ *                                   machine has no .vercel/project.json, so
+ *                                   without `vercel link` both MUST be
+ *                                   exported or resolveIds() exits 1. Read
+ *                                   them from the Vercel project settings.
  *   PROD_URL                        optional; defaults to the production URL
  *                                   already recorded in data/deploys.json
  *

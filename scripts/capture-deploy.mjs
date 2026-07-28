@@ -10,10 +10,10 @@
  * Two mechanisms keep the number true, neither of which is "remember to edit
  * the JSON":
  *
- *   1. THIS SCRIPT (automatic, every build). Vercel's system env vars describe
- *      the deployment being built, so the deploy you are looking at is always
- *      counted in the copy of deploys.json that ships inside it.
- *   2. `node scripts/sync-deploys.mjs` (local, authoritative). Rewrites
+ *   1. THIS SCRIPT (automatic, on every PRODUCTION build). Vercel's system env
+ *      vars describe the deployment being built, so the deploy you are looking
+ *      at is always counted in the copy of deploys.json that ships inside it.
+ *   2. `node scripts/sync-deploys.mjs` (local reconcile). Rewrites
  *      deploys.json from the Vercel API and is committed. `--check` exits
  *      non-zero on drift — run it before launch.
  *
@@ -25,6 +25,17 @@
  * first build and may be evicted — so it can only ever ADD known-real deploys
  * on top of the committed floor; it never removes any. Records are deduped by
  * deployment id.
+ *
+ * PRODUCTION TARGET ONLY. Everything here is gated on target === "production".
+ * The build cache is shared across targets — Vercel restores it into preview
+ * builds too ("Restored build cache from previous deployment" appears in the
+ * preview build log) — so a preview build that recorded itself would carry an
+ * internal feature-branch deployment, and a commit sha that is not in the
+ * Growth Ledger's commit set, into the NEXT production build's deploys.json and
+ * onto the public page. A preview build therefore writes nothing at all: it
+ * neither touches data/deploys.json nor seeds the cache. /war has exactly one
+ * definition of "a deploy" (app/war/data.ts getProductionDeploys), and this is
+ * the writer side of it.
  *
  * No PII: only deployment id, time, url, target and commit sha are recorded.
  */
@@ -79,11 +90,12 @@ function currentDeployFromEnv() {
   const sha = env.VERCEL_GIT_COMMIT_SHA;
   const target = env.VERCEL_TARGET_ENV || env.VERCEL_ENV;
   if (!sha || !target) return null;
-  // Production serves on the project's production domain; previews on their own.
-  const host =
-    target === "production"
-      ? env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL
-      : env.VERCEL_URL || env.VERCEL_PROJECT_PRODUCTION_URL;
+  /* Anything that is not a production deploy is invisible to /war: previews and
+   * custom environments are internal, and the shared build cache would other-
+   * wise carry them into a later production build. Bail BEFORE any write. */
+  if (target !== "production") return null;
+  // Production serves on the project's production domain, not the per-deploy URL.
+  const host = env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL;
   if (!host) return null;
   return {
     id: env.VERCEL_DEPLOYMENT_ID || "",
@@ -99,7 +111,13 @@ function currentDeployFromEnv() {
 export function captureCurrentDeploy() {
   const current = currentDeployFromEnv();
   if (!current) {
-    console.log("deploys: not a Vercel build — data/deploys.json left untouched");
+    const target = process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV;
+    console.log(
+      process.env.VERCEL === "1"
+        ? `deploys: ${target || "unknown"} build, not production — data/deploys.json and the ` +
+            "build cache left untouched"
+        : "deploys: not a Vercel build — data/deploys.json left untouched",
+    );
     return;
   }
 

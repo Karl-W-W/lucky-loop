@@ -2,10 +2,12 @@ import {
   commitsPerDay,
   daysUntil,
   getBuildTime,
+  getCommits,
   getLedger,
   getLinks,
   getObjectives,
   getProductionDeploys,
+  isLedgerTruncated,
   lastCommitAt,
   objectiveProgress,
 } from "./data";
@@ -31,6 +33,13 @@ export default function Dashboard({ anchor }: { anchor: number }) {
   const commits7d = perDay.reduce((a, b) => a + b, 0);
   const lastDeploy = deploys[0] ?? null;
   const builtAt = getBuildTime();
+  /* The build could not see the whole git history (shallow checkout it failed
+   * to deepen). Every commit number below is then a lower bound, and the page
+   * says so rather than passing a truncated history off as complete. */
+  const truncated = isLedgerTruncated();
+  const truncNote = truncated
+    ? ` · history truncated at ${getCommits().length} commits (floor)`
+    : "";
 
   return (
     <div className="war-root min-h-screen font-sans">
@@ -79,7 +88,7 @@ export default function Dashboard({ anchor }: { anchor: number }) {
             label="Commits · 7d to last commit"
             value={String(commits7d)}
             trend={perDay}
-            note={`per day, UTC · through ${fmtDay(lastCommit)}`}
+            note={`per day, UTC · through ${fmtDay(lastCommit)}${truncNote}`}
           />
           <StatTile
             label="Prod deploys"
@@ -101,7 +110,7 @@ export default function Dashboard({ anchor }: { anchor: number }) {
             <FlowPanel />
           </div>
           <div className="lg:col-span-3">
-            <LedgerFeed entries={ledger} anchor={anchor} />
+            <LedgerFeed entries={ledger} anchor={anchor} truncated={truncated} />
           </div>
         </div>
 
