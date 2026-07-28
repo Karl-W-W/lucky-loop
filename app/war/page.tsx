@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "War Room — Lucky Loop",
-  description: "Live operations dashboard: traffic, service health, and incidents.",
+  description:
+    "Lucky Loop's build log in public: progress against the MVP objective, plus every git commit and Vercel production deploy, derived from the repo at build time.",
 };
 
 export default function WarPage() {

@@ -1,13 +1,15 @@
 import {
   commitsPerDay,
   daysUntil,
-  getDeploys,
+  getBuildTime,
   getLedger,
   getLinks,
   getObjectives,
+  getProductionDeploys,
+  lastCommitAt,
   objectiveProgress,
 } from "./data";
-import { fmtAgo, fmtDate, fmtTime } from "./format";
+import { fmtAgo, fmtDate, fmtDay, fmtDayTime } from "./format";
 import AutoRefresh from "./components/AutoRefresh";
 import Clock from "./components/Clock";
 import FlowPanel from "./components/FlowPanel";
@@ -20,12 +22,15 @@ export default function Dashboard({ anchor }: { anchor: number }) {
   const objectives = getObjectives();
   const o1 = objectives[0];
   const ledger = getLedger();
-  const deploys = getDeploys();
-  const perDay = commitsPerDay(anchor);
+  const deploys = getProductionDeploys();
+  /* Commit window is anchored to the last commit, not to `anchor` (wall clock):
+   * the ledger is a build-time snapshot and must not decay to a flat zero line
+   * while the clock keeps ticking. */
+  const lastCommit = lastCommitAt();
+  const perDay = commitsPerDay();
   const commits7d = perDay.reduce((a, b) => a + b, 0);
-  const lastDeploy = deploys.length
-    ? deploys.reduce((a, b) => (a.t > b.t ? a : b))
-    : null;
+  const lastDeploy = deploys[0] ?? null;
+  const builtAt = getBuildTime();
 
   return (
     <div className="war-root min-h-screen font-sans">
@@ -53,7 +58,8 @@ export default function Dashboard({ anchor }: { anchor: number }) {
 
         <div className="flex justify-end">
           <span className="text-xs text-[var(--war-ink-3)]">
-            Data as of {fmtTime(anchor)} UTC · refreshed every 5 min
+            Data built {fmtDayTime(builtAt)} UTC from git + Vercel · last commit{" "}
+            {fmtAgo(lastCommit, anchor)}
           </span>
         </div>
 
@@ -70,15 +76,19 @@ export default function Dashboard({ anchor }: { anchor: number }) {
             note={`across ${o1.keyResults.length} key results`}
           />
           <StatTile
-            label="Commits · 7d"
+            label="Commits · 7d to last commit"
             value={String(commits7d)}
             trend={perDay}
-            note="per day, UTC"
+            note={`per day, UTC · through ${fmtDay(lastCommit)}`}
           />
           <StatTile
-            label="Deploys"
+            label="Prod deploys"
             value={String(deploys.length)}
-            note={lastDeploy ? `last ${fmtAgo(lastDeploy.t, anchor)}` : "first deploy pending"}
+            note={
+              lastDeploy
+                ? `last ${fmtAgo(lastDeploy.t, anchor)} · ${lastDeploy.sha.slice(0, 7)}`
+                : "first deploy pending"
+            }
           />
         </div>
 

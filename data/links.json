@@ -1,8 +1,13 @@
 [
-  { "name": "GitHub", "url": "https://github.com/Karl-W-W/lucky-loop", "note": "repo" },
-  { "name": "Vercel", "url": "https://vercel.com/karlwuerfel-1867s-projects/lucky-loop", "note": "prod: lucky-loop-one.vercel.app" },
-  { "name": "Supabase", "url": "https://supabase.com/dashboard/projects", "note": "dashboard" },
-  { "name": "Phoenix", "url": "http://localhost:6006", "note": "local traces" },
-  { "name": "Langflow", "url": "http://localhost:7860", "note": "local" },
-  { "name": "GBrain", "url": "", "note": "add URL here" }
+  {
+    "name": "GitHub",
+    "url": "https://github.com/Karl-W-W/lucky-loop",
+    "note": "source",
+    "requiresPublicRepo": true
+  },
+  {
+    "name": "Live site",
+    "url": "https://lucky-loop-one.vercel.app",
+    "note": "production deploy on Vercel"
+  }
 ]
