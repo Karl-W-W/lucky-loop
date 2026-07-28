@@ -12,6 +12,7 @@ import {
   objectiveProgress,
 } from "./data";
 import { fmtAgo, fmtDate, fmtDay, fmtDayTime } from "./format";
+import ArchitecturePanel from "./components/ArchitecturePanel";
 import AutoRefresh from "./components/AutoRefresh";
 import Clock from "./components/Clock";
 import FlowPanel from "./components/FlowPanel";
@@ -111,6 +112,12 @@ export default function Dashboard({ anchor }: { anchor: number }) {
           </div>
           <div className="lg:col-span-3">
             <LedgerFeed entries={ledger} anchor={anchor} truncated={truncated} />
+          </div>
+          {/* Mounted below the ledger, deliberately far from FlowPanel: both
+           * render the five loop stages, and adjacency would read as one
+           * duplicated panel rather than a CURRENT/TARGET contrast. */}
+          <div className="lg:col-span-3">
+            <ArchitecturePanel />
           </div>
         </div>
 

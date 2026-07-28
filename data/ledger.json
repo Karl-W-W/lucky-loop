@@ -1,6 +1,54 @@
 {
-  "generatedAt": 1784737636000,
+  "generatedAt": 1785261122000,
+  "builtAt": 1785261186069,
+  "source": "git",
+  "shallow": false,
   "commits": [
+    {
+      "sha": "052d89f40ba4cd13c290169d484ce53062e2caa1",
+      "t": 1785261122000,
+      "msg": "merge(ws/D-diagrams): feat(war): ArchitecturePanel — CURRENT pipeline + TARGET loop labeled DESIGN"
+    },
+    {
+      "sha": "486f46739901bef46bcc6f4a7cb9348f098a7bc2",
+      "t": 1785261121000,
+      "msg": "merge(ws/B-homepage): feat(home): real homepage at / — vault framing, harvested design system"
+    },
+    {
+      "sha": "cd6c740537a3cdb00dc74b213aa9b8016a4ebd6f",
+      "t": 1785261121000,
+      "msg": "merge(ws/C-warroom): fix(war): make ledger truncation impossible or visible; production-only deploys"
+    },
+    {
+      "sha": "2aea33a32a340df5a020508d39894dcc16515e90",
+      "t": 1785260359000,
+      "msg": "fix(war): make ledger truncation impossible or visible; production-only deploys"
+    },
+    {
+      "sha": "43ba52aad49859a83aaa0423d3bd06faa52cb6d7",
+      "t": 1785258841000,
+      "msg": "feat(war): ArchitecturePanel — CURRENT pipeline + TARGET loop labeled DESIGN"
+    },
+    {
+      "sha": "753a603b8bcd604a80d9d8b000b56c0d4835aefb",
+      "t": 1785258606000,
+      "msg": "fix(war): derive every number from git/Vercel truth; kill dead links; honest build stamp"
+    },
+    {
+      "sha": "ba979979f998760242762766ce5565349dd9f433",
+      "t": 1785258496000,
+      "msg": "feat(home): real homepage at / — vault framing, harvested design system"
+    },
+    {
+      "sha": "d68cc3ec97c7fef35e2a8d2956bb57a62f30564e",
+      "t": 1785161842000,
+      "msg": "chore: ignore council transcripts"
+    },
+    {
+      "sha": "d11389a083cf40dea775fc66f36f28d34d914f69",
+      "t": 1784913162000,
+      "msg": "chore(deps): react 19.2.4 -> 19.2.8; pin node 22.x via engines"
+    },
     {
       "sha": "8fbfeb3bb2ce1dfdfb8be1cf9df7681fce809abc",
       "t": 1784737636000,
