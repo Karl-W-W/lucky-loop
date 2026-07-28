@@ -14,10 +14,16 @@ import linksJson from "@/data/links.json";
  * on this page — the links-rail row AND every per-commit link in the Growth
  * Ledger — is a public 404.
  *
- * If the sweep is not clean, flip this to `false`. That single edit removes the
- * GitHub row from the rail and drops every commit href. Nothing else to change.
+ * STATE 2026-07-28: the sweep PASSED (gitleaks 8.30.1, all 9 commits across every
+ * ref, zero findings), so the repo WILL go public. But it is still private today,
+ * so this stays `false` until the visibility actually flips — otherwise prod
+ * carries 16 public 404s for three days, which is DoD #4.
+ *
+ * LAUNCH STEP (workstream F, Jul 31): flip this to `true` in the SAME change that
+ * makes the repo public. That single edit restores the GitHub row in the rail and
+ * every commit href in the Growth Ledger. Nothing else to change.
  * ------------------------------------------------------------------------- */
-export const REPO_PUBLIC = true;
+export const REPO_PUBLIC = false;
 
 export type StatusRole = "good" | "warning" | "serious" | "critical";
 
