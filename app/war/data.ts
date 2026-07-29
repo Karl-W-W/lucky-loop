@@ -14,10 +14,22 @@ import linksJson from "@/data/links.json";
  * on this page — the links-rail row AND every per-commit link in the Growth
  * Ledger — is a public 404.
  *
- * STATE 2026-07-28: the sweep PASSED (gitleaks 8.30.1, all 9 commits across every
- * ref, zero findings), so the repo WILL go public. But it is still private today,
- * so this stays `false` until the visibility actually flips — otherwise prod
- * carries 16 public 404s for three days, which is DoD #4.
+ * STATE 2026-07-29: the sweep PASSED and was RE-VERIFIED today at HEAD 34bab5c —
+ * `gitleaks detect --log-opts="--all"` (8.30.1), 16 non-merge commits scanned
+ * across all 19 refs-reachable commits, zero findings. (The earlier note here
+ * said "all 9 commits", which was true when it was written and had since gone
+ * stale; the sweep is re-run, not merely re-asserted.) So the repo WILL go
+ * public. But it is still private today, so this stays `false` until the
+ * visibility actually flips — otherwise prod carries 16 public 404s until
+ * launch, which is DoD #4.
+ *
+ * ALSO 2026-07-29 (Karl's ruling, executed): tag `archive/mac-scaffold-2026-07-22`
+ * was DELETED from origin *before* the flip, so the orphan mac-scaffold line is
+ * never published. On a public repo GitHub serves unreachable objects by SHA, so
+ * deleting after the flip would have been effectively irreversible. Three copies
+ * survive: local tag, the DGX mirror, and a verified bundle at
+ * ~/Archive/lucky-loop/archive-mac-scaffold-2026-07-22.bundle.
+ * DO NOT run `git push origin --tags` or `--follow-tags` — either recreates it.
  *
  * LAUNCH STEP (workstream F, Jul 31): flip this to `true` in the SAME change that
  * makes the repo public. That single edit restores the GitHub row in the rail and
