@@ -79,7 +79,7 @@ export default function Home() {
               <p className="ll-strip-val">
                 {LOOP_LIVE
                   ? "The loop itself, pass by pass."
-                  : "Not live yet — the first pass lands at launch."}
+                  : "Not live yet — being built in the open."}
               </p>
             </div>
           </div>

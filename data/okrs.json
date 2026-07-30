@@ -15,7 +15,14 @@
           "id": "KR2",
           "title": "Loop runs end-to-end",
           "progress": 0.05,
-          "note": "not started — /loop pending"
+          "note": "rubric fixed 2026-07-30, before any loop code — 5 criteria, 0.2 each",
+          "rubric": [
+            "A real triage item enters from loop/inbox/ — a real document, never a fixture",
+            "All five nodes run in one pass on a real LangGraph StateGraph",
+            "Evaluate runs the pass's own declared assertion; only terminationReason=converged counts",
+            "The committed artifact is produced by the redaction step and passes the mechanical PII check",
+            "/loop renders the pass on prod, and /war's Flow panel renders from the definition the runner executed"
+          ]
         }
       ]
     }

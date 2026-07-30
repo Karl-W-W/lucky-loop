@@ -39,7 +39,16 @@ export const REPO_PUBLIC = false;
 
 export type StatusRole = "good" | "warning" | "serious" | "critical";
 
-export type KeyResult = { id: string; title: string; progress: number; note?: string };
+export type KeyResult = {
+  id: string;
+  title: string;
+  progress: number;
+  note?: string;
+  /* Pre-committed scoring rubric. Written BEFORE the work it scores, so the
+   * launch-day number is certified against a fixed bar rather than self-awarded
+   * after the fact. Rendered on /war so the bar is public, not private. */
+  rubric?: string[];
+};
 export type Objective = { id: string; title: string; due: string; keyResults: KeyResult[] };
 export type Commit = { sha: string; t: number; msg: string };
 export type Deploy = { id?: string; t: number; url: string; target: string; sha: string };
