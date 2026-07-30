@@ -1,9 +1,24 @@
 {
-  "generatedAt": 1785261360000,
-  "builtAt": 1785261512107,
+  "generatedAt": 1785430799000,
+  "builtAt": 1785431451400,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "0287d4140b44154ea2a816a6bc066a29d2222b7e",
+      "t": 1785430799000,
+      "msg": "chore(E): pre-commit the fallback + fix the KR2 rubric before any loop code"
+    },
+    {
+      "sha": "d281479b38c7ae8616d6b583041456d71420931b",
+      "t": 1785341041000,
+      "msg": "docs(war): re-verified secrets sweep + record the origin tag deletion"
+    },
+    {
+      "sha": "34bab5c867bcdaeff7b4695c0dbe7714ace2c21a",
+      "t": 1785261512000,
+      "msg": "chore(data): regenerate ledger at HEAD so the committed copy outranks Vercel's shallow derive"
+    },
     {
       "sha": "c6028c4f203518410185961b0b767bbdd4a58789",
       "t": 1785261360000,

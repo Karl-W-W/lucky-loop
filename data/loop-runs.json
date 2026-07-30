@@ -1,0 +1,73 @@
+{
+  "runs": [
+    {
+      "runId": "20260730-59375083",
+      "idempotencyKey": "59375083ba057692",
+      "startedAt": "2026-07-30T17:06:20Z",
+      "finishedAt": "2026-07-30T17:06:22Z",
+      "durationMs": 2267,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 8931,
+        "lines": 156,
+        "language": "en",
+        "issuerKind": "cloud-provider",
+        "docType": "vat-invoice",
+        "amountBucket": "50-500",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 8931,
+            "lines": 156,
+            "amountBucket": "50-500",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "cloud-provider",
+            "docType": "vat-invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a VAT invoice with an amount within the expected range"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a cloud-provider, amount in the 50-500 band; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='50-500'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ]
+    }
+  ],
+  "generatedAt": "2026-07-30T17:06:22Z"
+}

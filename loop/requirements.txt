@@ -1,0 +1,9 @@
+# The loop's only third-party dependency. Everything else is the standard
+# library — the model is reached over plain HTTP on loopback, so there is no
+# SDK and no credential here.
+#
+# Already present on the DGX Spark (system python3.12: langgraph 1.0.9).
+# NOTE: this file is deliberately NOT wired into the Next.js build. The site is
+# a static build with no Python runtime; the loop runs on the DGX and the site
+# renders what it commits.
+langgraph>=1.0

@@ -3,10 +3,9 @@ import Link from "next/link";
 import LoopMark from "./components/site/LoopMark";
 import LoopRail from "./components/site/LoopRail";
 
-// /loop does not exist yet. While this is false the homepage renders it as
-// plain text with an honest label instead of a dead link.
-// When /loop ships, flip this one boolean to true — nothing else changes.
-const LOOP_LIVE = false;
+// /loop shipped 2026-07-31: the loop ran end-to-end on a real triage item and
+// /loop renders that pass from the artifacts the run itself wrote.
+const LOOP_LIVE = true;
 
 export const metadata: Metadata = {
   title: "Lucky Loop — an agent harness for the admin you'd rather not do",
@@ -78,7 +77,7 @@ export default function Home() {
               )}
               <p className="ll-strip-val">
                 {LOOP_LIVE
-                  ? "The loop itself, pass by pass."
+                  ? "The loop itself, pass by pass — the graph it ran, and how it terminated."
                   : "Not live yet — being built in the open."}
               </p>
             </div>
