@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   commitsPerDay,
   daysUntil,
@@ -61,6 +62,16 @@ export default function Dashboard({ anchor }: { anchor: number }) {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {/* /war was the site's entry point for its whole prior life and had
+             * no route back to the page that explains the product (DoD #1). */}
+            <nav className="flex items-center gap-3 text-xs">
+              <Link href="/" className="underline underline-offset-4 hover:opacity-80">
+                home
+              </Link>
+              <Link href="/loop" className="underline underline-offset-4 hover:opacity-80">
+                loop
+              </Link>
+            </nav>
             <span className="text-sm text-[var(--war-ink-2)]">{fmtDate(anchor)}</span>
             <Clock />
           </div>

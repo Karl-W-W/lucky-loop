@@ -1,0 +1,75 @@
+{
+  "graphVersion": "1.1.0",
+  "framework": "langgraph",
+  "derivedFrom": "loop/graph.py — compiled StateGraph, read via get_graph()",
+  "nodes": [
+    {
+      "id": "perceive",
+      "hint": "read the item"
+    },
+    {
+      "id": "decide",
+      "hint": "categorise + declare the assertion"
+    },
+    {
+      "id": "act",
+      "hint": "produce the triage record"
+    },
+    {
+      "id": "evaluate",
+      "hint": "run the declared assertion"
+    },
+    {
+      "id": "adapt",
+      "hint": "record what changed; retry or converge"
+    }
+  ],
+  "edges": [
+    {
+      "from": "__start__",
+      "to": "perceive",
+      "conditional": false
+    },
+    {
+      "from": "act",
+      "to": "evaluate",
+      "conditional": false
+    },
+    {
+      "from": "adapt",
+      "to": "__end__",
+      "conditional": true
+    },
+    {
+      "from": "adapt",
+      "to": "decide",
+      "conditional": true
+    },
+    {
+      "from": "decide",
+      "to": "act",
+      "conditional": false
+    },
+    {
+      "from": "evaluate",
+      "to": "adapt",
+      "conditional": false
+    },
+    {
+      "from": "perceive",
+      "to": "decide",
+      "conditional": false
+    }
+  ],
+  "terminationReasons": [
+    "converged",
+    "max_iterations",
+    "error"
+  ],
+  "assertions": [
+    "bill_has_amount",
+    "disposition_actionable",
+    "urgency_justified"
+  ],
+  "generatedAt": "2026-07-30T17:06:20Z"
+}

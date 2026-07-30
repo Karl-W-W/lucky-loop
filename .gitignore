@@ -43,3 +43,11 @@ next-env.d.ts
 # local Claude Code permission grants
 .claude/settings.local.json
 .council/
+
+# Loop input. Real mail/bill items land here and NEVER reach git — the loop
+# reads them, redacts DGX-side, and only sanitized artifacts are committed.
+# See loop/README.md and the SANITIZE rule in the launch mission.
+/loop/inbox/
+/loop/.runs/
+__pycache__/
+*.pyc
