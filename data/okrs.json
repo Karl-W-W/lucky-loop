@@ -14,8 +14,8 @@
         {
           "id": "KR2",
           "title": "Loop runs end-to-end",
-          "progress": 0.8,
-          "note": "4 of 5 rubric criteria certified; criterion 5 pending prod verification",
+          "progress": 1,
+          "note": "all 5 rubric criteria certified — one real item, converged, rendered on prod",
           "rubric": [
             "A real triage item enters from loop/inbox/ — a real document, never a fixture",
             "All five nodes run in one pass on a real LangGraph StateGraph",

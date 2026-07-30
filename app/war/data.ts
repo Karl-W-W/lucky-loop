@@ -194,10 +194,16 @@ export function commitsPerDay(days = 7): number[] {
   return counts;
 }
 
+/* Whole UTC days between today and the due date, counted on the calendar —
+ * not by dividing a millisecond span. Ceiling an end-of-day span read one high
+ * all day (on Jul 30 it said "2" for a Jul 31 due date) and could never reach
+ * zero, so the launch date itself would have rendered "1". A countdown that
+ * cannot show zero is wrong on exactly the day it matters. */
 export function daysUntil(dateISO: string, anchor: number): number {
   const [y, m, d] = dateISO.split("-").map(Number);
-  const end = Date.UTC(y, m - 1, d, 23, 59, 59);
-  return Math.max(0, Math.ceil((end - anchor) / 86400000));
+  const dueDay = Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+  const today = Math.floor(anchor / 86400000);
+  return Math.max(0, dueDay - today);
 }
 
 export function objectiveProgress(o: Objective): number {

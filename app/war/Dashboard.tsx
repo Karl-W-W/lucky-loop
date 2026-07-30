@@ -87,7 +87,7 @@ export default function Dashboard({ anchor }: { anchor: number }) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile
             label="Days to MVP"
-            value={String(daysUntil(o1.due, anchor))}
+            value={daysUntil(o1.due, anchor) === 0 ? "TODAY" : String(daysUntil(o1.due, anchor))}
             hero
             note={`${o1.id} due ${o1.due.slice(5).replace("-", "/")}`}
           />

@@ -1,9 +1,24 @@
 {
-  "generatedAt": 1785430799000,
-  "builtAt": 1785431451400,
+  "generatedAt": 1785431526000,
+  "builtAt": 1785431646920,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "316b3fec2f899cbf324907a1cf1b7e14794c1cda",
+      "t": 1785431526000,
+      "msg": "copy(home): the loop has run — say so, in the past tense"
+    },
+    {
+      "sha": "17a6ad6914784425471e282511ec14f3e9b52a29",
+      "t": 1785431494000,
+      "msg": "merge(ws/E-loop): feat(E): the loop runs end-to-end on a real item, and /loop renders the pass"
+    },
+    {
+      "sha": "0fa7c769f985952705bc4ebfd5d440793983fcc9",
+      "t": 1785431480000,
+      "msg": "feat(E): the loop runs end-to-end on a real item, and /loop renders the pass"
+    },
     {
       "sha": "0287d4140b44154ea2a816a6bc066a29d2222b7e",
       "t": 1785430799000,
