@@ -34,7 +34,8 @@ export default function Home() {
           </p>
           <p className="ll-sub">
             The War Room, the dashboard we run the company on, is public and
-            live today. The loop itself is being built in the open.
+            live. The loop has made its first pass on a real item — you can read
+            exactly what it did.
           </p>
           <p className="ll-thesis">Luck as an engineered outcome.</p>
         </section>
@@ -44,7 +45,7 @@ export default function Home() {
             <h2 id="ll-loop" className="ll-h2">
               The loop
             </h2>
-            <p className="ll-note">Five nodes · the loop being built</p>
+            <p className="ll-note">Five nodes · running</p>
           </div>
           <LoopRail />
         </section>
