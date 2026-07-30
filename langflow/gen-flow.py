@@ -648,6 +648,14 @@ NODES: list[dict] = [
         src=("next.config.ts", r"^import type", 8),
     ),
     dict(
+        key="generalise", col="access", row=2, icon="flask-conical", status="gap",
+        title="GAP · generalisation is unproven",
+        blurb="One pass, one item, one document type. Never run unattended, on a queue, or on a second item.",
+        role="GAP: n=1. The idempotency key means that item can never run again, so a second data point requires a NEW document — and nothing has fed one in. Everything the loop claims about admin triage rests on a single converged pass.",
+        origin="data/loop-runs.json (1 record) + the vault's 2026-07-30 open-risk list",
+        src=("loop/run.py", r"    if any\(r\.get\(", 6),
+    ),
+    dict(
         key="rubric", col="access", row=3, icon="eye-off", status="gap",
         title="GAP · the KR2 rubric is never rendered",
         blurb="data/okrs.json carries 5 criteria. OkrPanel reads title, note and progress — never kr.rubric.",
@@ -724,12 +732,14 @@ EDGES: list[tuple] = [
     ("obs", "build", "MISSING tracing"),
     ("nodb", "warpage", "no live data"),
     ("silent", "decide", "silent default"),
+    ("loopruns", "generalise", "n = 1"),
     ("okrs", "rubric", "5 criteria, unread"),
     ("rubric", "warpage", "bar invisible"),
     ("drift", "build", "framing vs runtime"),
 ]
 
-DASHED = {"vault", "sched", "obs", "nodb", "silent", "syncdeploys", "rubric", "drift", "repopublic"}
+DASHED = {"vault", "sched", "obs", "nodb", "silent", "syncdeploys", "rubric", "drift",
+          "repopublic", "generalise"}
 
 
 def build_flow() -> dict:
