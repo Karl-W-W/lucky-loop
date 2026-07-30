@@ -1,9 +1,14 @@
 {
-  "generatedAt": 1785431526000,
-  "builtAt": 1785431646920,
+  "generatedAt": 1785431650000,
+  "builtAt": 1785433323769,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "a5144f20f093436e4cc831fa4184ddc2da794fa1",
+      "t": 1785431650000,
+      "msg": "fix(war): countdown that can reach zero; KR2 to what the rubric certifies"
+    },
     {
       "sha": "316b3fec2f899cbf324907a1cf1b7e14794c1cda",
       "t": 1785431526000,

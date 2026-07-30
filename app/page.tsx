@@ -45,7 +45,7 @@ export default function Home() {
             <h2 id="ll-loop" className="ll-h2">
               The loop
             </h2>
-            <p className="ll-note">Five nodes · running</p>
+            <p className="ll-note">Five nodes · one pass recorded</p>
           </div>
           <LoopRail />
         </section>

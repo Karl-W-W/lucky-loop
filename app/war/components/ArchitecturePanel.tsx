@@ -209,9 +209,10 @@ export default function ArchitecturePanel() {
             <Badge tone="design">Design — target shape</Badge>
           </div>
           <p className="text-[11px] leading-snug text-[var(--war-ink-2)]">
-            Target shape for the loop, not a description of what has run. Everything drawn dashed
-            and amber on the hatched plane is design — a statement of intent, not evidence that any
-            of it has executed.
+            The intended shape of the loop. As of 2026-07-30 one pass of this shape has actually
+            run — the record is on /loop. It stays labelled DESIGN because the steady state it
+            describes has not: passes are still started by hand, one item at a time, and the
+            artifact is carried to the repo by a human. One manual pass is not the system.
           </p>
         </figcaption>
 
@@ -227,8 +228,8 @@ export default function ArchitecturePanel() {
               color: "var(--war-warning)",
             }}
           >
-            DESIGN — TARGET ARCHITECTURE. This diagram describes the intended shape, not the state
-            of any run.
+            DESIGN — TARGET ARCHITECTURE. One pass of this shape has run; the unattended,
+            repeating steady state it describes has not.
           </p>
 
           <ol className="flex flex-col lg:flex-row lg:items-stretch">
@@ -266,7 +267,7 @@ export default function ArchitecturePanel() {
                   ))}
                 </ol>
                 <span className="text-[10px] text-[var(--war-ink-3)]">
-                  Adapt feeds the next pass
+                  Adapt retries Decide, or converges
                 </span>
               </NodeCard>
             </li>
