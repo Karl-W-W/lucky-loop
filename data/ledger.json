@@ -1,9 +1,19 @@
 {
-  "generatedAt": 1785431650000,
-  "builtAt": 1785433323769,
+  "generatedAt": 1785433529000,
+  "builtAt": 1785934813996,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "c14a756bd1ccca0c204091dda6cca2f45be915f2",
+      "t": 1785433529000,
+      "msg": "feat(langflow): generate the whole backend as one observable canvas"
+    },
+    {
+      "sha": "3e5f02baad7241653715e573a49d522e81e35ff9",
+      "t": 1785433342000,
+      "msg": "fix(home,war): stop describing a loop that isn't the one that ran"
+    },
     {
       "sha": "a5144f20f093436e4cc831fa4184ddc2da794fa1",
       "t": 1785431650000,

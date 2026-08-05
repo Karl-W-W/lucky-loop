@@ -10,32 +10,29 @@ import linksJson from "@/data/links.json";
  * ONE-EDIT SWITCH — repo visibility.
  *
  * Karl's ruling (2026-07-28): the repo goes PUBLIC at launch, gated on a clean
- * all-refs secrets sweep by Jul 30. While the repo is private, every GitHub URL
- * on this page — the links-rail row AND every per-commit link in the Growth
- * Ledger — is a public 404.
+ * all-refs secrets sweep. While the repo is private, every GitHub URL on this
+ * page — the links-rail row AND every per-commit link in the Growth Ledger —
+ * is a public 404, so this flag and the real visibility must move together.
  *
- * STATE 2026-07-29: the sweep PASSED and was RE-VERIFIED today at HEAD 34bab5c —
- * `gitleaks detect --log-opts="--all"` (8.30.1), 16 non-merge commits scanned
- * across all 19 refs-reachable commits, zero findings. (The earlier note here
- * said "all 9 commits", which was true when it was written and had since gone
- * stale; the sweep is re-run, not merely re-asserted.) So the repo WILL go
- * public. But it is still private today, so this stays `false` until the
- * visibility actually flips — otherwise prod carries 16 public 404s until
- * launch, which is DoD #4.
+ * STATE 2026-08-05: FLIPPED, and the repo is public. The sequence, because the
+ * rulings look contradictory in isolation: private at launch (07-30 ruling, so
+ * launch day correctly shipped this `false`), then public on 08-05 gated on a
+ * fresh sweep. `gitleaks detect --log-opts="--all"` (8.30.1) re-run at HEAD on
+ * 08-05: 23 non-merge commits across all 27 refs-reachable commits, ZERO
+ * findings. `git ls-remote` was checked in the same breath — origin carries
+ * exactly refs/heads/main, no tags and no mac-scaffold branch — so the flip
+ * publishes nothing orphaned.
  *
- * ALSO 2026-07-29 (Karl's ruling, executed): tag `archive/mac-scaffold-2026-07-22`
+ * 2026-07-29 (Karl's ruling, executed, still binding): tag `archive/mac-scaffold-2026-07-22`
  * was DELETED from origin *before* the flip, so the orphan mac-scaffold line is
  * never published. On a public repo GitHub serves unreachable objects by SHA, so
  * deleting after the flip would have been effectively irreversible. Three copies
  * survive: local tag, the DGX mirror, and a verified bundle at
  * ~/Archive/lucky-loop/archive-mac-scaffold-2026-07-22.bundle.
- * DO NOT run `git push origin --tags` or `--follow-tags` — either recreates it.
- *
- * LAUNCH STEP (workstream F, Jul 31): flip this to `true` in the SAME change that
- * makes the repo public. That single edit restores the GitHub row in the rail and
- * every commit href in the Growth Ledger. Nothing else to change.
+ * DO NOT run `git push origin --tags` or `--follow-tags` — either recreates it,
+ * now onto a public repo.
  * ------------------------------------------------------------------------- */
-export const REPO_PUBLIC = false;
+export const REPO_PUBLIC = true;
 
 export type StatusRole = "good" | "warning" | "serious" | "critical";
 
@@ -49,7 +46,14 @@ export type KeyResult = {
    * after the fact. Rendered on /war so the bar is public, not private. */
   rubric?: string[];
 };
-export type Objective = { id: string; title: string; due: string; keyResults: KeyResult[] };
+export type Objective = {
+  id: string;
+  title: string;
+  due: string;
+  /** ISO day the objective actually reached 100%, when it has. */
+  metOn?: string;
+  keyResults: KeyResult[];
+};
 export type Commit = { sha: string; t: number; msg: string };
 export type Deploy = { id?: string; t: number; url: string; target: string; sha: string };
 export type LinkItem = {
@@ -198,12 +202,40 @@ export function commitsPerDay(days = 7): number[] {
  * not by dividing a millisecond span. Ceiling an end-of-day span read one high
  * all day (on Jul 30 it said "2" for a Jul 31 due date) and could never reach
  * zero, so the launch date itself would have rendered "1". A countdown that
- * cannot show zero is wrong on exactly the day it matters. */
+ * cannot show zero is wrong on exactly the day it matters.
+ *
+ * Signed on purpose. This used to clamp at zero, which was the same bug one day
+ * later: from Aug 1 to Aug 5 the War Room announced "TODAY · 0 days left" for a
+ * Jul 31 date, five days after the fact. Past-due days come back negative;
+ * dueState() decides what the page says about them. */
 export function daysUntil(dateISO: string, anchor: number): number {
   const [y, m, d] = dateISO.split("-").map(Number);
   const dueDay = Math.floor(Date.UTC(y, m - 1, d) / 86400000);
   const today = Math.floor(anchor / 86400000);
-  return Math.max(0, dueDay - today);
+  return dueDay - today;
+}
+
+/* What the page should SAY about a due date — derived from the date plus the
+ * objective's own progress, never from a hand-written status string that can
+ * rot. Completion outranks the calendar: an objective at 100% reads as met
+ * whether the date has passed or not, and a date that passes unmet says so. */
+export type DueState =
+  | { kind: "ahead"; days: number }
+  | { kind: "due-today" }
+  | { kind: "met"; metOn?: string }
+  | { kind: "overdue"; days: number };
+
+export function dueState(o: Objective, anchor: number): DueState {
+  const days = daysUntil(o.due, anchor);
+  if (objectiveProgress(o) >= 1) return { kind: "met", metOn: o.metOn };
+  if (days > 0) return { kind: "ahead", days };
+  if (days === 0) return { kind: "due-today" };
+  return { kind: "overdue", days: -days };
+}
+
+/** "2026-07-31" → "07/31" — the date form used across the OKR surfaces. */
+export function mmdd(dateISO: string): string {
+  return dateISO.slice(5).replace("-", "/");
 }
 
 export function objectiveProgress(o: Objective): number {

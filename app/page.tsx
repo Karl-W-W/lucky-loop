@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import LoopMark from "./components/site/LoopMark";
 import LoopRail from "./components/site/LoopRail";
+import { REPO_PUBLIC } from "./war/data";
 
 // /loop shipped 2026-07-31: the loop ran end-to-end on a real triage item and
 // /loop renders that pass from the artifacts the run itself wrote.
@@ -82,6 +83,36 @@ export default function Home() {
                   : "Not live yet — being built in the open."}
               </p>
             </div>
+          </div>
+        </section>
+
+        <section className="ll-section" aria-labelledby="ll-next">
+          <div className="ll-section-head">
+            <h2 id="ll-next" className="ll-h2">
+              What happens next
+            </h2>
+            <p className="ll-note">Early · one pass recorded</p>
+          </div>
+          <p className="ll-cta-note">
+            There is nothing to install yet. One real pass has run, the next
+            ones happen in public, and the build is open to read. If you want to
+            hear when the loop starts running unattended, put your name in.
+          </p>
+          <div className="ll-cta-row">
+            <a
+              className="ll-cta"
+              href="mailto:karl.wuerfel@icloud.com?subject=Lucky%20Loop%20waitlist"
+            >
+              Join the waitlist
+            </a>
+            {REPO_PUBLIC ? (
+              <a
+                className="ll-cta ll-cta--quiet"
+                href="https://github.com/Karl-W-W/lucky-loop"
+              >
+                Read the source
+              </a>
+            ) : null}
           </div>
         </section>
 

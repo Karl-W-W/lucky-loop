@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   commitsPerDay,
-  daysUntil,
+  dueState,
   getBuildTime,
   getCommits,
   getLedger,
@@ -10,6 +10,7 @@ import {
   getProductionDeploys,
   isLedgerTruncated,
   lastCommitAt,
+  mmdd,
   objectiveProgress,
 } from "./data";
 import { fmtAgo, fmtDate, fmtDay, fmtDayTime } from "./format";
@@ -35,6 +36,10 @@ export default function Dashboard({ anchor }: { anchor: number }) {
   const commits7d = perDay.reduce((a, b) => a + b, 0);
   const lastDeploy = deploys[0] ?? null;
   const builtAt = getBuildTime();
+  /* The hero tile stops being a countdown once the objective is met — it
+   * reports the outcome instead. Both halves derive from okrs.json, so the day
+   * after the deadline is a state the page can render, not a number it clamps. */
+  const due = dueState(o1, anchor);
   /* The build could not see the whole git history (shallow checkout it failed
    * to deepen). Every commit number below is then a lower bound, and the page
    * says so rather than passing a truncated history off as complete. */
@@ -86,10 +91,24 @@ export default function Dashboard({ anchor }: { anchor: number }) {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile
-            label="Days to MVP"
-            value={daysUntil(o1.due, anchor) === 0 ? "TODAY" : String(daysUntil(o1.due, anchor))}
+            label={due.kind === "met" ? "MVP" : "Days to MVP"}
+            value={
+              due.kind === "met"
+                ? "SHIPPED"
+                : due.kind === "due-today"
+                  ? "TODAY"
+                  : due.kind === "ahead"
+                    ? String(due.days)
+                    : "OVERDUE"
+            }
             hero
-            note={`${o1.id} due ${o1.due.slice(5).replace("-", "/")}`}
+            note={
+              due.kind === "met"
+                ? `${o1.id} ${due.metOn ? `delivered ${mmdd(due.metOn)} · ` : ""}due ${mmdd(o1.due)}`
+                : due.kind === "overdue"
+                  ? `${o1.id} due ${mmdd(o1.due)} · ${due.days}d past`
+                  : `${o1.id} due ${mmdd(o1.due)}`
+            }
           />
           <StatTile
             label="MVP progress"

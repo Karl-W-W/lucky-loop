@@ -333,6 +333,56 @@ body {
   color: var(--ll-ink-2);
 }
 
+/* --- what happens next ---------------------------------------------------- */
+.ll-home .ll-cta-note {
+  max-width: 46ch;
+  font-size: 0.9375rem;
+  color: var(--ll-ink-2);
+}
+
+.ll-home .ll-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.375rem;
+}
+
+.ll-home .ll-cta {
+  display: inline-block;
+  padding: 0.6875rem 1.125rem;
+  border: 1px solid var(--ll-pine);
+  font-family: var(--ll-mono);
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  color: var(--ll-pine);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.ll-home .ll-cta:hover {
+  background: var(--ll-pine);
+  color: var(--ll-field-deep);
+}
+
+/* Secondary action: same target size, less pull than the waitlist. */
+.ll-home .ll-cta--quiet {
+  border-color: var(--ll-hairline);
+  color: var(--ll-ink-2);
+}
+
+.ll-home .ll-cta--quiet:hover {
+  background: transparent;
+  border-color: var(--ll-pine);
+  color: var(--ll-pine);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ll-home .ll-cta {
+    transition: none;
+  }
+}
+
 /* --- closer --------------------------------------------------------------- */
 .ll-home .ll-closer {
   margin-top: 3.5rem;

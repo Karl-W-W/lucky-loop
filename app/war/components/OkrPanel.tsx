@@ -1,4 +1,4 @@
-import { daysUntil, objectiveProgress, type Objective } from "../data";
+import { dueState, mmdd, objectiveProgress, type Objective } from "../data";
 
 /* Meter per dataviz spec: the unfilled track is a deeper step of the same
  * blue ramp as the fill, so state reads across the whole bar. */
@@ -32,7 +32,17 @@ export default function OkrPanel({
   return (
     <section className="war-card flex h-full flex-col gap-4 p-4" aria-label="Objectives and key results">
       {objectives.map((o) => {
-        const left = daysUntil(o.due, anchor);
+        const due = dueState(o, anchor);
+        const left =
+          due.kind === "met"
+            ? due.metOn
+              ? `met ${mmdd(due.metOn)}`
+              : "met"
+            : due.kind === "due-today"
+              ? "due today"
+              : due.kind === "ahead"
+                ? `${due.days} days left`
+                : `${due.days} days past`;
         const pct = Math.round(objectiveProgress(o) * 100);
         return (
           <div key={o.id} className="flex flex-col gap-3">
@@ -44,7 +54,7 @@ export default function OkrPanel({
                 {o.title}
               </h2>
               <span className="text-xs text-[var(--war-ink-3)]">
-                Due {o.due.slice(5).replace("-", "/")} · {left} days left ·{" "}
+                Due {mmdd(o.due)} · {left} ·{" "}
                 <span className="text-[var(--war-ink-2)]">{pct}%</span>
               </span>
             </div>
