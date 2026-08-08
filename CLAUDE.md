@@ -89,6 +89,12 @@ the no-hover fallback.
    drop the `&& python3 …` from `prebuild` and ship; then fix the anchor. Run it
    alone with `npm run check:flow`.
 
+**Trap: this file is one of the gate's sources.** `gen-flow.py` anchors excerpts
+into `CLAUDE.md` itself (e.g. a `Links rail` regex at `gen-flow.py:640`), so
+editing or reorganising this document can fail the gate and block every deploy —
+including a docs-only commit. Run `npm run check:flow` after touching CLAUDE.md,
+`loop/*.py`, `scripts/*.mjs`, `app/*`, or `data/*.json`.
+
 Langflow is a **visualization surface only** — LangGraph is the runtime (ADR).
 Langflow Desktop was retired as a dependency on 2026-08-05: the canvas is fully
 regenerable from the repo via `langflow/gen-flow.py`, and the app does not need
