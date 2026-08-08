@@ -10,18 +10,31 @@ import linksJson from "@/data/links.json";
  * ONE-EDIT SWITCH — repo visibility.
  *
  * Karl's ruling (2026-07-28): the repo goes PUBLIC at launch, gated on a clean
- * all-refs secrets sweep. While the repo is private, every GitHub URL on this
- * page — the links-rail row AND every per-commit link in the Growth Ledger —
- * is a public 404, so this flag and the real visibility must move together.
+ * all-refs secrets sweep. While this flag and the real GitHub visibility
+ * disagree, every GitHub URL on this page — the links-rail row AND every
+ * per-commit link in the Growth Ledger — is a public 404, so the two must
+ * always move together.
  *
  * STATE 2026-08-05: FLIPPED, and the repo is public. The sequence, because the
  * rulings look contradictory in isolation: private at launch (07-30 ruling, so
  * launch day correctly shipped this `false`), then public on 08-05 gated on a
  * fresh sweep. `gitleaks detect --log-opts="--all"` (8.30.1) re-run at HEAD on
  * 08-05: 23 non-merge commits across all 27 refs-reachable commits, ZERO
- * findings. `git ls-remote` was checked in the same breath — origin carries
- * exactly refs/heads/main, no tags and no mac-scaffold branch — so the flip
- * publishes nothing orphaned.
+ * findings.
+ *
+ * CORRECTION 2026-08-08. The flip was originally justified here with: "origin
+ * carries exactly refs/heads/main, no tags and no mac-scaffold branch, so the
+ * flip publishes nothing orphaned." That reasoning is WRONG and is recorded
+ * rather than quietly deleted, because it is the seductive kind.
+ * **Ref absence is not object absence.** The archive tag was pushed to origin
+ * once before being deleted, and GitHub does not garbage-collect the objects it
+ * received: both commits on the orphan mac-scaffold line still answer HTTP 200
+ * from api.github.com today, fetchable by SHA. They were then actually read:
+ * `576c1d6` is a stock create-next-app scaffold and `8719d10` is the old MOCK
+ * War Room (a deterministic noise generator plus an on-call roster of invented
+ * names). Non-sensitive, so the flip stands — but it stands on inspection of
+ * the content, NOT on the ref check. Had a real secret been on that line, this
+ * argument would have published it irreversibly.
  *
  * 2026-07-29 (Karl's ruling, executed, still binding): tag `archive/mac-scaffold-2026-07-22`
  * was DELETED from origin *before* the flip, so the orphan mac-scaffold line is

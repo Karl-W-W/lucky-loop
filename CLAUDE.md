@@ -80,11 +80,17 @@ the no-hover fallback.
 
 1. `scripts/gen-ledger.mjs` — regenerates `data/ledger.json` from `git log`.
    It refuses to write on a shallow checkout or when the commit count regresses.
-2. `python3 langflow/gen-flow.py --check` — the **drift gate**. `langflow/`
+2. `python3 langflow/gen-flow.py --check` — the **anchor gate**. `langflow/`
    holds an architecture canvas generated from this repo's own source, with each
    node carrying a regex-anchored verbatim excerpt of the file it documents. If
-   a documented file or anchor disappears, `--check` exits non-zero and the
-   build fails. That is deliberate: the canvas cannot silently rot.
+   a documented file or anchor disappears, `--check` exits non-zero.
+
+   **Know what it does NOT do** (adversarial review, 2026-08-08): it verifies
+   that 40 file+regex anchors still *resolve*. It does **not** compare the
+   generated canvas to the committed `lucky-loop-architecture.json`, so the
+   committed canvas can be stale while the gate exits 0. Treat a green gate as
+   "the anchors still exist", never as "the canvas is current" — regenerate and
+   diff if you need the stronger claim.
    **If a deploy ever fails here during an incident**, the escape hatch is to
    drop the `&& python3 …` from `prebuild` and ship; then fix the anchor. Run it
    alone with `npm run check:flow`.
