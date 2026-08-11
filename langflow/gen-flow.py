@@ -616,12 +616,12 @@ NODES: list[dict] = [
 
     # ---------------- GAPS ----------------
     dict(
-        key="vault", col="route", row=1, icon="triangle-alert", status="gap",
-        title="GAP · vault events never written",
-        blurb="docs/diagrams/target.mmd draws Adapt emitting decision+outcome events to ~/brain. No code does.",
-        role="GAP: grep for brain/vault across loop/ and scripts/ returns only prose. The runner writes two JSON files and nothing else. loop/README.md calls the vault event evidence of a run — that evidence does not exist.",
-        origin="docs/diagrams/target.mmd (drawn) vs loop/run.py (not implemented)",
-        src=("docs/diagrams/target.mmd", r"BRAIN\[", 6),
+        key="vault", col="route", row=1, icon="git-commit-vertical", status="live",
+        title="writeback.py :: emit — decision + outcome",
+        blurb="Steps 6-7 of the architecture pin. Business-keyed on the idempotency key, gated again on the way out.",
+        role="Built 2026-08-11, after being drawn but unimplemented since the pin was written. decision_id is loop:{idempotencyKey}, NOT the date-prefixed runId — a date-keyed id would miss brain-log's dedupe and append a second permanent line to an append-only log. Everything leaving as argv is re-checked by gate 1: safe inside a JSON file is not safe as a CLI argument that becomes a log line, a filename and a commit message. Takes an exclusive flock because brain-log.py has no locking and its add+commit is two subprocesses.",
+        origin="loop/writeback.py :: emit",
+        src=("loop/writeback.py", r"^def emit\(", 34),
     ),
     dict(
         key="sched", col="inbox", row=1, icon="clock", status="gap",
@@ -649,11 +649,11 @@ NODES: list[dict] = [
     ),
     dict(
         key="generalise", col="access", row=2, icon="flask-conical", status="gap",
-        title="GAP · generalisation is unproven",
-        blurb="One pass, one item, one document type. Never run unattended, on a queue, or on a second item.",
-        role="GAP: n=1. The idempotency key means that item can never run again, so a second data point requires a NEW document — and nothing has fed one in. Everything the loop claims about admin triage rests on a single converged pass.",
-        origin="data/loop-runs.json (1 record) + the vault's 2026-07-30 open-risk list",
-        src=("loop/run.py", r"    if any\(r\.get\(", 6),
+        title="GAP · generalisation is still thin",
+        blurb="The queue and the write-back now exist. The evidence base is still one document type.",
+        role="GAP, narrowed 2026-08-11: the key now only counts CONVERGED passes, so a document the loop FAILED on can be retried — before, a cap-exhausted pass was written before the failure exit and then blocked its own retry forever. consume_item() moves each processed file to .done/, so a backlog drains instead of re-picking item one every tick. What is still unproven is breadth: the corpus is a cloud VAT invoice plus a synthetic utility bill written to exercise the gates, not a spread of real admin.",
+        origin="data/loop-runs.json + loop/run.py :: the converged-only idempotency check",
+        src=("loop/run.py", r"^    runs_path = out_dir", 14),
     ),
     dict(
         key="rubric", col="access", row=3, icon="eye-off", status="gap",

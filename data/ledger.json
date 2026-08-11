@@ -1,9 +1,34 @@
 {
-  "generatedAt": 1785433529000,
-  "builtAt": 1785934813996,
+  "generatedAt": 1786454587000,
+  "builtAt": 1786454971066,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "2a7ecfc6d39e7a7702f983caac76d7853478f781",
+      "t": 1786454587000,
+      "msg": "fix(loop): make redaction fail-closed, and stop the deny-list leaking"
+    },
+    {
+      "sha": "d2d76dfc151e62382e700325a9ea93e2a5f9da26",
+      "t": 1786187607000,
+      "msg": "fix(docs): retract two claims that did not survive adversarial review"
+    },
+    {
+      "sha": "40ca3442bc246c3063c5b4bfc1385169566300d2",
+      "t": 1786187221000,
+      "msg": "docs(claude): warn that CLAUDE.md is itself a drift-gate source"
+    },
+    {
+      "sha": "8728f9b86db98b495e655c23f81d607bb439acee",
+      "t": 1786187167000,
+      "msg": "docs(claude): tell the next session what changed"
+    },
+    {
+      "sha": "bf3fcf6c0944fe082065676e8a9c13b40f1b218e",
+      "t": 1785934921000,
+      "msg": "fix(war,home): a deadline that can be past, and something to do next"
+    },
     {
       "sha": "c14a756bd1ccca0c204091dda6cca2f45be915f2",
       "t": 1785433529000,
