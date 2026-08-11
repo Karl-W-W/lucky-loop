@@ -102,7 +102,8 @@ export default function Dashboard({ anchor }: { anchor: number }) {
                 Data built {fmtDayTime(builtAt)} UTC · deploys from Vercel · commits from a
                 committed snapshot of {fmtDay(ledgerAsOf())}{" "}
                 <span className="text-[var(--war-warning)]">
-                  — this build could not read git history, so the ledger below is that old
+                  — this build&rsquo;s checkout could not supply the full history, so the ledger
+                  below is that old
                 </span>{" "}
                 · last commit {fmtAgo(lastCommit, anchor)}
               </>

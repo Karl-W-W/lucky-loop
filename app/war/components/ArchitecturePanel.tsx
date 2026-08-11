@@ -209,10 +209,11 @@ export default function ArchitecturePanel() {
             <Badge tone="design">Design — target shape</Badge>
           </div>
           <p className="text-[11px] leading-snug text-[var(--war-ink-2)]">
-            The intended shape of the loop. As of 2026-07-30 one pass of this shape has actually
-            run — the record is on /loop. It stays labelled DESIGN because the steady state it
-            describes has not: passes are still started by hand, one item at a time, and the
-            artifact is carried to the repo by a human. One manual pass is not the system.
+            The intended shape of the loop. Passes of this shape have run — the records are on
+            /loop, and since 2026-08-11 a timer starts them and each one writes its own events
+            back to the operator&rsquo;s vault. It stays labelled DESIGN because one hop is still
+            missing: the artifact is carried from the machine that runs the loop into this
+            repository by a human with rsync. That is where &ldquo;unattended&rdquo; stops.
           </p>
         </figcaption>
 

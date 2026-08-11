@@ -67,9 +67,19 @@ export function fmtFeedTime(t: number, anchor: number): string {
  * meaningfully ahead says so rather than pretending to be a past event. */
 export function fmtAgo(t: number, anchor: number): string {
   const min = Math.round((anchor - t) / 60000);
-  if (min <= 0) return min < -1 ? `in ${fmtSpan(-min)}` : "just now";
+  /* `anchor` is currentAnchor(): Date.now() FLOORED to a 5-minute grid, so it
+   * sits up to 5 minutes behind real time. A deploy that just happened is
+   * therefore routinely "ahead" of it — and the first version of this fix
+   * rendered that as "in 3m", which was live on prod within minutes of
+   * shipping. Removing one clamp and adding a differently-wrong branch is not
+   * a fix. Anything inside the grid interval reads "just now"; only a genuine
+   * future timestamp, beyond what the anchor can explain, says so. */
+  if (min <= 0) return -min <= GRID_MIN + 1 ? "just now" : `in ${fmtSpan(-min)}`;
   return `${fmtSpan(min)} ago`;
 }
+
+/** Minutes in currentAnchor()'s grid step. Keep in sync with STEP_MS in data.ts. */
+const GRID_MIN = 5;
 
 function fmtSpan(min: number): string {
   if (min < 60) return `${min}m`;

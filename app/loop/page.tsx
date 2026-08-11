@@ -195,10 +195,12 @@ export default function LoopPage() {
         <section className="war-card flex flex-col gap-2 p-4" aria-label="What this page is">
           <h2 className="text-sm font-semibold">What you are looking at</h2>
           <p className="text-xs leading-relaxed text-[var(--war-ink-2)]">
-            Documents enter the loop from a gitignored inbox on disk — real bills from Karl&rsquo;s
-            own admin pile, plus a fabricated one used to exercise the redaction gates. They never
-            reach this repository. The loop runs on private hardware against a local model, so no
-            document content leaves the machine and no API credential exists anywhere in the loop.
+            Documents enter the loop from a gitignored inbox on disk — some real, from
+            Karl&rsquo;s own admin pile; some fabricated, to exercise the redaction gates. The
+            artifacts below do not record which is which, so do not read a pass as evidence about
+            real mail unless it says so. They never reach this repository. The loop runs on
+            private hardware against a local model, so no document content leaves the machine and
+            no API credential exists anywhere in the loop.
           </p>
           <p className="text-xs leading-relaxed text-[var(--war-ink-2)]">
             Everything above is what survived redaction: typed categories, coarse amount bands, and
