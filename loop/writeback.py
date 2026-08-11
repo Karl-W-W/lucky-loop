@@ -172,9 +172,23 @@ def emit(record: dict[str, Any], brain: Path | None = None, push: bool = True) -
         if has_origin == 0:
             code, out = _run(["git", "pull", "--rebase", "--quiet", "origin", "master"], brain)
             if code != 0:
+                # UNWIND THE REBASE. This is the failure this loop is most likely
+                # to actually hit: log.md is append-only, so when the Mac and the
+                # DGX both append, rebasing one onto the other CONFLICTS on the
+                # last line every time.
+                #
+                # Returning here without aborting would leave ~/brain sitting in
+                # .git/rebase-merge — which breaks the NEXT run's pull, and every
+                # `git` command the human runs in their own vault, until someone
+                # notices and unwinds it by hand. An unattended writer that can
+                # wedge the repo it writes to is worse than one that never runs.
+                _run(["git", "rebase", "--abort"], brain)
+                still, state = _run(["git", "rev-parse", "--verify", "REBASE_HEAD"], brain)
+                stuck = " AND THE REBASE DID NOT UNWIND — run `git -C %s rebase --abort`" % brain
                 return [
-                    f"vault: pre-write pull failed (rc={code}) {out[:200]} — "
-                    "wrote NOTHING rather than append to an unreconciled history"
+                    f"vault: pre-write pull failed (rc={code}) {out[:200]} — wrote NOTHING "
+                    f"rather than append to an unreconciled history"
+                    + (stuck if still == 0 else "; rebase unwound, vault left as it was")
                 ]
         else:
             print("vault: no origin remote — writing locally only, nothing to pull or push")

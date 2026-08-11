@@ -59,11 +59,23 @@ redacted by two gates (a PII-pattern gate and a provenance gate that deny-lists
 every capitalised token in the source), then committed by a human. `loop/inbox/`
 is gitignored and must never be committed — it holds real mail and bills.
 
-**Known gap, do not paper over it:** the loop has run exactly ONCE (2026-07-30,
-attended, one document). No cron, no queue, no second item, and it has never
-emitted a `source=loop` event to `~/brain` despite the architecture pin saying
-each pass should. Copy on the site must not imply repetition or autonomy that
-this does not support.
+**Closed 2026-08-11** (this replaces the "run exactly once, never unattended,
+never wrote back" gap): a `systemd --user` timer on the DGX
+(`deploy/lucky-loop.*`, `Linger=yes`) fired `lucky-loop.service` at 15:40:01
+CEST with nobody watching, processed a second document, and `loop/writeback.py`
+emitted the first `source=loop` decision+outcome events the vault has ever held
+(`loop:28af40a361779323`) and pushed them itself. `pick_item`/`consume_item` are
+a real queue now — processed items move to `.done/`, so the loop advances
+instead of re-picking file one forever.
+
+**What is still thin, do not paper over it:** the corpus is TWO documents, and
+one of them is `loop/fixtures/synthetic-bill.txt`, written to exercise the
+gates. So generalisation across real document types remains unproven, and
+`llama3.2:3b` misclassified that fixture's fictional electricity supplier as
+`issuerKind: cloud-provider` — the pass converged only because
+`bill_has_amount` does not depend on `issuerKind`. Copy on the site must not
+imply breadth this does not support; `/` deliberately makes no claim about
+*what* the passes ran on, and `/loop` carries the composition.
 
 ## Style
 
@@ -76,24 +88,32 @@ the no-hover fallback.
 
 ## Build
 
-`npm prebuild` runs two things, in order:
+`npm prebuild` runs three things, in order:
 
 1. `scripts/gen-ledger.mjs` — regenerates `data/ledger.json` from `git log`.
    It refuses to write on a shallow checkout or when the commit count regresses.
-2. `python3 langflow/gen-flow.py --check` — the **anchor gate**. `langflow/`
-   holds an architecture canvas generated from this repo's own source, with each
-   node carrying a regex-anchored verbatim excerpt of the file it documents. If
-   a documented file or anchor disappears, `--check` exits non-zero.
+   **It loses on Vercel** (shallow checkout it cannot deepen without
+   credentials), so prod ships the committed commit list with a fresh
+   `builtAt`. That is fine and is now *disclosed*: `isLedgerFromGit()` reads the
+   `source` field the script always wrote and nothing ever read, and the /war
+   stamp says "commits from a committed snapshot of <date>" instead of
+   asserting "from git + Vercel" on data that did not come from git.
+2. `python3 loop/check_artifacts.py` — the **redaction gate at the commit
+   boundary**. `run.py` gates at run time on the DGX, but between the run and
+   the publish sit an rsync and a human commit, and nothing checked there.
+   Gate 1 is portable and always runs; gate 2 needs the source document and is
+   best-effort by construction. Run alone with `npm run check:redaction`.
+3. `python3 langflow/gen-flow.py --check-drift` — the **drift gate**. It
+   regenerates the canvas and compares it to the committed
+   `lucky-loop-architecture.json`, naming the drifted nodes.
 
-   **Know what it does NOT do** (adversarial review, 2026-08-08): it verifies
-   that 40 file+regex anchors still *resolve*. It does **not** compare the
-   generated canvas to the committed `lucky-loop-architecture.json`, so the
-   committed canvas can be stale while the gate exits 0. Treat a green gate as
-   "the anchors still exist", never as "the canvas is current" — regenerate and
-   diff if you need the stronger claim.
+   `--check` (still available as `npm run check:flow`) is the weaker **anchor**
+   gate: it proves 40 file+regex anchors resolve and says nothing about whether
+   the canvas is current. That distinction was not academic — the committed
+   canvas embedded `REPO_PUBLIC = false` for three days after the source read
+   `true`, with `--check` green throughout. `prebuild` now runs the strong one.
    **If a deploy ever fails here during an incident**, the escape hatch is to
-   drop the `&& python3 …` from `prebuild` and ship; then fix the anchor. Run it
-   alone with `npm run check:flow`.
+   drop the failing `&& python3 …` from `prebuild` and ship; then fix it.
 
 **Trap: this file is one of the gate's sources.** `gen-flow.py` anchors excerpts
 into `CLAUDE.md` itself (e.g. a `Links rail` regex at `gen-flow.py:640`), so
