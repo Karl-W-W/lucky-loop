@@ -23,16 +23,39 @@ from __future__ import annotations
 import re
 from typing import Any
 
-# Personal identifiers for this vault's owner. Extend rather than replace —
-# a name that is not listed here is not redacted by name, only by pattern.
-NAME_TOKENS = [
-    "karl",
-    "wuerfel",
-    "würfel",
-    "wilhelm",
-    "pool music",
-    "poolmusic",
+# Gate 1's by-name deny-list. A name not listed here is not redacted BY NAME,
+# only by pattern (and, in the artifact, by the source-token gate below).
+#
+# PUBLIC-REPO SPLIT (2026-08-11). The real tokens used to be checked in, which
+# made this list a self-declared inventory of exactly the PII it hides. `git
+# grep` proved this file was the SOLE public source of the owner's middle name
+# and the umlaut spelling of the surname. The real list now lives in
+# loop/name_tokens_local.py, which is gitignored.
+#
+# The default below is deliberately FICTIONAL. It exists so a fresh clone can
+# still run loop/test_redaction.py and prove the MECHANISM works, without the
+# repo disclosing whose name the mechanism protects.
+DEFAULT_NAME_TOKENS = [
+    "testperson",
+    "mustermann",
+    "example media",
+    "examplemedia",
 ]
+
+# FAIL-CLOSED, and this is the load-bearing part. When the local file is absent
+# the real names are NOT redacted by name — so silently falling back to the
+# fictional list would be fail-OPEN, the exact failure this module exists to
+# prevent. run.py reads LOCAL_TOKENS_LOADED and refuses to process anything but
+# an explicitly-synthetic item when it is False.
+try:  # pragma: no cover — presence is environment-dependent by design
+    from name_tokens_local import NAME_TOKENS as _LOCAL_NAME_TOKENS
+
+    LOCAL_TOKENS_LOADED = True
+except ImportError:
+    _LOCAL_NAME_TOKENS = []
+    LOCAL_TOKENS_LOADED = False
+
+NAME_TOKENS = [*DEFAULT_NAME_TOKENS, *_LOCAL_NAME_TOKENS]
 
 # Ordered: the most specific pattern must win, so EMAIL runs before DIGITS.
 PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
@@ -44,7 +67,8 @@ PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
     # Currency in either order: "EUR 1.234,56" and "1.234,56 EUR" / "€12.00".
     ("amount", re.compile(r"(?:EUR|USD|GBP|CHF|[€$£])\s?-?[\d][\d.,\s]*\d|\b-?\d[\d.,]*\s?(?:EUR|USD|GBP|CHF|[€$£])"), "[amount]"),
     # Invoice/account/customer identifiers: 6+ digit runs, and mixed-case
-    # reference codes like EUINDE25 559480.
+    # reference codes like NLSV2026 410772 (see fixtures/synthetic-bill.txt —
+    # illustrative comments use the SYNTHETIC reference, never a live one).
     ("ref", re.compile(r"\b[A-Z]{2,}[A-Z0-9]*\d{4,}\b"), "[ref]"),
     ("digits", re.compile(r"\b\d{6,}\b"), "[number]"),
     # Postal address lines: "80331 München", "12345 Berlin".
@@ -56,8 +80,11 @@ NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Fields whose values are machine-generated and provably not PII. Excluded from
-# verify_clean's digit-run check so a hex run id cannot trip its own alarm.
+# Fields whose SCALAR values are machine-generated and provably not PII, so a
+# hex run id or a duration cannot trip its own alarm.
+#
+# READ THE WALKER BEFORE ADDING TO THIS SET. A name here exempts that key's own
+# scalar value and nothing else — it can no longer skip a nested object or list.
 SAFE_KEYS = {
     "runId",
     "idempotencyKey",
@@ -66,6 +93,15 @@ SAFE_KEYS = {
     "graphVersion",
     "sha",
     "id",
+    # Structural magnitudes computed from the document, never lifted from it.
+    # Present so the numeric check added in 2026-08-11 cannot false-positive a
+    # long duration or a large character count into a permanent write refusal.
+    "chars",
+    "lines",
+    "durationMs",
+    "iterations",
+    "cap",
+    "t",
 }
 
 
@@ -91,25 +127,52 @@ def find_violations(text: str) -> list[str]:
     return hits
 
 
-def verify_clean(obj: Any, path: str = "$") -> list[str]:
-    """Walk a finished artifact; return a list of `path: kind` violations.
+def _walk(obj: Any, path: str, check) -> list[str]:
+    """Shared traversal for both gates. `check(text, path) -> list[str]`.
 
-    This is the mechanical pre-commit check. The runner refuses to write any
-    artifact for which this returns a non-empty list.
+    Three holes were closed here on 2026-08-11 after an adversarial pass proved
+    each one live by execution. Both gates share this walker so a fix can never
+    again land in one and miss the other.
+
+      1. SAFE_KEYS used to `continue` BEFORE recursing, so a safe key skipped
+         its ENTIRE SUBTREE. Proven: verify_clean({'id': {'deep': {'x': <full
+         leak>}}}) returned []. A safe name now exempts its own scalar only.
+      2. Only `str` was inspected, so any value stored as a JSON NUMBER was
+         completely ungated. Proven: {'account': 572113790075} -> [] while the
+         same digits as a string -> ['digits'].
+      3. Dict KEYS were never inspected, only values. Proven: a leak used as a
+         key name passed both gates untouched.
     """
     findings: list[str] = []
     if isinstance(obj, dict):
         for key, value in obj.items():
-            if key in SAFE_KEYS:
-                continue
-            findings.extend(verify_clean(value, f"{path}.{key}"))
+            # Hole 3: the key is content too.
+            findings.extend(check(str(key), f"{path}.<key {key!r}>"))
+            # Hole 1: containers are ALWAYS traversed, whatever the key is
+            # called. SAFE_KEYS may only exempt a leaf.
+            if isinstance(value, (dict, list)):
+                findings.extend(_walk(value, f"{path}.{key}", check))
+            elif key not in SAFE_KEYS:
+                findings.extend(_walk(value, f"{path}.{key}", check))
     elif isinstance(obj, list):
         for i, value in enumerate(obj):
-            findings.extend(verify_clean(value, f"{path}[{i}]"))
+            findings.extend(_walk(value, f"{path}[{i}]", check))
     elif isinstance(obj, str):
-        for kind in find_violations(obj):
-            findings.append(f"{path}: {kind}")
+        findings.extend(check(obj, path))
+    elif isinstance(obj, (int, float)) and not isinstance(obj, bool):
+        # Hole 2. bool is an int subclass in Python, hence the explicit guard.
+        findings.extend(check(str(obj), path))
     return findings
+
+
+def verify_clean(obj: Any, path: str = "$") -> list[str]:
+    """Walk a finished artifact; return a list of `path: kind` violations.
+
+    This is the mechanical pre-write check. The runner refuses to write any
+    artifact for which this returns a non-empty list, and loop/check_artifacts.py
+    re-runs it at the COMMIT boundary, where git actually happens.
+    """
+    return _walk(obj, path, lambda text, at: [f"{at}: {kind}" for kind in find_violations(text)])
 
 
 def source_tokens(raw: str, allowed: set[str]) -> set[str]:
@@ -133,21 +196,21 @@ def verify_no_source_tokens(obj: Any, forbidden: set[str], path: str = "$") -> l
 
     This is what stops the ISSUER's name — the sender — from being published,
     which `redact()` alone cannot do without an exhaustive vendor list.
+
+    NOTE ITS DEPENDENCY: `forbidden` is built from the raw source document, and
+    loop/inbox/ is gitignored. On any machine without the item this gate
+    degrades to an empty deny-list and becomes a silent no-op. That is why it
+    is the RUN-time gate and verify_clean is the one re-run at commit time.
     """
-    findings: list[str] = []
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            if key in SAFE_KEYS:
-                continue
-            findings.extend(verify_no_source_tokens(value, forbidden, f"{path}.{key}"))
-    elif isinstance(obj, list):
-        for i, value in enumerate(obj):
-            findings.extend(verify_no_source_tokens(value, forbidden, f"{path}[{i}]"))
-    elif isinstance(obj, str):
-        for word in re.findall(r"[A-Za-z][A-Za-z0-9&.\-]*", obj):
-            if word.lower().strip(".") in forbidden:
-                findings.append(f"{path}: source token {word!r}")
-    return findings
+
+    def check(text: str, at: str) -> list[str]:
+        return [
+            f"{at}: source token {word!r}"
+            for word in re.findall(r"[A-Za-z][A-Za-z0-9&.\-]*", text)
+            if word.lower().strip(".") in forbidden
+        ]
+
+    return _walk(obj, path, check)
 
 
 def bucket_amount(text: str) -> str:

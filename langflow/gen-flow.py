@@ -799,14 +799,79 @@ def build_flow() -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true", help="verify excerpts resolve; write nothing")
+    parser.add_argument(
+        "--check-drift",
+        action="store_true",
+        help="ALSO verify the committed canvas matches what this script would generate",
+    )
     args = parser.parse_args()
 
     flow = build_flow()
 
+    # --check-drift is the gate --check was mistaken for. --check proves 40
+    # file+regex ANCHORS still resolve; it never compares the result to the
+    # committed canvas, so the canvas can be arbitrarily stale while it exits 0.
+    # That was not hypothetical: on 2026-08-11 the committed canvas embedded
+    # `export const REPO_PUBLIC = false;` while app/war/data.ts had read `true`
+    # since 2026-08-05, and --check was green the whole time.
+    if args.check_drift:
+        rendered = json.dumps(flow, indent=2, ensure_ascii=False) + "\n"
+        if not OUT.exists():
+            print(f"gen-flow: DRIFT — {OUT.relative_to(REPO)} does not exist", file=sys.stderr)
+            return 1
+        committed = OUT.read_text(encoding="utf-8")
+        if committed == rendered:
+            print(f"gen-flow: no drift — committed canvas matches {len(flow['data']['nodes'])} generated nodes.")
+            return 0
+        # Report WHICH NODES drifted, not a raw text diff. Every node embeds a
+        # whole source excerpt on ONE json line, so a unified diff prints
+        # thousands of unreadable columns and names nothing you can act on.
+        def by_id(payload: dict) -> dict:
+            return {n.get("id", f"?{i}"): n for i, n in enumerate(payload["data"]["nodes"])}
+
+        try:
+            old_nodes = by_id(json.loads(committed))
+        except (json.JSONDecodeError, KeyError, TypeError):
+            print("gen-flow: DRIFT — committed canvas is unparseable or has no nodes", file=sys.stderr)
+            return 1
+        new_nodes = by_id(flow)
+
+        added = sorted(set(new_nodes) - set(old_nodes))
+        removed = sorted(set(old_nodes) - set(new_nodes))
+        changed = sorted(
+            nid for nid in set(old_nodes) & set(new_nodes)
+            if json.dumps(old_nodes[nid], sort_keys=True) != json.dumps(new_nodes[nid], sort_keys=True)
+        )
+
+        def label(nid: str, pool: dict) -> str:
+            node = pool.get(nid, {})
+            disp = (node.get("data", {}).get("node", {}) or {}).get("display_name")
+            return f"{nid}  ({disp})" if disp else nid
+
+        print(
+            "gen-flow: DRIFT — the committed canvas is NOT what this repo generates.\n"
+            "  Regenerate and commit:  python3 langflow/gen-flow.py",
+            file=sys.stderr,
+        )
+        for title, ids, pool in (
+            ("changed", changed, new_nodes),
+            ("added", added, new_nodes),
+            ("removed", removed, old_nodes),
+        ):
+            for nid in ids:
+                print(f"  {title:8} {label(nid, pool)}", file=sys.stderr)
+        if not (changed or added or removed):
+            # Node sets match, so the difference is in the envelope (name,
+            # description, viewport, edges). Say so rather than printing nothing.
+            print("  envelope-only drift (edges/metadata/viewport, no node changed)", file=sys.stderr)
+        return 1
+
     if args.check:
         print(
             f"gen-flow: OK — {len(flow['data']['nodes'])} nodes, "
-            f"{len(flow['data']['edges'])} edges, every excerpt resolved."
+            f"{len(flow['data']['edges'])} edges, every excerpt resolved. "
+            f"(ANCHORS only — this does NOT prove the committed canvas is current; "
+            f"use --check-drift for that.)"
         )
         return 0
 

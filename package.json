@@ -7,8 +7,11 @@
   },
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/gen-ledger.mjs && python3 langflow/gen-flow.py --check",
+    "prebuild": "node scripts/gen-ledger.mjs && python3 loop/check_artifacts.py && python3 langflow/gen-flow.py --check",
     "check:flow": "python3 langflow/gen-flow.py --check",
+    "check:drift": "python3 langflow/gen-flow.py --check-drift",
+    "check:redaction": "python3 loop/check_artifacts.py",
+    "test:redaction": "python3 loop/test_redaction.py",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

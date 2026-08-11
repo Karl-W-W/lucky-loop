@@ -49,5 +49,13 @@ next-env.d.ts
 # See loop/README.md and the SANITIZE rule in the launch mission.
 /loop/inbox/
 /loop/.runs/
+
+# Gate 1's real by-name deny-list. This file names a specific human, so on a
+# PUBLIC repo the deny-list is an inventory of exactly the PII it hides — the
+# list itself was the sole public source of the owner's middle name. The
+# in-repo default in loop/redact.py is fictional; the real tokens live here and
+# never reach git. Absence is FAIL-CLOSED: run.py refuses any non-synthetic
+# item when this file is missing.
+/loop/name_tokens_local.py
 __pycache__/
 *.pyc

@@ -28,7 +28,22 @@ import urllib.error
 import urllib.request
 from typing import Any, TypedDict
 
-from langgraph.graph import END, START, StateGraph
+# LangGraph is required to RUN the loop, which happens on the DGX. It is not
+# required to READ this module's vocabulary — and the redaction tooling
+# (test_redaction.py, check_artifacts.py) needs exactly that, on the machine
+# where git runs, which has no langgraph installed. Importing it eagerly made
+# the commit-boundary gate unrunnable on the only host that can block a commit.
+#
+# END and START are plain sentinel strings in LangGraph; the fallbacks are their
+# real values, so route_after_adapt keeps working for anyone reading the graph.
+# build() is the only thing that genuinely needs the package, and it says so.
+try:
+    from langgraph.graph import END, START, StateGraph
+
+    LANGGRAPH_AVAILABLE = True
+except ImportError:  # pragma: no cover — exercised on the git host, not the runner
+    END, START, StateGraph = "__end__", "__start__", None
+    LANGGRAPH_AVAILABLE = False
 
 from redact import bucket_amount, redact
 
@@ -62,9 +77,33 @@ GENERIC_WORDS = {
 }
 
 
+# The artifact's own SCHEMA KEY NAMES, lowercased. These are code-authored
+# constants, never document content — but the source-token gate lowercases every
+# capitalised word in the item and forbids it anywhere in the artifact. So a bill
+# that merely capitalises "Detail" or "Note" or "Summary" poisons the deny-list
+# against the artifact's own structure and refuses the write, permanently, for
+# that document.
+#
+# Found 2026-08-11 by the redaction suite itself: the real AWS item capitalises
+# "Detail", which flagged `$.runs[0].nodes[3].output.<key 'detail'>`. That is a
+# false positive with the blast radius of a permanent outage — the loop would
+# have refused that class of document forever with a message implying a leak.
+ARTIFACT_KEYS = {
+    "runid", "idempotencykey", "startedat", "finishedat", "durationms", "model",
+    "graphversion", "terminationreason", "iterations", "item", "source", "chars",
+    "lines", "language", "issuerkind", "doctype", "amountbucket", "hasduedate",
+    "nodes", "node", "output", "perception", "decision", "action", "evaluation",
+    "adaptation", "category", "urgency", "assertion", "rationale", "disposition",
+    "destination", "humansummary", "passed", "detail", "note", "cap", "trace",
+    "generatedat", "runs", "vault", "decisionid", "id", "hint", "edges", "from",
+    "to", "conditional", "framework", "derivedfrom", "terminationreasons",
+    "assertions", "summary", "key", "value",
+}
+
+
 def vocabulary() -> set[str]:
     """This loop's own words — the allow-list for the source-token gate."""
-    words = set(GENERIC_WORDS)
+    words = set(GENERIC_WORDS) | set(ARTIFACT_KEYS)
     for enum in (
         CATEGORIES, URGENCIES, DISPOSITIONS, ISSUER_KINDS, DOC_TYPES, DESTINATIONS,
         list(ASSERTIONS), ["converged", "max_iterations", "error", "langgraph"],
@@ -338,6 +377,11 @@ NODE_HINTS = {
 
 
 def build() -> Any:
+    if StateGraph is None:
+        raise RuntimeError(
+            "langgraph is not installed — this host can read the graph's vocabulary "
+            "but cannot compile or run it. Run the loop on the DGX (~/ll-loop)."
+        )
     graph = StateGraph(LoopState)
     graph.add_node("perceive", perceive)
     graph.add_node("decide", decide)

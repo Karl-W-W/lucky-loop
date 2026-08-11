@@ -1,0 +1,67 @@
+Invoice
+
+This document is SYNTHETIC. Every name, number, address and amount in it is
+invented for testing loop/redact.py and for exercising the loop end to end
+without putting a real bill through a pipeline that commits to a public repo.
+It is safe to commit. Do not replace it with a real document.
+
+Nordlicht Stromversorgung AG
+Hafenweg 14
+24103 Kiel
+Deutschland
+
+USt-ID: DE999999999
+
+Billed to:
+
+Erika Mustermann
+Beispielstrasse 88
+10115 Berlin
+Deutschland
+
+Account: 8800432190
+Invoice: NLSV2026-410772
+Statement date: 2026-08-01
+Service period: 2026-07-01 to 2026-07-31
+Payment due: 2026-08-29
+
+Questions about this invoice: billing@nordlicht-invalid.example
+
+
+Charges for the period
+----------------------------------------------------------------------
+
+  Basic monthly service                                   EUR   12,90
+  Consumption, 318 kWh at 0,3140 EUR                      EUR   99,85
+  Meter service, monthly                                  EUR    3,20
+
+  Net total                                               EUR  115,95
+  VAT 19 %                                                EUR   22,03
+
+  Total due                                               EUR  137,98
+
+----------------------------------------------------------------------
+
+
+Payment
+
+  Total due:      EUR 137,98
+  Payment due:    2026-08-29
+  Reference:      NLSV2026-410772
+
+  Bank transfer to:
+  IBAN  DE02120300000000202051
+  BIC   BYLADEM1001
+
+  A direct debit is not on file for this account. Please settle the balance
+  by the payment due date shown above. Amounts still outstanding after that
+  date may be subject to the statutory late charge.
+
+
+Notes
+
+  This statement covers the service period shown. Consumption is read
+  monthly. A copy of the terms is available on request.
+
+  Nordlicht Stromversorgung AG, Hafenweg 14, 24103 Kiel
+  Registered: Amtsgericht Kiel HRB 100442
