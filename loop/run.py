@@ -4,9 +4,16 @@ Contract (from the launch mission's HARVEST list):
 
   exit 0  terminationReason == "converged" — and nothing else earns a zero.
   exit 2  idempotent success: this exact item+graph+model already has a
-          recorded pass. No second record is written.
-  exit 3  hard fail: an error, a redaction violation, or cap exhaustion.
-          Cap exhaustion is NOT success.
+          recorded pass. No second record is written; the item is consumed so
+          the queue still advances.
+  exit 3  hard fail: an error, a redaction violation, a refused write-back, or
+          cap exhaustion. Cap exhaustion is NOT success.
+  exit 4  nothing to do: the inbox is empty or absent. Added when the loop
+          became SCHEDULED — an empty queue is the normal resting state of a
+          timer that fires every 10 minutes, not a fault. Reporting it as
+          exit 3 would have painted the unit failed for most of every day and
+          taught the operator to ignore a red light. The systemd unit lists
+          0, 2 and 4 as SuccessExitStatus.
 
 Evidence of a run is the committed artifact and the vault event, never this
 process's stdout or exit code. The exit code is for the shell; the artifact is
@@ -22,6 +29,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -43,6 +51,7 @@ from writeback import emit as emit_vault_events  # noqa: E402
 EXIT_OK = 0
 EXIT_ALREADY_RAN = 2
 EXIT_FAIL = 3
+EXIT_EMPTY = 4
 
 
 def now_iso() -> str:
@@ -74,7 +83,7 @@ def pick_item(inbox: Path) -> Path | None:
     file being re-picked forever. The remaining count is reported, never hidden.
 
     Both empty cases used to `raise SystemExit(<str>)`, which exits 1 — outside
-    this file's own documented {0, 2, 3} contract, so any wrapper branching on
+    this file's own documented {0, 2, 3, 4} contract, so any wrapper branching on
     the contract misread it as an unknown failure.
     """
     if not inbox.exists():
@@ -137,7 +146,7 @@ def main() -> int:
 
     item = pick_item(Path(args.inbox))
     if item is None:
-        return EXIT_FAIL
+        return EXIT_EMPTY
     raw = item.read_text(encoding="utf-8", errors="replace")
 
     # FAIL-CLOSED on the name deny-list. Without loop/name_tokens_local.py,
@@ -170,7 +179,14 @@ def main() -> int:
         r.get("idempotencyKey") == key and r.get("terminationReason") == "converged"
         for r in runs["runs"]
     ):
-        print(f"idempotent: a converged pass for key {key} is already recorded; no second record written")
+        # Consume it anyway. This item IS done — its pass is on record — so
+        # leaving it in the queue wedges an unattended loop permanently: every
+        # tick re-picks the same finished document, exits 2, and never reaches
+        # the item behind it. Advancing here is what makes "already ran" a
+        # queue state rather than a dead end.
+        consume_item(item, "done")
+        print(f"idempotent: a converged pass for key {key} is already recorded; "
+              f"no second record written, {item.name} moved to .done/")
         return EXIT_ALREADY_RAN
 
     # Written only now. A no-op re-run used to rewrite this file with a fresh
@@ -206,6 +222,12 @@ def main() -> int:
         "graphVersion": GRAPH_VERSION,
         "terminationReason": reason,
         "iterations": final.get("iterations", 0),
+        # How this pass was triggered, read from the environment rather than
+        # asserted. systemd sets INVOCATION_ID for every unit it starts, so a
+        # timer-fired run is distinguishable from a human at a terminal — and
+        # /loop can state which it was instead of hardcoding a claim that goes
+        # stale the moment the other kind happens.
+        "trigger": "schedule" if os.environ.get("INVOCATION_ID") else "manual",
         "item": {
             "source": "loop/inbox (gitignored)",
             "chars": final["perception"]["chars"],

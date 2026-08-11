@@ -41,6 +41,12 @@ export default function LoopPage() {
   const def = getLoopDef();
   const runs = getRuns();
   const latest = getLatestRun();
+  /* DERIVED, not asserted. The homepage's "one pass recorded" was a string
+   * literal in three places — it would have kept saying "one" after the second
+   * pass, and kept claiming a pass after an emptied runs[]. A claim about the
+   * data belongs to the data. `trigger` is absent on pre-2026-08-11 runs, so
+   * this reads as false until a genuinely scheduled pass exists. */
+  const scheduled = runs.some((r) => r.trigger === "schedule");
   const nodes = orderedNodes();
   const feedback = feedbackEdges();
 
@@ -184,10 +190,10 @@ export default function LoopPage() {
         <section className="war-card flex flex-col gap-2 p-4" aria-label="What this page is">
           <h2 className="text-sm font-semibold">What you are looking at</h2>
           <p className="text-xs leading-relaxed text-[var(--war-ink-2)]">
-            One real document — a bill from Karl&rsquo;s own admin pile — entered the loop from a
-            gitignored inbox on disk. It never reaches this repository. The loop ran on private
-            hardware against a local model, so no document content left the machine and no API
-            credential exists anywhere in the loop.
+            Documents enter the loop from a gitignored inbox on disk — real bills from Karl&rsquo;s
+            own admin pile, plus a fabricated one used to exercise the redaction gates. They never
+            reach this repository. The loop runs on private hardware against a local model, so no
+            document content leaves the machine and no API credential exists anywhere in the loop.
           </p>
           <p className="text-xs leading-relaxed text-[var(--war-ink-2)]">
             Everything above is what survived redaction: typed categories, coarse amount bands, and
@@ -197,9 +203,20 @@ export default function LoopPage() {
             That is why you see &ldquo;cloud-provider&rdquo; and a band rather than a company and a
             number.
           </p>
+          {/* This page renders getLatestRun() and nothing else, so without a
+            * date and a trigger it presents a 9-day-old attended run as the
+            * current state of a live system. Both facts below are static —
+            * derived from the artifact, never from a clock — so neither can
+            * freeze the way the countdown did. */}
           <p className="text-xs leading-relaxed text-[var(--war-ink-3)]">
-            {runs.length} pass{runs.length === 1 ? "" : "es"} recorded · definition generated{" "}
+            {runs.length} pass{runs.length === 1 ? "" : "es"} recorded · latest{" "}
+            {fmtUtc(latest?.startedAt ?? def.generatedAt)} · definition generated{" "}
             {fmtUtc(def.generatedAt)}
+          </p>
+          <p className="text-xs leading-relaxed text-[var(--war-ink-3)]">
+            {scheduled
+              ? "Passes are triggered by a timer on the machine that runs the loop, not by hand. Each pass writes a decision and an outcome event back to the operator's own vault."
+              : "Every pass so far was started by hand. There is no schedule yet and the loop does not run on its own."}
           </p>
         </section>
       </div>

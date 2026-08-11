@@ -34,6 +34,13 @@ export type LoopRun = {
   graphVersion: string;
   terminationReason: string;
   iterations: number;
+  /** "schedule" when systemd fired it, "manual" when a human did. Absent on
+   *  every run written before 2026-08-11, which is why readers must treat
+   *  undefined as "unknown", never as "manual". */
+  trigger?: "schedule" | "manual";
+  /** Links the pass to the decision+outcome events it wrote to the vault.
+   *  Absent on runs written before the write-back existed. */
+  vault?: { decisionId: string; source: string };
   item: NodeOutput;
   nodes: NodeStep[];
 };

@@ -8,8 +8,10 @@ import {
   getLinks,
   getObjectives,
   getProductionDeploys,
+  isLedgerFromGit,
   isLedgerTruncated,
   lastCommitAt,
+  ledgerAsOf,
   mmdd,
   objectiveProgress,
 } from "./data";
@@ -82,10 +84,29 @@ export default function Dashboard({ anchor }: { anchor: number }) {
           </div>
         </header>
 
+        {/* The provenance half of this stamp used to be the string "from git +
+          * Vercel", rendered unconditionally — including on builds where the
+          * commit list did NOT come from git. It now reports what actually
+          * happened, because a stale ledger is fine and an undisclosed one is
+          * not. Same shape as dueState(): a state the page can render, rather
+          * than a claim it carries forward. */}
         <div className="flex justify-end">
           <span className="text-xs text-[var(--war-ink-3)]">
-            Data built {fmtDayTime(builtAt)} UTC from git + Vercel · last commit{" "}
-            {fmtAgo(lastCommit, anchor)}
+            {isLedgerFromGit() ? (
+              <>
+                Data built {fmtDayTime(builtAt)} UTC from git + Vercel · last commit{" "}
+                {fmtAgo(lastCommit, anchor)}
+              </>
+            ) : (
+              <>
+                Data built {fmtDayTime(builtAt)} UTC · deploys from Vercel · commits from a
+                committed snapshot of {fmtDay(ledgerAsOf())}{" "}
+                <span className="text-[var(--war-warning)]">
+                  — this build could not read git history, so the ledger below is that old
+                </span>{" "}
+                · last commit {fmtAgo(lastCommit, anchor)}
+              </>
+            )}
           </span>
         </div>
 

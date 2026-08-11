@@ -3,10 +3,24 @@ import Link from "next/link";
 import LoopMark from "./components/site/LoopMark";
 import LoopRail from "./components/site/LoopRail";
 import { REPO_PUBLIC } from "./war/data";
+import { getRuns } from "./loop/data";
 
 // /loop shipped 2026-07-31: the loop ran end-to-end on a real triage item and
 // /loop renders that pass from the artifacts the run itself wrote.
-const LOOP_LIVE = true;
+//
+// DERIVED, not hardcoded. This was `const LOOP_LIVE = true` — a boolean
+// asserting the existence of data it never looked at, so an emptied
+// loop-runs.json would still have linked /loop and described it as "pass by
+// pass" while /loop rendered its own empty state.
+const runs = getRuns();
+const LOOP_LIVE = runs.length > 0;
+const scheduled = runs.some((r) => r.trigger === "schedule");
+
+// Every "one pass recorded" on this page used to be a string literal, in
+// three places. They would have kept saying "one" after the second pass —
+// the exact shape of the countdown bug: a derived display with no state for
+// what happens next.
+const passCount = runs.length === 1 ? "one pass" : `${runs.length} passes`;
 
 export const metadata: Metadata = {
   title: "Lucky Loop — an agent harness for the admin you'd rather not do",
@@ -35,8 +49,8 @@ export default function Home() {
           </p>
           <p className="ll-sub">
             The War Room, the dashboard we run the company on, is public and
-            live. The loop has made its first pass on a real item — you can read
-            exactly what it did.
+            live. The loop has made {runs.length === 1 ? "its first pass" : `${runs.length} passes`} on real
+            items — you can read exactly what it did.
           </p>
           <p className="ll-thesis">Luck as an engineered outcome.</p>
         </section>
@@ -46,7 +60,7 @@ export default function Home() {
             <h2 id="ll-loop" className="ll-h2">
               The loop
             </h2>
-            <p className="ll-note">Five nodes · one pass recorded</p>
+            <p className="ll-note">Five nodes · {passCount} recorded</p>
           </div>
           <LoopRail />
         </section>
@@ -91,12 +105,14 @@ export default function Home() {
             <h2 id="ll-next" className="ll-h2">
               What happens next
             </h2>
-            <p className="ll-note">Early · one pass recorded</p>
+            <p className="ll-note">Early · {passCount} recorded</p>
           </div>
           <p className="ll-cta-note">
-            There is nothing to install yet. One real pass has run, the next
-            ones happen in public, and the build is open to read. If you want to
-            hear when the loop starts running unattended, put your name in.
+            There is nothing to install yet. {passCount === "one pass" ? "One real pass has" : `${runs.length} real passes have`} run, the next
+            ones happen in public, and the build is open to read.{" "}
+            {scheduled
+              ? "The loop now runs on a schedule and writes each pass back to its operator's vault. If you want to hear when it opens up, put your name in."
+              : "If you want to hear when the loop starts running unattended, put your name in."}
           </p>
           <div className="ll-cta-row">
             <a

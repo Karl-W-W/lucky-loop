@@ -1,0 +1,45 @@
+[Unit]
+# One unattended pass over the inbox queue.
+#
+# WHY systemd --user AND NOT cron, AND NOT THE MAC:
+#   * The Mac cannot host this. `pmset -g custom` shows sleep=1 on BOTH battery
+#     and AC, womp=0 on battery, and `pmset -g sched` is empty — a launchd job
+#     there fires when the lid opens, which is not unattended.
+#   * The DGX has Linger=yes, so user timers fire with nobody logged in, and it
+#     already runs four user timers reliably. Adding to that pattern beats
+#     adding a seventh crontab line with a hand-rolled environment.
+#
+# Install (from the repo root):
+#   rsync -az --exclude=inbox --exclude=__pycache__ loop/ dgx-remote:ll-loop/
+#   scp deploy/lucky-loop.* dgx-remote:.config/systemd/user/
+#   ssh dgx-remote 'systemctl --user daemon-reload && systemctl --user enable --now lucky-loop.timer'
+Description=Lucky Loop - one unattended pass over the inbox queue
+Documentation=https://github.com/Karl-W-W/lucky-loop
+After=network-online.target
+
+[Service]
+Type=oneshot
+
+# ~/ll-loop is FLAT (run.py at the top level), not the repo's loop/ layout, so
+# run.py's own defaults resolve to /home/cube/loop/inbox and /home/cube/data —
+# neither of which exists. Both paths must be passed explicitly and absolutely:
+# cron and systemd start in $HOME, not here, so a relative path silently
+# creates /home/cube/data and then dies on the missing inbox.
+WorkingDirectory=/home/cube/ll-loop
+Environment=BRAIN_REPO=/home/cube/brain
+ExecStart=/usr/bin/python3 /home/cube/ll-loop/run.py \
+  --inbox /home/cube/ll-loop/inbox \
+  --out /home/cube/ll-loop/out
+
+# 0 = converged · 2 = already recorded, queue still advanced · 4 = nothing to do.
+# An empty queue is this timer's normal resting state. Painting the unit failed
+# for most of every day is how an operator learns to ignore a red light.
+SuccessExitStatus=0 2 4
+
+# The graph caps itself at 3 iterations and one pass took 2.3s, so 15 minutes is
+# a hang guard, not a budget. Without it a wedged ollama call would hold the
+# unit active across the next timer fire.
+TimeoutStartSec=900
+
+StandardOutput=journal
+StandardError=journal

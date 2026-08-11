@@ -143,6 +143,29 @@ export function isLedgerTruncated(): boolean {
   return ledger.shallow === true;
 }
 
+/* TRUE when the ledger shipped in this build was actually derived from git.
+ *
+ * gen-ledger.mjs already wrote this field and NOTHING read it. That is how
+ * /war came to stamp "Data built Aug 8, 11:13 UTC from git + Vercel · last
+ * commit 8d ago" on a page that simultaneously showed today's commit deployed:
+ * the script writes `builtAt: Date.now()` unconditionally, but keeps the
+ * COMMITTED commit list whenever the derive loses (a shallow Vercel checkout it
+ * cannot deepen without credentials). The build stamp was always fresh and the
+ * data behind it could be arbitrarily old.
+ *
+ * `shallow` could not cover this: the refusal path leaves it at its `false`
+ * initialiser, so the one caveat the page could render is switched OFF exactly
+ * on the path that produces stale data. Truncation had a UI; staleness had
+ * none. This is that missing state. */
+export function isLedgerFromGit(): boolean {
+  return ledger.source !== "committed";
+}
+
+/** When the newest commit in this ledger landed — i.e. how current it is. */
+export function ledgerAsOf(): number {
+  return ledger.generatedAt;
+}
+
 /** Newest commit timestamp in the ledger — the anchor for commit windows. */
 export function lastCommitAt(): number {
   return getCommits().reduce((max, c) => (c.t > max ? c.t : max), 0);
@@ -251,7 +274,14 @@ export function mmdd(dateISO: string): string {
   return dateISO.slice(5).replace("-", "/");
 }
 
+/* Clamped to [0,1]. Unclamped, a KR at 1.5 beside one at 0.5 averaged to
+ * exactly 1.0, so dueState() returned "met" and the hero tile read SHIPPED
+ * while the panel underneath showed a key result at 50% — and the same raw
+ * value reached the meter as a 150% CSS width and aria-valuenow=150 against
+ * aria-valuemax=100. A number that can exceed its own maximum is not a
+ * progress value. */
 export function objectiveProgress(o: Objective): number {
   if (o.keyResults.length === 0) return 0;
-  return o.keyResults.reduce((s, kr) => s + kr.progress, 0) / o.keyResults.length;
+  const mean = o.keyResults.reduce((s, kr) => s + kr.progress, 0) / o.keyResults.length;
+  return Math.min(1, Math.max(0, mean));
 }

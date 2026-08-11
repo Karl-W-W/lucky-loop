@@ -1,6 +1,79 @@
 {
   "runs": [
     {
+      "runId": "20260811-28af40a3",
+      "idempotencyKey": "28af40a361779323",
+      "startedAt": "2026-08-11T13:40:01Z",
+      "finishedAt": "2026-08-11T13:40:05Z",
+      "durationMs": 4056,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1868,
+        "lines": 67,
+        "language": "en",
+        "issuerKind": "cloud-provider",
+        "docType": "invoice",
+        "amountBucket": "50-500",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1868,
+            "lines": 67,
+            "amountBucket": "50-500",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "cloud-provider",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "medium",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains invoice information"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "medium-urgency bill from a cloud-provider, amount in the 50-500 band; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='50-500'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:28af40a361779323",
+        "source": "loop"
+      }
+    },
+    {
       "runId": "20260730-59375083",
       "idempotencyKey": "59375083ba057692",
       "startedAt": "2026-07-30T17:06:20Z",
@@ -69,5 +142,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-07-30T17:06:22Z"
+  "generatedAt": "2026-08-11T13:40:05Z"
 }
