@@ -1,9 +1,14 @@
 {
-  "generatedAt": 1786456772000,
-  "builtAt": 1786456856853,
+  "generatedAt": 1786456874000,
+  "builtAt": 1786457268666,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "651bf9ab4447abf6b25d1fc06a729ea4a452b973",
+      "t": 1786456874000,
+      "msg": "fix(war,loop): four more the critic proved, two of them live on prod"
+    },
     {
       "sha": "f576c346b05556cb5b36f2fd9a1a7ef744e92bde",
       "t": 1786456772000,

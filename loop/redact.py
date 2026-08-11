@@ -159,11 +159,17 @@ def _walk(obj: Any, path: str, check) -> list[str]:
                 findings.extend(_walk(value, f"{path}.{key}", check))
             elif key not in SAFE_KEYS:
                 findings.extend(_walk(value, f"{path}.{key}", check))
-    elif isinstance(obj, list):
+    elif isinstance(obj, (list, tuple, set, frozenset)):
+        # tuple/set/frozenset were added 2026-08-11 after the adversarial pass
+        # showed the list-only branch let them through untouched. JSON cannot
+        # produce them, but this walker is also called on in-memory payloads
+        # (writeback.py re-gates its outbound argv dict), where they can occur.
         for i, value in enumerate(obj):
             findings.extend(_walk(value, f"{path}[{i}]", check))
     elif isinstance(obj, str):
         findings.extend(check(obj, path))
+    elif isinstance(obj, (bytes, bytearray)):
+        findings.extend(check(obj.decode("utf-8", errors="replace"), path))
     elif isinstance(obj, (int, float)) and not isinstance(obj, bool):
         # Hole 2. bool is an int subclass in Python, hence the explicit guard.
         findings.extend(check(str(obj), path))

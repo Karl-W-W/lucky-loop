@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Redaction gate at the COMMIT boundary — the real one.
+#
+# WHY THIS EXISTS SEPARATELY FROM prebuild:
+# loop/check_artifacts.py was described as a "commit-boundary gate". It is not.
+# It runs in `npm prebuild`, i.e. at BUILD time, and this project's builds are
+# GitHub-integration deploys — they run AFTER the push. On a PUBLIC repo the
+# push is the publication, so a gate that fires during the build is reviewing
+# bytes the world can already read. The adversarial pass on 2026-08-11 named
+# this precisely; the gate was real, its position was not.
+#
+# This hook is the position the name claimed. It refuses the COMMIT.
+#
+# Install (it is not automatic — .git/hooks is not versioned):
+#     git config core.hooksPath .githooks
+# Bypass, deliberately and visibly, when you know why:
+#     git commit --no-verify
+set -uo pipefail
+
+# Only pay the cost when a loop artifact is actually part of this commit.
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+case "$staged" in
+  *data/loop-runs.json*|*data/loop-def.json*) ;;
+  *) exit 0 ;;
+esac
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "pre-commit: python3 not found — cannot run the redaction gate." >&2
+  echo "pre-commit: refusing rather than letting an unchecked artifact through." >&2
+  exit 1
+fi
+
+echo "pre-commit: loop artifact staged — running the redaction gate"
+if ! python3 loop/check_artifacts.py; then
+  cat >&2 <<'MSG'
+
+pre-commit: REFUSING THE COMMIT — a loop artifact failed redaction.
+
+Fix the artifact, do not weaken the gate. If you are certain this is a false
+positive, `git commit --no-verify` records that choice in your shell history
+rather than hiding it in a config file.
+MSG
+  exit 1
+fi

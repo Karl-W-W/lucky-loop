@@ -1,0 +1,28 @@
+[Unit]
+# Dead-man's switch for the loop.
+#
+# WHY: the moment the loop became unattended it needed one, and shipped without.
+# The 2026-08-11 adversarial pass put it plainly: with no OnFailure= anywhere, a
+# DEAD loop, an EMPTY queue and a HEALTHY loop are indistinguishable from the
+# outside — green unit, quiet journal, nobody looking. The whole point of the
+# schedule is that nobody is looking.
+#
+# This is deliberately the cheap half. It records failures where a human will
+# eventually read them and leaves a file whose MTIME is the last failure, so a
+# staleness check has something to look at. It does NOT page anyone. Wiring it
+# to Telegram is the obvious next step and is blocked on R-3: that bot's token
+# is currently leaking into journald ~8,615 times a day and must be rotated
+# before anything new depends on it.
+#
+# Install:
+#   scp deploy/lucky-loop-failed@.service dgx-remote:.config/systemd/user/
+#   ssh dgx-remote 'systemctl --user daemon-reload'
+# and add to lucky-loop.service:
+#   OnFailure=lucky-loop-failed@%n.service
+Description=Record a Lucky Loop failure (%i)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'printf "%%s FAILED unit=%%s status=%%s\\n" "$(date -Is)" "%i" "$(systemctl --user show %i -p Result --value)" >> %h/logs/lucky-loop-failures.log'
+StandardOutput=journal
+StandardError=journal

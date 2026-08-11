@@ -17,6 +17,12 @@ Description=Lucky Loop - one unattended pass over the inbox queue
 Documentation=https://github.com/Karl-W-W/lucky-loop
 After=network-online.target
 
+# Dead-man's switch. Without this a dead loop and an idle one look identical.
+# NOTE THE SECTION: OnFailure= is a [Unit] directive. Put in [Service] it is
+# silently ignored — `systemctl show -p OnFailure` came back EMPTY after a
+# daemon-reload, which is the only reason this was caught.
+OnFailure=lucky-loop-failed@%n.service
+
 [Service]
 Type=oneshot
 

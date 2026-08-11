@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Commit-boundary redaction gate. Run by `npm prebuild`, so it blocks a DEPLOY.
+"""Redaction gate for committed loop artifacts. Two positions, both real.
+
+  .githooks/pre-commit  -> refuses the COMMIT   (install: git config core.hooksPath .githooks)
+  npm prebuild          -> refuses the DEPLOY
+
+WHERE THIS RUNS, AND WHY BOTH ARE NEEDED
+----------------------------------------
+This file was originally described as "the commit-boundary gate" while being
+wired ONLY into `npm prebuild`. That is build time — and this project's builds
+are GitHub-integration deploys, which run AFTER the push. On a PUBLIC repo the
+push IS the publication, so the gate was reviewing bytes the world could already
+read, and a leak would already be permanent in history. The gate was real; its
+position was not what its name claimed. The hook is the position the name meant;
+prebuild stays as the backstop for anyone who has not installed it.
 
 WHY THIS EXISTS SEPARATELY FROM run.py's GATE
 ---------------------------------------------
@@ -17,16 +30,26 @@ reached git unchecked. An adversarial pass on 2026-08-08 confirmed there was no
 commit-time check of any kind: no git hook, no husky, no CI workflow, and a
 prebuild that only regenerated the ledger and verified langflow anchors.
 
-WHAT IT CAN AND CANNOT CHECK
-----------------------------
-Gate 1 (verify_clean) is portable — pure patterns plus the name deny-list — so
-it runs anywhere, including a fresh clone and a Vercel build image.
+WHAT IT CAN AND CANNOT CHECK — THE VERDICT IS HOST-DEPENDENT
+------------------------------------------------------------
+Say this precisely, because "portable" was an overclaim. Gate 1 is patterns PLUS
+the name deny-list, and the real names live in a gitignored file. So:
+
+  on this Mac   -> patterns + REAL names        ("local deny-list LOADED")
+  on Vercel     -> patterns + FICTIONAL names   ("ABSENT (fictional defaults)")
+
+Those are different checks. The pattern half — email, IBAN, VAT-ID, card, phone,
+amount, ref, digits, postcode — is genuinely portable and catches most shapes.
+The by-name half is not, and cannot be without committing the deny-list, which
+is the thing that was just removed for being a public inventory of the PII it
+hides. The status line says which check ran; read it.
 
 Gate 2 (verify_no_source_tokens) needs the source item, and loop/inbox/ is
 gitignored. On a machine without the item its deny-list is EMPTY and the gate is
 a silent no-op — it fails OPEN by absence. So it is best-effort here: applied
 when an item happens to be present, never relied on. Do not "fix" that by
-committing the inbox.
+committing the inbox, and do not pad it with the synthetic fixture either (see
+below — that poisons it with ordinary English at deploy-blocking blast radius).
 
 Exit: 0 clean · 1 violations found (blocks the build) · 2 nothing to check.
 """
@@ -71,14 +94,21 @@ def main() -> int:
         violations.append(f"loop/inbox is TRACKED by git: {tracked[:5]} — real items must never be committed")
 
     # Gate 2's deny-list, best-effort. Absent on any host without the item.
+    # DELIBERATELY NOT the synthetic fixture. Gate 2's deny-list is "every
+    # capitalised token in the SOURCE of this artifact" — and the fixture is not
+    # the source of anything committed unless it was actually processed. Feeding
+    # it in anyway deny-listed 10 ordinary English words (net, please, basic,
+    # every, notes, reference, questions, meter, registered, billed), so a future
+    # pass whose rationale said "Net amount due; please file the basic statement"
+    # would fail this gate — and then fail EVERY subsequent deploy, including
+    # docs-only ones, with a message that reads like a leak. A gate that cries
+    # wolf at deploy-blocking blast radius gets disabled, which costs more than
+    # it saves.
     forbidden: set[str] = set()
-    fixture = HERE / "fixtures" / "synthetic-bill.txt"
     try:
         from graph import vocabulary
 
         vocab = vocabulary()
-        if fixture.exists():
-            forbidden |= source_tokens(fixture.read_text(encoding="utf-8"), vocab)
         if inbox.exists():
             for item in sorted(p for p in inbox.iterdir() if p.is_file() and not p.name.startswith(".")):
                 forbidden |= source_tokens(item.read_text(encoding="utf-8", errors="replace"), vocab)
