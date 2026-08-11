@@ -49,6 +49,9 @@ next-env.d.ts
 # See loop/README.md and the SANITIZE rule in the launch mission.
 /loop/inbox/
 /loop/.runs/
+# The DGX writes artifacts here before they are reviewed and copied into data/.
+# Ungated bytes must not be one `git add -A` away from a public repo.
+/loop/out/
 
 # Gate 1's real by-name deny-list. This file names a specific human, so on a
 # PUBLIC repo the deny-list is an inventory of exactly the PII it hides — the

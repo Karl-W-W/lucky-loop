@@ -14,7 +14,7 @@ import { getRuns } from "./loop/data";
 // pass" while /loop rendered its own empty state.
 const runs = getRuns();
 const LOOP_LIVE = runs.length > 0;
-const scheduled = runs.some((r) => r.trigger === "schedule");
+const scheduledCount = runs.filter((r) => r.trigger === "schedule").length;
 
 // Every "one pass recorded" on this page used to be a string literal, in
 // three places. They would have kept saying "one" after the second pass —
@@ -114,10 +114,13 @@ export default function Home() {
             <p className="ll-note">Early · {passCount} recorded</p>
           </div>
           <p className="ll-cta-note">
-            There is nothing to install yet. {passCount === "one pass" ? "One real pass has" : `${runs.length} real passes have`} run, the next
+            {/* "real passes" was the same overclaim as the hero's "on real
+              * items", missed on the first pass at it: one of the recorded
+              * passes ran on a fabricated document. Counted, not characterised. */}
+            There is nothing to install yet. {passCount === "one pass" ? "One pass has" : `${runs.length} passes have`} run, the next
             ones happen in public, and the build is open to read.{" "}
-            {scheduled
-              ? "The loop now runs on a schedule and writes each pass back to its operator's vault. If you want to hear when it opens up, put your name in."
+            {scheduledCount > 0
+              ? "The loop now runs on a schedule and writes what it did back to its operator's vault. If you want to hear when it opens up, put your name in."
               : "If you want to hear when the loop starts running unattended, put your name in."}
           </p>
           <div className="ll-cta-row">

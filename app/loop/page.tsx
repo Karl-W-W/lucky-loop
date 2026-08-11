@@ -41,12 +41,17 @@ export default function LoopPage() {
   const def = getLoopDef();
   const runs = getRuns();
   const latest = getLatestRun();
-  /* DERIVED, not asserted. The homepage's "one pass recorded" was a string
-   * literal in three places — it would have kept saying "one" after the second
-   * pass, and kept claiming a pass after an emptied runs[]. A claim about the
-   * data belongs to the data. `trigger` is absent on pre-2026-08-11 runs, so
-   * this reads as false until a genuinely scheduled pass exists. */
-  const scheduled = runs.some((r) => r.trigger === "schedule");
+  /* DERIVED, not asserted — and COUNTED, not universalised.
+   *
+   * This was `runs.some(r => r.trigger === "schedule")` feeding copy that said
+   * "Passes are triggered by a timer, not by hand". One scheduled run made that
+   * true of ALL passes, including the attended 2026-07-30 one. Promoting a
+   * one-instance fact to a universal claim is the same shape as the countdown
+   * and the hardcoded "one pass recorded" — fixed twice already this session.
+   *
+   * `trigger` is absent on pre-2026-08-11 runs, so those count as unknown, not
+   * as manual. */
+  const scheduledCount = runs.filter((r) => r.trigger === "schedule").length;
   const nodes = orderedNodes();
   const feedback = feedbackEdges();
 
@@ -214,8 +219,8 @@ export default function LoopPage() {
             {fmtUtc(def.generatedAt)}
           </p>
           <p className="text-xs leading-relaxed text-[var(--war-ink-3)]">
-            {scheduled
-              ? "Passes are triggered by a timer on the machine that runs the loop, not by hand. Each pass writes a decision and an outcome event back to the operator's own vault."
+            {scheduledCount > 0
+              ? `${scheduledCount} of ${runs.length} recorded ${runs.length === 1 ? "pass was" : "passes were"} started by a timer on the machine that runs the loop rather than by hand, and wrote a decision and an outcome event back to the operator's own vault. The rest were started by hand.`
               : "Every pass so far was started by hand. There is no schedule yet and the loop does not run on its own."}
           </p>
         </section>

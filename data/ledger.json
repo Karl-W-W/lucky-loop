@@ -1,9 +1,19 @@
 {
-  "generatedAt": 1786456067000,
-  "builtAt": 1786456353448,
+  "generatedAt": 1786456616000,
+  "builtAt": 1786456744682,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "c532ededc4afe24756e6e2c68a2ec0141a086f60",
+      "t": 1786456616000,
+      "msg": "fix(loop): the write-back heals itself instead of dying quietly"
+    },
+    {
+      "sha": "9b27d76825e0cc1bf68ecd37d1144b025d821ea6",
+      "t": 1786456356000,
+      "msg": "fix(loop): say precisely what the trigger field proves"
+    },
     {
       "sha": "fa510f356c67aebc389e7687d1af609909f82fd4",
       "t": 1786456067000,

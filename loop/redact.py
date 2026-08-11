@@ -49,11 +49,16 @@ DEFAULT_NAME_TOKENS = [
 # an explicitly-synthetic item when it is False.
 try:  # pragma: no cover — presence is environment-dependent by design
     from name_tokens_local import NAME_TOKENS as _LOCAL_NAME_TOKENS
-
-    LOCAL_TOKENS_LOADED = True
 except ImportError:
     _LOCAL_NAME_TOKENS = []
-    LOCAL_TOKENS_LOADED = False
+
+# NOT `except ImportError -> False`. The guard used to test IMPORTABILITY, so a
+# truncated or stubbed file — `NAME_TOKENS = []`, the realistic partial-rsync
+# outcome — imported fine, set this True, and left only the four FICTIONAL
+# defaults in force while run.py happily processed a real document. Proven
+# fail-open by the 2026-08-11 adversarial pass. What matters is whether the list
+# has CONTENT, so that is what is tested.
+LOCAL_TOKENS_LOADED = bool([t for t in _LOCAL_NAME_TOKENS if str(t).strip()])
 
 NAME_TOKENS = [*DEFAULT_NAME_TOKENS, *_LOCAL_NAME_TOKENS]
 
