@@ -49,8 +49,14 @@ export default function Home() {
           </p>
           <p className="ll-sub">
             The War Room, the dashboard we run the company on, is public and
-            live. The loop has made {runs.length === 1 ? "its first pass" : `${runs.length} passes`} on real
-            items — you can read exactly what it did.
+            {/* No claim about WHAT the passes ran on. "on real items" was true
+              * of pass one and false the moment a synthetic test document went
+              * through — and any fixed description of the mix rots the same way
+              * the next time the mix changes. /loop carries the composition,
+              * where it can be stated against the actual records. */}
+            live. The loop has made{" "}
+            {runs.length === 1 ? "its first pass" : `${runs.length} recorded passes`} — you can
+            read exactly what each one did.
           </p>
           <p className="ll-thesis">Luck as an engineered outcome.</p>
         </section>
