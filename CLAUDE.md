@@ -115,6 +115,23 @@ the no-hover fallback.
    **If a deploy ever fails here during an incident**, the escape hatch is to
    drop the failing `&& python3 …` from `prebuild` and ship; then fix it.
 
+**The redaction gate now has two positions**, because the first one was wrong:
+`.githooks/pre-commit` refuses the COMMIT (install once with `git config
+core.hooksPath .githooks`), and `prebuild` refuses the DEPLOY. A gate that runs
+only at build time reviews bytes that were published by the push — on a public
+repo the push IS the publication. Note also that its verdict is HOST-DEPENDENT:
+gate 1 is patterns **plus** the by-name deny-list, and the real names live in a
+gitignored file, so Vercel runs the pattern half against *fictional* names and
+says so in its status line. Read the line; do not read "OK" as "the same check
+passed".
+
+**Retraction, 2026-08-11:** commit `2a7ecfc`'s subject claims it stopped the
+deny-list leaking. It did not. The tokens are gone from HEAD and from all future
+commits, but `curl` still returns HTTP 200 on them at `0fa7c76`, exactly as the
+rule three paragraphs up predicts. Removing a secret from the tip of a public
+repo removes nothing. Whether to force-push + ask GitHub to purge, or accept and
+document, is Karl's call — the present state is documented, not resolved.
+
 **Trap: this file is one of the gate's sources.** `gen-flow.py` anchors excerpts
 into `CLAUDE.md` itself (e.g. a `Links rail` regex at `gen-flow.py:640`), so
 editing or reorganising this document can fail the gate and block every deploy —
