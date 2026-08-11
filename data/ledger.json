@@ -1,9 +1,19 @@
 {
-  "generatedAt": 1786455707000,
-  "builtAt": 1786455820768,
+  "generatedAt": 1786456067000,
+  "builtAt": 1786456353448,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "fa510f356c67aebc389e7687d1af609909f82fd4",
+      "t": 1786456067000,
+      "msg": "fix(loop): unwind the rebase when the vault write-back cannot reconcile"
+    },
+    {
+      "sha": "dd51363b43bea9491da437e5349aa28082f7b632",
+      "t": 1786455824000,
+      "msg": "fix(home): stop claiming both passes ran on real items"
+    },
     {
       "sha": "bb27ff001c59c3aa656732cd56193b283f6fe3ce",
       "t": 1786455707000,

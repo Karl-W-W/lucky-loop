@@ -34,9 +34,12 @@ export type LoopRun = {
   graphVersion: string;
   terminationReason: string;
   iterations: number;
-  /** "schedule" when systemd fired it, "manual" when a human did. Absent on
-   *  every run written before 2026-08-11, which is why readers must treat
-   *  undefined as "unknown", never as "manual". */
+  /** "schedule" when SYSTEMD started the pass, "manual" when it was run
+   *  directly. Read from INVOCATION_ID, so it does not distinguish a timer
+   *  firing from someone typing `systemctl start` — both are systemd. The
+   *  proof that a timer fired is systemd's own TriggeredBy accounting, not
+   *  this field. Absent on every run written before 2026-08-11, so readers
+   *  must treat undefined as "unknown", never as "manual". */
   trigger?: "schedule" | "manual";
   /** Links the pass to the decision+outcome events it wrote to the vault.
    *  Absent on runs written before the write-back existed. */

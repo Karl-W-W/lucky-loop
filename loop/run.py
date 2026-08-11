@@ -223,10 +223,16 @@ def main() -> int:
         "terminationReason": reason,
         "iterations": final.get("iterations", 0),
         # How this pass was triggered, read from the environment rather than
-        # asserted. systemd sets INVOCATION_ID for every unit it starts, so a
-        # timer-fired run is distinguishable from a human at a terminal — and
-        # /loop can state which it was instead of hardcoding a claim that goes
-        # stale the moment the other kind happens.
+        # asserted. PRECISELY: systemd sets INVOCATION_ID for every unit it
+        # starts, so this distinguishes "systemd started me" from "a human ran
+        # python3 run.py". It does NOT distinguish a TIMER firing from someone
+        # typing `systemctl --user start lucky-loop.service` — both are systemd
+        # starts and both land here as "schedule".
+        #
+        # The proof that a timer fired lives in systemd's own accounting, not
+        # in this field: `systemctl --user show lucky-loop.service` reports
+        # TriggeredBy=lucky-loop.timer, and list-timers' LAST column matches
+        # the run timestamps on the 10-minute grid. Cite those, not this.
         "trigger": "schedule" if os.environ.get("INVOCATION_ID") else "manual",
         "item": {
             "source": "loop/inbox (gitignored)",
