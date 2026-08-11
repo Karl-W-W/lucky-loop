@@ -100,6 +100,44 @@ def _run(cmd: list[str], brain: Path) -> tuple[int, str]:
     return proc.returncode, (proc.stdout + proc.stderr).strip()
 
 
+def _reconcile(brain: Path) -> str | None:
+    """Bring the local vault level with origin. Returns a problem, or None.
+
+    MERGE, NOT REBASE — and this is the difference between a loop that heals and
+    one that dies silently.
+
+    The original used `git pull --rebase`. log.md is append-only, so two clones
+    appending conflict on the last line EVERY time. Rebase then stops, and even
+    with a clean `--abort` the local commits stay unpushed — so the next tick
+    hits the identical conflict, and the next. Reproduced: three consecutive
+    ticks, `pull rc=1`, unpushed=1 throughout, no self-recovery ever. The loop
+    was permanently dead while the timer kept firing and the unit kept reporting
+    whatever the last run said.
+
+    A merge with `log.md merge=union` (see ~/brain/.gitattributes) keeps BOTH
+    sides' appended lines, which is exactly what an append-only ledger wants.
+    Verified: a divergent Mac append and DGX append merge to a log containing
+    both, in order, and the push then succeeds — the loop recovers by itself on
+    the next tick instead of needing a human.
+    """
+    code, out = _run(["git", "fetch", "--quiet", "origin", "master"], brain)
+    if code != 0:
+        return f"vault: fetch failed (rc={code}) {out[:200]} — wrote nothing"
+    code, out = _run(["git", "merge", "--no-edit", "--quiet", "FETCH_HEAD"], brain)
+    if code != 0:
+        # Union merge should make this unreachable for log.md. If something else
+        # genuinely conflicts, back all the way out and leave the vault exactly
+        # as it was — never resolve someone's vault automatically.
+        _run(["git", "merge", "--abort"], brain)
+        dirty, _ = _run(["git", "diff", "--quiet"], brain)
+        return (
+            f"vault: merge with origin failed (rc={code}) {out[:200]} — wrote nothing, "
+            + ("merge aborted, vault left as it was" if dirty == 0
+               else f"AND THE MERGE DID NOT UNWIND — run `git -C {brain} merge --abort`")
+        )
+    return None
+
+
 def emit(record: dict[str, Any], brain: Path | None = None, push: bool = True) -> list[str]:
     """Write decision+outcome events for one pass. Returns a list of problems.
 
@@ -170,26 +208,9 @@ def emit(record: dict[str, Any], brain: Path | None = None, push: bool = True) -
         # diverge — with the run reporting failure even though it had written.
         has_origin, _ = _run(["git", "remote", "get-url", "origin"], brain)
         if has_origin == 0:
-            code, out = _run(["git", "pull", "--rebase", "--quiet", "origin", "master"], brain)
-            if code != 0:
-                # UNWIND THE REBASE. This is the failure this loop is most likely
-                # to actually hit: log.md is append-only, so when the Mac and the
-                # DGX both append, rebasing one onto the other CONFLICTS on the
-                # last line every time.
-                #
-                # Returning here without aborting would leave ~/brain sitting in
-                # .git/rebase-merge — which breaks the NEXT run's pull, and every
-                # `git` command the human runs in their own vault, until someone
-                # notices and unwinds it by hand. An unattended writer that can
-                # wedge the repo it writes to is worse than one that never runs.
-                _run(["git", "rebase", "--abort"], brain)
-                still, state = _run(["git", "rev-parse", "--verify", "REBASE_HEAD"], brain)
-                stuck = " AND THE REBASE DID NOT UNWIND — run `git -C %s rebase --abort`" % brain
-                return [
-                    f"vault: pre-write pull failed (rc={code}) {out[:200]} — wrote NOTHING "
-                    f"rather than append to an unreconciled history"
-                    + (stuck if still == 0 else "; rebase unwound, vault left as it was")
-                ]
+            problem = _reconcile(brain)
+            if problem:
+                return [problem]
         else:
             print("vault: no origin remote — writing locally only, nothing to pull or push")
             push = False
@@ -208,6 +229,20 @@ def emit(record: dict[str, Any], brain: Path | None = None, push: bool = True) -
 
         if push and not problems:
             code, out = _run(["git", "push", "--quiet", "origin", "master"], brain)
+            if code != 0:
+                # THE LOST PUSH RACE. brain-log.py commits locally, then we push
+                # — and the other clone can land in between, so the push is
+                # rejected non-fast-forward. Before this retry, that left the
+                # events committed but unpushed forever: every later tick failed
+                # its reconcile on the same divergence and the loop was dead
+                # while the timer kept firing.
+                #
+                # Reconcile and try once more. The events are already committed,
+                # so nothing is rewritten or re-emitted; this only republishes.
+                print(f"vault: push rejected — reconciling and retrying once")
+                again = _reconcile(brain)
+                if again is None:
+                    code, out = _run(["git", "push", "--quiet", "origin", "master"], brain)
             if code != 0:
                 problems.append(
                     f"vault: events are COMMITTED LOCALLY but the push failed (rc={code}) {out[:200]} "
