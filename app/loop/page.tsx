@@ -191,6 +191,54 @@ export default function LoopPage() {
           </section>
         )}
 
+        {/* ---------------- everything before the latest ----------------
+          * This page rendered getLatestRun() and NOTHING else, so each new pass
+          * erased the one before it — run #1 was already invisible the moment
+          * the second landed. A feed that deletes yesterday gives nobody a
+          * reason to come back tomorrow, and "every pass the loop has made" is
+          * what this page's own metadata promises.
+          *
+          * Collapsed rows on purpose: the newest pass keeps the full node-by-node
+          * detail, the history stays scannable. Every field is read off the
+          * record — nothing here is a count someone has to remember to update. */}
+        {runs.length > 1 && (
+          <section className="war-card flex flex-col gap-3 p-4" aria-label="Earlier passes">
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold">Earlier passes</h2>
+              <span className="text-xs text-[var(--war-ink-3)]">
+                {runs.length - 1} before this one
+              </span>
+            </div>
+            <ol className="flex flex-col">
+              {runs.slice(1).map((r) => (
+                <li
+                  key={r.runId}
+                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t py-2 text-xs first:border-t-0"
+                  style={{ borderColor: "var(--war-border)" }}
+                >
+                  <span className="font-mono text-[11px] text-[var(--war-ink-3)]">{r.runId}</span>
+                  <span className="text-[var(--war-ink-2)]">{fmtUtc(r.startedAt)}</span>
+                  <span className="font-medium">{String(r.item.docType ?? "document")}</span>
+                  <span className="text-[var(--war-ink-3)]">
+                    {r.iterations} iteration{r.iterations === 1 ? "" : "s"} ·{" "}
+                    {(r.durationMs / 1000).toFixed(1)}s ·{" "}
+                    {r.trigger === "schedule" ? "by timer" : r.trigger === "manual" ? "by hand" : "trigger not recorded"}
+                  </span>
+                  <span
+                    className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                    style={{
+                      background: isConverged(r) ? "var(--war-good)" : "var(--war-critical)",
+                      color: "#fff",
+                    }}
+                  >
+                    {r.terminationReason}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
         {/* ---------------- the honesty note ---------------- */}
         <section className="war-card flex flex-col gap-2 p-4" aria-label="What this page is">
           <h2 className="text-sm font-semibold">What you are looking at</h2>

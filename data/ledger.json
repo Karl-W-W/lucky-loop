@@ -1,9 +1,19 @@
 {
-  "generatedAt": 1786456874000,
-  "builtAt": 1786457268666,
+  "generatedAt": 1786457328000,
+  "builtAt": 1786635800284,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "e6edf92ce0d55ec2d16d6307f92b8d3695b7333b",
+      "t": 1786457328000,
+      "msg": "docs(claude): record the retraction and the gate's real position"
+    },
+    {
+      "sha": "b396df5cf6fe47c02dabf526a62d8ddeec4f5d87",
+      "t": 1786457272000,
+      "msg": "fix: the gate was in the wrong place, and three claims about it were wrong"
+    },
     {
       "sha": "651bf9ab4447abf6b25d1fc06a729ea4a452b973",
       "t": 1786456874000,
