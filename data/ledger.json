@@ -1,9 +1,14 @@
 {
-  "generatedAt": 1786635832000,
-  "builtAt": 1786639687685,
+  "generatedAt": 1786639724000,
+  "builtAt": 1786639851335,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "9dafcd4a50c22b5c4b8d9ff76aa389bdd5e329fe",
+      "t": 1786639724000,
+      "msg": "feat(site): the share surface — every link to this site had no card"
+    },
     {
       "sha": "d0f6eb84ccdbc1a7caebb2e23d769c90fcb8fc94",
       "t": 1786635832000,
