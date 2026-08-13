@@ -127,10 +127,21 @@ passed".
 
 **Retraction, 2026-08-11:** commit `2a7ecfc`'s subject claims it stopped the
 deny-list leaking. It did not. The tokens are gone from HEAD and from all future
-commits, but `curl` still returns HTTP 200 on them at `0fa7c76`, exactly as the
-rule three paragraphs up predicts. Removing a secret from the tip of a public
-repo removes nothing. Whether to force-push + ask GitHub to purge, or accept and
-document, is Karl's call — the present state is documented, not resolved.
+commits, but they are still served on older commits, exactly as the rule three
+paragraphs up predicts. Removing a secret from the tip of a public repo removes
+nothing. Whether to force-push + ask GitHub to purge, or accept and document, is
+Karl's call — the present state is documented, not resolved.
+
+**Unsignposted 2026-08-13.** This paragraph used to print the exact commit SHA.
+That was a real disclosure written for an audience of one — but this file is
+world-readable, and the launch is designed to send strangers to this repo. The
+document that admits the exposure was also publishing the coordinates for it,
+turning a needle-in-a-haystack into a two-command retrieval. The admission
+stays; the pointer is gone. **This narrows retrieval, it does not fix
+anything** — the objects are still served, and re-adding the SHA anywhere
+public undoes it. Verified 2026-08-13: six real name tokens remain reachable on
+ten commits that are ancestors of `main`, so a plain `git clone` still carries
+them. The rotation runbook, not this edit, is what closes it.
 
 **Trap: this file is one of the gate's sources.** `gen-flow.py` anchors excerpts
 into `CLAUDE.md` itself (e.g. a `Links rail` regex at `gen-flow.py:640`), so

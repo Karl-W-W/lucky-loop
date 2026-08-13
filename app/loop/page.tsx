@@ -10,10 +10,28 @@ import {
   orderedNodes,
 } from "./data";
 
+/* See the note in app/war/page.tsx: openGraph does not compose from a segment's
+ * own title/description, so it is restated here or a shared /loop link unfurls
+ * under the homepage's title. /loop is the most persuasive page on the site and
+ * the one most likely to be linked directly. */
 export const metadata: Metadata = {
   title: "The Loop — Lucky Loop",
   description:
     "Every pass the loop has made, rendered from the artifacts it wrote: the LangGraph definition it executed, the assertion it declared, and how it terminated.",
+  openGraph: {
+    type: "website",
+    siteName: "Lucky Loop",
+    url: "/loop",
+    title: "The Loop — Lucky Loop",
+    description:
+      "Every pass the loop has made, rendered from the artifacts it wrote: the LangGraph definition it executed, the assertion it declared, and how it terminated.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "The Loop — Lucky Loop",
+    description:
+      "Every pass the loop has made, rendered from the artifacts it wrote: the LangGraph definition it executed, the assertion it declared, and how it terminated.",
+  },
 };
 
 const LABELS: Record<string, string> = {
