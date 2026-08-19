@@ -56,7 +56,8 @@ export type KeyResult = {
   note?: string;
   /* Pre-committed scoring rubric. Written BEFORE the work it scores, so the
    * launch-day number is certified against a fixed bar rather than self-awarded
-   * after the fact. Rendered on /war so the bar is public, not private. */
+   * after the fact. Rendered by OkrPanel (collapsed) so the bar is public, not
+   * private — this sentence asserted that for two weeks before it was true. */
   rubric?: string[];
 };
 export type Objective = {

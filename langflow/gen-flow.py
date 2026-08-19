@@ -48,6 +48,44 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 OUT = REPO / "langflow" / "lucky-loop-architecture.json"
 
+
+def _run_count() -> int:
+    """Passes in the committed artifact, READ rather than typed.
+
+    This was the literal string "1 pass" until 2026-08-19, which is how the
+    canvas went on announcing n = 1 for eight days after the second pass landed.
+    The drift gate cannot catch a stale LABEL: it compares the generated canvas
+    to the committed one, and a hand-typed string regenerates identically
+    forever. Every number in a node title has to be derived or it is a lie with
+    a green check next to it.
+    """
+    try:
+        raw = (REPO / "data" / "loop-runs.json").read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except (OSError, ValueError):
+        return 0
+    runs = data if isinstance(data, list) else data.get("runs", [])
+    return len(runs)
+
+
+def _repo_public() -> bool:
+    """The live value of REPO_PUBLIC, read from app/war/data.ts.
+
+    Same failure as above: the canvas hard-coded `false` and kept rendering
+    "ruling contested" for two weeks after the repo went public on 2026-08-05.
+    """
+    try:
+        src = (REPO / "app" / "war" / "data.ts").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    m = re.search(r"export const REPO_PUBLIC\s*=\s*(true|false)", src)
+    return bool(m and m.group(1) == "true")
+
+
+RUNS = _run_count()
+PASSES = "1 pass" if RUNS == 1 else f"{RUNS} passes"
+PUBLIC = _repo_public()
+
 FLOW_ID = "1ucky100-a4ch-4d0c-9b1e-0000000000ff"
 LF_VERSION = "1.9.2"
 
@@ -533,9 +571,9 @@ NODES: list[dict] = [
     ),
     dict(
         key="loopruns", col="data", row=0, icon="history", status="live",
-        title="data/loop-runs.json — 1 pass",
-        blurb="One converged pass on a real item. Idempotency means that item can never run again.",
-        role="The evidence artifact. Written only after both gates return empty.",
+        title=f"data/loop-runs.json — {PASSES}",
+        blurb=f"{PASSES} recorded, newest first. Idempotency means a processed item can never run again.",
+        role="The evidence artifact. Written only after both gates return empty. Reaching this file from the DGX is still a MANUAL hop — nothing copies ~/ll-loop/out/ into data/.",
         origin="loop/run.py :: record",
         src=("loop/run.py", r"^    record = \{", 26),
     ),
@@ -590,10 +628,14 @@ NODES: list[dict] = [
         src=("app/war/data.ts", r"export function getLedger", 30),
     ),
     dict(
-        key="repopublic", col="data", row=5, icon="lock", status="unverified",
-        title="REPO_PUBLIC = false — ruling contested",
-        blurb="Currently false, which correctly hides the GitHub row and every per-commit link.",
-        role="UNRESOLVED: the comment above this flag records a 2026-07-28 ruling that the repo goes PUBLIC at launch, but a later 2026-07-30 ruling says it stays PRIVATE. The flag is right either way today; the launch-day step is not. Reconcile before Jul 31.",
+        key="repopublic", col="data", row=5, icon="lock", status="live" if PUBLIC else "unverified",
+        title=f"REPO_PUBLIC = {str(PUBLIC).lower()}",
+        blurb=("True since 2026-08-05, so the GitHub row and every per-commit link render."
+               if PUBLIC else
+               "False, which hides the GitHub row and every per-commit link."),
+        role=("RESOLVED 2026-08-05: the repo is public and this flag agrees with GitHub. Both must always move together. Note the standing consequence — a public repo serves unreachable objects by SHA, so anything ever pushed stays fetchable."
+              if PUBLIC else
+              "UNRESOLVED: the flag and the real GitHub visibility must move together."),
         origin="app/war/data.ts :: REPO_PUBLIC (comment) vs the 2026-07-30 ruling",
         src=("app/war/data.ts", r"export const REPO_PUBLIC", 3),
     ),
@@ -656,10 +698,10 @@ NODES: list[dict] = [
         src=("loop/run.py", r"^    runs_path = out_dir", 14),
     ),
     dict(
-        key="rubric", col="access", row=3, icon="eye-off", status="gap",
-        title="GAP · the KR2 rubric is never rendered",
-        blurb="data/okrs.json carries 5 criteria. OkrPanel reads title, note and progress — never kr.rubric.",
-        role="GAP: app/war/data.ts calls the rubric 'Rendered on /war so the bar is public, not private'. It is not. The only 100% KR ships as a self-awarded number with its certifying bar invisible — the exact failure the rubric was written to prevent.",
+        key="rubric", col="access", row=3, icon="eye", status="live",
+        title="the KR2 rubric renders",
+        blurb="OkrPanel reads kr.rubric and renders the criteria under the meter, collapsed by default.",
+        role="CLOSED 2026-08-19. app/war/data.ts had called the rubric 'Rendered on /war so the bar is public' for two weeks while OkrPanel never read the field — the only 100% KR shipped with its certifying bar invisible, the exact failure the rubric was written to prevent. The claim and the code now agree.",
         origin="app/war/components/OkrPanel.tsx (kr.rubric unread) vs app/war/data.ts:47",
         src=("app/war/components/OkrPanel.tsx", r"keyResults", 20),
     ),
@@ -732,9 +774,9 @@ EDGES: list[tuple] = [
     ("obs", "build", "MISSING tracing"),
     ("nodb", "warpage", "no live data"),
     ("silent", "decide", "silent default"),
-    ("loopruns", "generalise", "n = 1"),
-    ("okrs", "rubric", "5 criteria, unread"),
-    ("rubric", "warpage", "bar invisible"),
+    ("loopruns", "generalise", f"n = {RUNS}"),
+    ("okrs", "rubric", "5 criteria, rendered"),
+    ("rubric", "warpage", "bar public"),
     ("drift", "build", "framing vs runtime"),
 ]
 

@@ -34,8 +34,10 @@ dashboard we run the company on.
   with `"requiresPublicRepo": true` were hidden while the repo was private; now
   that it is public they render, so a broken GitHub URL is a visible 404 rather
   than a silently-dropped row. Only 2 of the 6 links CLAUDE.md originally
-  imagined exist (GitHub, Live site) — Vercel/Supabase/Phoenix/GBrain rows have
-  never been added.
+  imagined exist — Vercel/Supabase/Phoenix/GBrain rows have never been added.
+  The second row used to be "Live site", which pointed at the site you were
+  already on: a rail whose only job is to send you elsewhere, spending half its
+  rows on a loop back to itself. It is now the committed run artifact.
 
 ## The day-after rule (learned the hard way, 2026-08-05)
 
@@ -163,8 +165,53 @@ to be running for anything.
 - **Never `npm audit fix` / `--force`** here: it downgrades next 16.2.11 → 9.3.3.
 - **Never raise a score to flatter the work.** The launch outcome is logged as
   `dod_items_verified_on_prod=3, partial-win`, not 4, because the "every /war
-  number matches git truth" clause still does not fully pass (the commit tile
-  structurally trails by one — `gen-ledger.mjs` cannot include the commit that
-  carries it). Raise it only when that is genuinely closed.
+  number matches git truth" clause still does not fully pass. Two numbers break
+  it, and the documented one is the smaller: the commit tile structurally trails
+  by one (`gen-ledger.mjs` cannot include the commit that carries it), AND the
+  deploy tile reads 26 against 4 in `data/deploys.json`. The deploy number is
+  TRUE against Vercel's API — the defect is durability, not honesty: it is
+  assembled in an evictable build cache, so it can silently fall. It is also the
+  only closable half, and it needs a `VERCEL_TOKEN` so `sync-deploys.mjs` can
+  run. Raise the score only when that is genuinely closed.
+
+## What the 2026-08-19 audit established (do not re-derive)
+
+- **`/war` is THE hub, read-only** (Karl's ruling). Management stays CLI-on-DGX.
+  This moots the Cockpit, a separate accounts app and `/admin` — do not build
+  them. The constraint behind the ruling is structural: this app has **zero API
+  routes** and Vercel has no Python runtime, so no screen can control the loop
+  without a channel that was not authorised.
+- **`/war` is build-time data wearing live clothes.** `app/war/data.ts` obtains
+  everything through four static JSON imports and there is no runtime `fetch` or
+  `fs` read anywhere in `app/`. `force-dynamic` only re-evaluates `Date.now()`,
+  so the clock ticks and the ages grow while every number is frozen. It makes
+  staleness MORE visible, not less. Any new panel obeys the same rule.
+- **The loop is alive and starving.** 1140 timer ticks had produced exactly one
+  pass as of 2026-08-19; the last was 2026-08-11. Idle ticks are healthy by
+  design (`SuccessExitStatus=0 2 4`) — the problem is fuel, not health.
+- **Hop 5 does not exist.** Nothing copies `~/ll-loop/out/loop-runs.json` into
+  `data/`. The only rsync in this repo is Mac→DGX for code. This is the reason
+  a pass can run unattended and still never reach the site, and it is the last
+  place "autonomous" stops being true.
+- **Failures are invisible to every UI.** The dead-man's switch works, but it
+  writes to `~/logs/lucky-loop-failures.log` on the DGX — not the repo, not the
+  vault.
+- **A hand-typed number in the Langflow canvas is a lie with a green check next
+  to it.** `--check-drift` compares the generated canvas to the committed one,
+  so a stale hand-authored LABEL regenerates identically forever. The canvas
+  announced `REPO_PUBLIC = false` and `1 pass` for two weeks that way. Node
+  titles and edge labels that contain a number must be DERIVED in `gen-flow.py`
+  — `_run_count()` and `_repo_public()` are the pattern.
+- **Declaring `openGraph` in a child route segment stops Next inheriting the
+  root segment's generated image.** `/loop` shipped `og:image=0` while `/` had
+  one, and the build was green either way. Hence the one-line re-exports in
+  `app/{war,loop}/opengraph-image.tsx`. If you add a route with its own
+  `openGraph`, add its image re-export too, and verify by grepping
+  `.next/server/app/<route>.html` — no gate covers this.
+- **Only `lucky-loop-one.vercel.app` serves strangers.** `ssoProtection` is on
+  (`all_except_custom_domains`), so per-deployment and `-git-main-` URLs 302 to
+  a Vercel login. Never share a link copied from the Vercel dashboard.
+- **Web Analytics is not enabled**, so there is no traffic baseline for any
+  launch claim, before or after.
 
 @AGENTS.md

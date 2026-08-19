@@ -62,3 +62,7 @@ next-env.d.ts
 /loop/name_tokens_local.py
 __pycache__/
 *.pyc
+
+# Local working notes. Keep out of a public repo; they belong in ~/brain.
+/state-of-the-loop.html
+/ui-spec.md

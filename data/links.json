@@ -6,8 +6,9 @@
     "requiresPublicRepo": true
   },
   {
-    "name": "Live site",
-    "url": "https://lucky-loop-one.vercel.app",
-    "note": "production deploy on Vercel"
+    "name": "Loop artifacts",
+    "url": "https://github.com/Karl-W-W/lucky-loop/blob/main/data/loop-runs.json",
+    "note": "every recorded pass, as committed JSON",
+    "requiresPublicRepo": true
   }
 ]

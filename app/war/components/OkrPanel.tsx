@@ -73,6 +73,40 @@ export default function OkrPanel({
                     </span>
                   </div>
                   <Meter value={kr.progress} label={`${kr.id}: ${kr.title}`} />
+                  {/* The rubric is the whole reason a 100% here is worth reading.
+                    * data/okrs.json has carried these criteria since launch day and
+                    * the type comment claimed they rendered "so the bar is public" —
+                    * they never did, so the only 100% KR shipped as a self-awarded
+                    * number with its certifying bar invisible. Collapsed by default:
+                    * the bar should be checkable, not loud. */}
+                  {kr.rubric?.length ? (
+                    <details className="group">
+                      <summary className="cursor-pointer list-none text-[11px] text-[var(--war-ink-3)] hover:text-[var(--war-ink-2)] focus-visible:text-[var(--war-ink-2)]">
+                        <span className="underline decoration-dotted underline-offset-2">
+                          {kr.rubric.length} criteria, pre-committed
+                        </span>
+                        <span className="ml-1 group-open:hidden" aria-hidden>
+                          +
+                        </span>
+                        <span className="ml-1 hidden group-open:inline" aria-hidden>
+                          −
+                        </span>
+                      </summary>
+                      <ol className="mt-2 flex list-none flex-col gap-1.5 border-l border-[var(--war-border)] pl-3">
+                        {kr.rubric.map((criterion, i) => (
+                          <li
+                            key={criterion}
+                            className="text-[11px] leading-snug text-[var(--war-ink-3)]"
+                          >
+                            <span className="mr-1.5 text-[var(--war-ink-2)]">
+                              {i + 1}.
+                            </span>
+                            {criterion}
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
+                  ) : null}
                 </li>
               ))}
             </ul>

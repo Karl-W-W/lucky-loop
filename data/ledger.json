@@ -1,9 +1,14 @@
 {
-  "generatedAt": 1786639724000,
-  "builtAt": 1786639851335,
+  "generatedAt": 1786639869000,
+  "builtAt": 1787140139522,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "bd49d40a5962be1229469ecc5cdd8cbc30e02db9",
+      "t": 1786639869000,
+      "msg": "fix(site): serve a real /favicon.ico instead of 404ing it"
+    },
     {
       "sha": "9dafcd4a50c22b5c4b8d9ff76aa389bdd5e329fe",
       "t": 1786639724000,
