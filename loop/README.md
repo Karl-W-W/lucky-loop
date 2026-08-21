@@ -19,12 +19,38 @@ The model is a local Ollama model over plain HTTP on loopback. There is no API
 key anywhere in this directory, which is deliberate: the loop stays outside the
 credential surface entirely.
 
+Since 2026-08-11 a `systemd --user` timer (`deploy/lucky-loop.*`, `Linger=yes`)
+runs the pass unattended on the schedule in the unit file. You do not run it by
+hand any more, and you should not: a manual run competes with the timer for the
+same queue.
+
+**Pushing code out** — after editing anything in `loop/`:
+
 ```
-# from the repo root, with the loop synced to the DGX
-rsync -az loop/ dgx-remote:ll-loop/
-ssh dgx-remote 'cd ~/ll-loop && python3 run.py --inbox inbox --out out'
-rsync -az dgx-remote:ll-loop/out/loop-*.json data/
+rsync -az --exclude=inbox --exclude=__pycache__ loop/ dgx-remote:ll-loop/
 ```
+
+**Pulling artifacts back** — this is hop 5, and until 2026-08-21 nothing
+automated it. A pass could run unattended, write its artifact, and still never
+reach the site, because the only thing that crossed that gap was a human
+remembering an rsync:
+
+```
+npm run sync:loop            # pull, guard, write data/ — the COMMIT stays yours
+npm run sync:loop -- --check # report what is on the host, write nothing
+```
+
+It refuses to write when the host returns fewer passes than are already
+committed — published history does not shrink on the word of one ssh — and it
+never commits, because on a public repo the commit is the publication and a
+human reads the diff first.
+
+It also writes `data/loop-status.json`: queue depth, the scheduler's last and
+next tick, and the last tick's exit code, each sampled at `syncedAt`. That file
+exists because "no new pass in `data/`" was two different facts wearing one
+face — the loop is starving, or nobody ran the sync — and nothing outside the
+DGX could tell them apart. Counts only, never filenames: a filename here is a
+document title, and a document title is the leak.
 
 ## The input path
 

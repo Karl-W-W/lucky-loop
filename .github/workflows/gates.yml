@@ -1,0 +1,121 @@
+# The gates, running where Karl is not.
+#
+# Until now this repo had exactly two gates and both assumed the committer was
+# Karl on his Mac:
+#
+#   1. .githooks/pre-commit  — refuses the COMMIT. Installed by
+#      `git config core.hooksPath .githooks`, which is LOCAL machine config and
+#      is not in the repository. A fresh clone has no commit-time gate, and
+#      neither does anything acting through the GitHub API.
+#   2. npm prebuild          — refuses the DEPLOY, i.e. after the push. On a
+#      PUBLIC repo the push IS the publication, so gate 2 reviews bytes the
+#      world can already read.
+#
+# The moment an agent with a token can open or merge a PR, gate 1 does not run
+# at all and gate 2 runs too late. This workflow is gate 1's position, held by
+# the server instead of by one laptop's git config.
+#
+# HONESTY REQUIREMENT: this job CANNOT run the whole redaction gate.
+# check_artifacts.py has two halves — regex patterns, and a by-name deny-list
+# that lives in loop/name_tokens_local.py, which is gitignored precisely because
+# naming the tokens on a public repo publishes the PII they hide. CI has the
+# patterns and fictional defaults. A green check here means "no structured PII",
+# NOT "the names ran". The job prints which half it ran, into the step summary,
+# because a green check that hides its own scope is how the committed canvas
+# announced REPO_PUBLIC = false for three days.
+
+name: gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Load-bearing. gen-ledger.mjs derives the Growth Ledger from `git
+          # log`; on a shallow checkout it silently returns fewer commits, which
+          # is the exact regression its own guard exists to refuse.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22" # matches package.json engines
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The three fast gates need NO dependencies — every one is stdlib python
+      # or plain node. They run before `npm ci` so a redaction failure is red in
+      # about ten seconds instead of two minutes.
+
+      - name: redaction gate (gate 1, pattern half)
+        run: python3 loop/check_artifacts.py
+
+      - name: redaction gate — its own tests
+        run: python3 loop/test_redaction.py
+
+      - name: drift gate (the canvas matches the repo)
+        run: python3 langflow/gen-flow.py --check-drift
+
+      # The ledger step is NOT `node scripts/gen-ledger.mjs` on its own.
+      # That command WRITES data/ledger.json and exits 0 whatever it finds, so
+      # as a CI step it mutates a tracked file and proves nothing — a green
+      # check next to no verification. What is worth asserting is the thing the
+      # script's own guard protects: a full-history derive must never return
+      # FEWER commits than the committed snapshot. It is normally one AHEAD,
+      # because gen-ledger cannot include the commit that carries its output —
+      # so this is a floor check, not an equality check.
+      - name: ledger does not regress
+        run: |
+          committed=$(node -p "require('./data/ledger.json').commits.length")
+          node scripts/gen-ledger.mjs
+          derived=$(node -p "require('./data/ledger.json').commits.length")
+          echo "ledger: committed=$committed derived=$derived"
+          if [ "$derived" -lt "$committed" ]; then
+            echo "::error::ledger REGRESSED — derived $derived commits, committed has $committed"
+            exit 1
+          fi
+          git checkout -- data/ledger.json
+
+      - name: install
+        run: npm ci
+
+      # `npm run build` re-runs all three gates via prebuild and then compiles.
+      # The duplication is deliberate: the fast pass gives a fast red, this one
+      # proves the gates still pass in the same order the deploy runs them, and
+      # catches everything only a real compile catches.
+      - name: build
+        run: npm run build
+
+      - name: what this job did and did not check
+        if: always()
+        run: |
+          {
+            echo "### gates"
+            echo ""
+            echo "- redaction gate: **pattern half only**."
+            echo "  \`loop/name_tokens_local.py\` is gitignored, so CI checks structured PII"
+            echo "  (emails, IBAN/card shapes, phone numbers, long digit runs) against"
+            echo "  fictional name defaults. **Green here does not mean the by-name"
+            echo "  deny-list ran.** Only Karl's Mac can run that half."
+            echo "- drift gate: the committed canvas matches what the generator produces."
+            echo "  It does **not** prove a hand-authored label is true — only that nobody"
+            echo "  edited the canvas by hand."
+            echo "- ledger: floor check only (derived >= committed)."
+          } >> "$GITHUB_STEP_SUMMARY"

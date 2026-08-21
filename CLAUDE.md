@@ -189,13 +189,33 @@ to be running for anything.
 - **The loop is alive and starving.** 1140 timer ticks had produced exactly one
   pass as of 2026-08-19; the last was 2026-08-11. Idle ticks are healthy by
   design (`SuccessExitStatus=0 2 4`) — the problem is fuel, not health.
-- **Hop 5 does not exist.** Nothing copies `~/ll-loop/out/loop-runs.json` into
-  `data/`. The only rsync in this repo is Mac→DGX for code. This is the reason
-  a pass can run unattended and still never reach the site, and it is the last
-  place "autonomous" stops being true.
-- **Failures are invisible to every UI.** The dead-man's switch works, but it
-  writes to `~/logs/lucky-loop-failures.log` on the DGX — not the repo, not the
-  vault.
+- **Hop 5 existed nowhere until 2026-08-21.** Nothing copied
+  `~/ll-loop/out/loop-runs.json` into `data/`; the only rsync in this repo was
+  Mac→DGX for code. That was the reason a pass could run unattended and still
+  never reach the site. **Closed by `npm run sync:loop`**
+  (`scripts/sync-loop.mjs`): one command pulls the artifacts, refuses to write
+  when the host returns fewer passes than are already committed (the
+  `gen-ledger.mjs` guard, copied not reinvented), and **does not commit** — on a
+  public repo the commit is the publication, so a human still reads the diff.
+- **`data/loop-status.json` is the loop's only telemetry off the DGX.** Written
+  by the same command: queue depth, scheduler last/next tick, last tick exit
+  code and meaning, last failure — each sampled at `syncedAt`. It exists because
+  "no new pass in `data/`" was two different facts wearing one face (the loop is
+  starving, or nobody ran the sync) and nothing outside the DGX could separate
+  them. **Counts only, never filenames** — a filename here is a document title.
+  Anything rendering a field from it must render `syncedAt` beside it, or it has
+  reintroduced the bug the file exists to kill. It is gated by
+  `check_artifacts.py` and by `.githooks/pre-commit` like every other artifact.
+- **Failures are still invisible to every UI**, but no longer invisible to
+  every *reader*: the dead-man's switch still writes only to
+  `~/logs/lucky-loop-failures.log` on the DGX, and `loop-status.json` now
+  carries its last timestamp. No panel renders it yet.
+- **The gates now also run server-side** (`.github/workflows/gates.yml`,
+  2026-08-21). `.githooks/pre-commit` is installed by local git config and is
+  not in the repo, so anything acting through the GitHub API had no
+  commit-boundary gate at all. CI holds that position — but it runs the
+  **pattern half only**, because `loop/name_tokens_local.py` is gitignored, and
+  it says so in its step summary. Green in CI is not "the names ran".
 - **A hand-typed number in the Langflow canvas is a lie with a green check next
   to it.** `--check-drift` compares the generated canvas to the committed one,
   so a stale hand-authored LABEL regenerates identically forever. The canvas

@@ -1,9 +1,14 @@
 {
-  "generatedAt": 1786639869000,
-  "builtAt": 1787140139522,
+  "generatedAt": 1787140183000,
+  "builtAt": 1787315374480,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "a3f08a9ccb8a1fdf82a94873dcb791438fa60437",
+      "t": 1787140183000,
+      "msg": "fix(war,flow): render the bar KR2 is graded against, and stop the canvas lying"
+    },
     {
       "sha": "bd49d40a5962be1229469ecc5cdd8cbc30e02db9",
       "t": 1786639869000,

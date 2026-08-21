@@ -14,7 +14,8 @@
     "test:redaction": "python3 loop/test_redaction.py",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:loop": "node scripts/sync-loop.mjs"
   },
   "dependencies": {
     "next": "16.2.11",

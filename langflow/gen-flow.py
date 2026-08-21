@@ -68,6 +68,21 @@ def _run_count() -> int:
     return len(runs)
 
 
+def _tick_interval() -> str:
+    """How often the scheduler fires, READ from the unit file.
+
+    Third instance of the same rule (_run_count, _repo_public): a cadence typed
+    into a label is a cadence that keeps rendering after someone edits the
+    timer. `OnCalendar=*:0/10` is the only place that number is true.
+    """
+    try:
+        unit = (REPO / "deploy" / "lucky-loop.timer").read_text(encoding="utf-8")
+    except OSError:
+        return "cadence unreadable"
+    m = re.search(r"^OnCalendar=\*:0/(\d+)\s*$", unit, re.M)
+    return f"every {m.group(1)} minutes" if m else "cadence unrecognised"
+
+
 def _repo_public() -> bool:
     """The live value of REPO_PUBLIC, read from app/war/data.ts.
 
@@ -666,12 +681,22 @@ NODES: list[dict] = [
         src=("loop/writeback.py", r"^def emit\(", 34),
     ),
     dict(
-        key="sched", col="inbox", row=1, icon="clock", status="gap",
-        title="GAP · nothing schedules the loop",
-        blurb="rsync -> ssh -> run -> rsync back -> git commit. Five manual steps, zero automation.",
-        role="GAP: no cron, no CI job, no webhook. A pass happens only because a human ran it, and nothing triggers a rebuild afterwards.",
-        origin="loop/README.md :: 'Where it runs' runbook",
-        src=("loop/README.md", r"rsync -az loop/", 5),
+        key="sched", col="inbox", row=1, icon="clock", status="live",
+        title=f"systemd --user timer — {_tick_interval()}",
+        blurb="The timer fires unattended; `npm run sync:loop` carries the artifact back. The COMMIT stays human, by design.",
+        role=(
+            "This node said 'GAP - nothing schedules the loop' for the ten days AFTER the timer "
+            "went live on 2026-08-11, and the drift gate was green throughout: --check-drift compares "
+            "the generated canvas to the committed one, so a hand-authored blurb regenerates its own "
+            "stale claim forever. Same failure as 'REPO_PUBLIC = false' and 'n = 1'. What is true now: "
+            "a systemd --user timer with Linger=yes fires the pass on a schedule read from the unit "
+            "file above, and scripts/sync-loop.mjs closes the hop from the host's out/ to data/ that "
+            "no code had ever crossed. Most ticks are IDLE and that is healthy - the unit lists 0, 2 "
+            "and 4 as success, and 4 means the queue was empty. The commit is NOT automated and is not "
+            "a gap: on a public repo the commit is the publication, so a human reads the diff first."
+        ),
+        origin="deploy/lucky-loop.timer :: OnCalendar + scripts/sync-loop.mjs",
+        src=("deploy/lucky-loop.timer", r"^OnCalendar=", 6),
     ),
     dict(
         key="obs", col="prep", row=1, icon="activity", status="gap",
