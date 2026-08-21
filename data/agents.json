@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "note": "The roster is a CHARTER, not a monitor. Each row declares what an agent may and may not do. Liveness is claimed ONLY where it is derived from committed data — a hand-typed 'last seen' is the same lie as a hand-typed canvas label.",
+  "agents": [
+    {
+      "id": "loop",
+      "name": "The loop",
+      "runtime": "systemd --user · loop host",
+      "cadence": "every 10 minutes, unattended",
+      "since": "2026-08-11",
+      "state": "live",
+      "does": "Takes one queued document, runs perceive → decide → act → evaluate → adapt, writes a redacted artifact and a graded vault event.",
+      "cannot": "Commit. Send anything. See this repository."
+    },
+    {
+      "id": "gatekeeper",
+      "name": "GATEKEEPER",
+      "runtime": "GitHub Actions",
+      "cadence": "every push and pull request",
+      "since": "2026-08-21",
+      "state": "live",
+      "does": "Runs the redaction gate, its tests, the drift gate, a ledger floor check and the build, on a server rather than on one laptop's git config.",
+      "cannot": "Run the by-name deny-list — it is gitignored. Green here is not \"the names ran\"."
+    },
+    {
+      "id": "commander",
+      "name": "Commander · PULSE",
+      "runtime": "Grok workspace",
+      "cadence": "weekdays 09:22",
+      "since": "2026-08-21",
+      "state": "live",
+      "does": "Reads loop-status.json and reports one line a day, including the freeze. Files handoffs in the private ops queue.",
+      "cannot": "See the loop host, the vault or this Mac. Merge. Send outreach."
+    },
+    {
+      "id": "sentinel",
+      "name": "SENTINEL",
+      "runtime": "Grok workspace",
+      "cadence": "weekdays 10:22",
+      "since": "2026-08-21",
+      "state": "live",
+      "does": "Compares what production serves against what the repository committed, and reports only when they disagree.",
+      "cannot": "Fix what it finds. Every drift becomes an issue, not a commit."
+    },
+    {
+      "id": "herald",
+      "name": "HERALD",
+      "runtime": "Grok workspace",
+      "cadence": "dark",
+      "since": "2026-08-21",
+      "state": "gated",
+      "gate": { "minPasses": 5, "minDocTypes": 3 },
+      "does": "Drafts the launch surface — nothing else.",
+      "cannot": "Send. Ever. Every draft queues for a human. It stays dark until the loop has produced enough to describe honestly."
+    },
+    {
+      "id": "hands",
+      "name": "The hands",
+      "runtime": "Claude Code · this Mac",
+      "cadence": "on demand",
+      "since": "2026-07-22",
+      "state": "on-demand",
+      "does": "Reaches the loop host, the vault and the working tree. Closes what no cloud agent can reach, and commits after a human reads the diff.",
+      "cannot": "Persist. Every session ends when the terminal closes — which is why the roster and the status file are files, not memories."
+    }
+  ]
+}

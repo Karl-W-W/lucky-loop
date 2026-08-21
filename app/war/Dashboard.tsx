@@ -17,6 +17,7 @@ import {
   objectiveProgress,
 } from "./data";
 import { fmtAgo, fmtDate, fmtDay, fmtDayTime } from "./format";
+import AgentRoster from "./components/AgentRoster";
 import ArchitecturePanel from "./components/ArchitecturePanel";
 import AutoRefresh from "./components/AutoRefresh";
 import Clock from "./components/Clock";
@@ -164,6 +165,9 @@ export default function Dashboard({ anchor }: { anchor: number }) {
             * anywhere could say. */}
           <div className="lg:col-span-3">
             <LoopStatusPanel status={getLoopStatus()} anchor={anchor} />
+          </div>
+          <div className="lg:col-span-3">
+            <AgentRoster status={getLoopStatus()} />
           </div>
           <div className="lg:col-span-2">
             <OkrPanel objectives={objectives} anchor={anchor} />

@@ -3,6 +3,7 @@ import ledgerJson from "@/data/ledger.json";
 import deploysJson from "@/data/deploys.json";
 import linksJson from "@/data/links.json";
 import loopStatusJson from "@/data/loop-status.json";
+import agentsJson from "@/data/agents.json";
 
 /* Real data only — everything on /war derives from versioned JSON in /data
  * (see CLAUDE.md). No mock telemetry. */
@@ -460,4 +461,56 @@ export function tickIntervalMs(status: LoopStatus | null): number | null {
   if (!last || !next) return null;
   const ms = Date.parse(next) - Date.parse(last);
   return Number.isFinite(ms) && ms > 0 ? ms : null;
+}
+
+/* ---------------------------------------------------------------------------
+ * The roster.
+ *
+ * Six things act on this project and until now no surface named them. Karl
+ * could not answer "who works for me, what may each one do, and what may it
+ * never do" from anywhere — the answers lived in a CLAUDE.md paragraph, a
+ * systemd unit, a workflow file and a chat thread.
+ *
+ * This is a CHARTER, not a monitor. Every row states a boundary, and the
+ * boundaries are the point: a roster that listed capabilities without limits
+ * would be a sales page for the fleet. Liveness is asserted only where it can
+ * be DERIVED — see heraldGate() — because a hand-typed "last seen" rots into
+ * exactly the lie the canvas told for two weeks.
+ * ------------------------------------------------------------------------- */
+
+export type AgentState = "live" | "gated" | "on-demand";
+
+export type Agent = {
+  id: string;
+  name: string;
+  runtime: string;
+  cadence: string;
+  since: string;
+  state: AgentState;
+  gate?: { minPasses: number; minDocTypes: number };
+  does: string;
+  cannot: string;
+};
+
+export function getAgents(): Agent[] {
+  return (agentsJson as { agents: Agent[] }).agents;
+}
+
+/** A gated agent's distance from its own unlock, read off the loop's record
+ *  rather than declared. If the gate is met the roster says so, and whoever
+ *  wakes the agent does it against a number, not a feeling. */
+export function heraldGate(
+  agent: Agent,
+  status: LoopStatus | null,
+): { met: boolean; passes: number; docTypes: number; needPasses: number; needDocTypes: number } | null {
+  if (!agent.gate) return null;
+  const passes = status?.loop?.passCount ?? 0;
+  const docTypes = status?.loop?.docTypes?.length ?? 0;
+  return {
+    met: passes >= agent.gate.minPasses && docTypes >= agent.gate.minDocTypes,
+    passes,
+    docTypes,
+    needPasses: agent.gate.minPasses,
+    needDocTypes: agent.gate.minDocTypes,
+  };
 }

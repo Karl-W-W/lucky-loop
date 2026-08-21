@@ -1,9 +1,14 @@
 {
-  "generatedAt": 1787315446000,
-  "builtAt": 1787316967731,
+  "generatedAt": 1787316996000,
+  "builtAt": 1787317175906,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "d442675832793e18a455501842a54e1be24c8974",
+      "t": 1787316996000,
+      "msg": "feat(war): the panel that says whether the loop is alive right now"
+    },
     {
       "sha": "c862d25925a19b26a095b941fbd1ab3edafc3ea1",
       "t": 1787315446000,
