@@ -33,11 +33,16 @@ dashboard we run the company on.
 - **Links rail** — from `data/links.json` (edit there, not in components). Rows
   with `"requiresPublicRepo": true` were hidden while the repo was private; now
   that it is public they render, so a broken GitHub URL is a visible 404 rather
-  than a silently-dropped row. Only 2 of the 6 links CLAUDE.md originally
-  imagined exist — Vercel/Supabase/Phoenix/GBrain rows have never been added.
-  The second row used to be "Live site", which pointed at the site you were
-  already on: a rail whose only job is to send you elsewhere, spending half its
-  rows on a loop back to itself. It is now the committed run artifact.
+  than a silently-dropped row. It renders as **Assets** and carries six rows
+  since 2026-08-21: source, loop artifacts, the raw status snapshot, the gates,
+  the roster, the canvas. Those are NOT the six this file originally imagined —
+  Vercel/Supabase/Phoenix/GBrain were never built, still are not, and filling
+  the rail did not build them; they keep their own GAP nodes on the canvas. The
+  node title is derived by `_link_count()`, because "2 of 6 specified" was
+  hand-typed and would have survived the fill under a green drift check. The
+  second row used to be "Live site", pointing at the site you were already on:
+  a rail whose only job is to send you elsewhere, spending half its rows on a
+  loop back to itself.
 
 ## The day-after rule (learned the hard way, 2026-08-05)
 

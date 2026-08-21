@@ -1,14 +1,38 @@
 [
   {
-    "name": "GitHub",
+    "name": "Source",
     "url": "https://github.com/Karl-W-W/lucky-loop",
-    "note": "source",
+    "note": "the whole thing, public",
     "requiresPublicRepo": true
   },
   {
     "name": "Loop artifacts",
     "url": "https://github.com/Karl-W-W/lucky-loop/blob/main/data/loop-runs.json",
     "note": "every recorded pass, as committed JSON",
+    "requiresPublicRepo": true
+  },
+  {
+    "name": "Loop status",
+    "url": "https://raw.githubusercontent.com/Karl-W-W/lucky-loop/main/data/loop-status.json",
+    "note": "the snapshot this page renders — read it yourself",
+    "requiresPublicRepo": true
+  },
+  {
+    "name": "The gates",
+    "url": "https://github.com/Karl-W-W/lucky-loop/actions",
+    "note": "redaction, drift and build, on every push",
+    "requiresPublicRepo": true
+  },
+  {
+    "name": "Agent roster",
+    "url": "https://github.com/Karl-W-W/lucky-loop/blob/main/data/agents.json",
+    "note": "who works here, and what each may never do",
+    "requiresPublicRepo": true
+  },
+  {
+    "name": "Architecture",
+    "url": "https://github.com/Karl-W-W/lucky-loop/blob/main/langflow/lucky-loop-architecture.json",
+    "note": "40 nodes, regenerated from the code that ran",
     "requiresPublicRepo": true
   }
 ]

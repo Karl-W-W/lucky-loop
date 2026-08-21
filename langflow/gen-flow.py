@@ -83,6 +83,20 @@ def _tick_interval() -> str:
     return f"every {m.group(1)} minutes" if m else "cadence unrecognised"
 
 
+def _link_count() -> int:
+    """Rows in the Assets rail, READ rather than typed.
+
+    Fourth instance of the rule (_run_count, _repo_public, _tick_interval): this
+    node's title said "2 of 6 specified" and would have kept saying it after the
+    rail was filled, because --check-drift compares the generated canvas to the
+    committed one and a hand-typed label regenerates its own stale claim.
+    """
+    try:
+        return len(json.loads((REPO / "data" / "links.json").read_text(encoding="utf-8")))
+    except Exception:
+        return 0
+
+
 def _repo_public() -> bool:
     """The live value of REPO_PUBLIC, read from app/war/data.ts.
 
@@ -617,11 +631,18 @@ NODES: list[dict] = [
         src=("data/okrs.json", r'"rubric"', 12),
     ),
     dict(
-        key="links", col="data", row=4, icon="link", status="gap",
-        title="data/links.json — 2 of 6 specified",
-        blurb="CLAUDE.md specifies GitHub, Vercel, Supabase, Phoenix, Langflow, GBrain. Only 2 exist.",
-        role="GAP: Vercel, Supabase, Phoenix, Langflow and GBrain rows were never added. The rail silently renders short.",
-        origin="data/links.json vs CLAUDE.md links-rail spec",
+        key="links", col="data", row=4, icon="link", status="live",
+        title=f"data/links.json — {_link_count()} assets",
+        blurb="Source, artifacts, the live status snapshot, the gates, the roster, the canvas. Every row is public and reachable.",
+        role=(
+            "Was 'GAP - 2 of 6 specified', naming Vercel/Supabase/Phoenix/GBrain rows that CLAUDE.md "
+            "imagined and nobody built. The rail is now full, but NOT with those six: it carries the "
+            "assets that actually exist, which is a different and more useful list. The imagined "
+            "integrations are still absent and still have their own GAP nodes - filling this rail did "
+            "not build Supabase or wire Phoenix. The count is derived from the file, because the old "
+            "title would have gone on reading '2 of 6' forever under a green drift check."
+        ),
+        origin="data/links.json",
         src=("data/links.json", r"^\[", 14),
     ),
 

@@ -1,9 +1,14 @@
 {
-  "generatedAt": 1787317234000,
-  "builtAt": 1787323809451,
+  "generatedAt": 1787323832000,
+  "builtAt": 1787324963688,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "e4abc10c254e9448d9e60cd64c5feb5a57e9e836",
+      "t": 1787323832000,
+      "msg": "fix(war): the roster said these agents live somewhere they no longer do"
+    },
     {
       "sha": "e6db5bd65156f7f527e2a440d75315323a1a3cdb",
       "t": 1787317234000,

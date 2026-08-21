@@ -13,9 +13,9 @@ function host(url: string): string {
  * localhost-only tooling is not a link for a public visitor (DoD #4). */
 export default function LinksRail({ links }: { links: LinkItem[] }) {
   return (
-    <section className="war-card flex h-full flex-col p-4" aria-label="Tool links">
+    <section className="war-card flex h-full flex-col p-4" aria-label="Project assets">
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">Links</h2>
+        <h2 className="text-sm font-semibold">Assets</h2>
         <span className="text-xs text-[var(--war-ink-3)]">data/links.json</span>
       </div>
       <ul className="flex flex-col">
