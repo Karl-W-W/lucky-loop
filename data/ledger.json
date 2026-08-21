@@ -1,9 +1,14 @@
 {
-  "generatedAt": 1787316996000,
-  "builtAt": 1787317175906,
+  "generatedAt": 1787317234000,
+  "builtAt": 1787323809451,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "e6db5bd65156f7f527e2a440d75315323a1a3cdb",
+      "t": 1787317234000,
+      "msg": "feat(war): the roster — who works here, and what each one may never do"
+    },
     {
       "sha": "d442675832793e18a455501842a54e1be24c8974",
       "t": 1787316996000,

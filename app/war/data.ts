@@ -478,7 +478,7 @@ export function tickIntervalMs(status: LoopStatus | null): number | null {
  * exactly the lie the canvas told for two weeks.
  * ------------------------------------------------------------------------- */
 
-export type AgentState = "live" | "gated" | "on-demand";
+export type AgentState = "live" | "gated" | "on-demand" | "dormant";
 
 export type Agent = {
   id: string;

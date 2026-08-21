@@ -23,29 +23,29 @@
       "cannot": "Run the by-name deny-list — it is gitignored. Green here is not \"the names ran\"."
     },
     {
-      "id": "commander",
-      "name": "Commander · PULSE",
-      "runtime": "Grok workspace",
-      "cadence": "weekdays 09:22",
+      "id": "pulse",
+      "name": "PULSE",
+      "runtime": "scheduled cloud agent",
+      "cadence": "weekdays 07:22 UTC",
       "since": "2026-08-21",
       "state": "live",
-      "does": "Reads loop-status.json and reports one line a day, including the freeze. Files handoffs in the private ops queue.",
-      "cannot": "See the loop host, the vault or this Mac. Merge. Send outreach."
+      "does": "Reads loop-status.json and delivers one line a day — days since the last pass, queue depth, doc types — always stamped with when the snapshot was taken.",
+      "cannot": "See the loop host, the vault or the Mac. Stay silent on a quiet day: an unchanged number is the signal."
     },
     {
       "id": "sentinel",
       "name": "SENTINEL",
-      "runtime": "Grok workspace",
-      "cadence": "weekdays 10:22",
+      "runtime": "scheduled cloud agent",
+      "cadence": "weekdays 08:22 UTC",
       "since": "2026-08-21",
       "state": "live",
-      "does": "Compares what production serves against what the repository committed, and reports only when they disagree.",
-      "cannot": "Fix what it finds. Every drift becomes an issue, not a commit."
+      "does": "Compares what production serves against what this repository committed, and reports both values with their sources when they disagree.",
+      "cannot": "Fix anything it finds. Speak when they match — silence is its normal output."
     },
     {
       "id": "herald",
       "name": "HERALD",
-      "runtime": "Grok workspace",
+      "runtime": "not yet commissioned",
       "cadence": "dark",
       "since": "2026-08-21",
       "state": "gated",
@@ -62,6 +62,16 @@
       "state": "on-demand",
       "does": "Reaches the loop host, the vault and the working tree. Closes what no cloud agent can reach, and commits after a human reads the diff.",
       "cannot": "Persist. Every session ends when the terminal closes — which is why the roster and the status file are files, not memories."
+    },
+    {
+      "id": "scout",
+      "name": "The scout",
+      "runtime": "third-party agent workspace",
+      "cadence": "dormant",
+      "since": "2026-08-21",
+      "state": "dormant",
+      "does": "Held the watch roles for one day and named its own limits honestly, including the ones that ended its usefulness here.",
+      "cannot": "Reach the loop host either. Its roles now run as scheduled cloud agents, beside the repository they watch."
     }
   ]
 }

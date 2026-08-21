@@ -4,19 +4,28 @@ import { getAgents, heraldGate, type AgentState, type LoopStatus } from "../data
  * because any one of them alone fails somebody. "on-demand" is deliberately
  * ink, not a status colour: it is neither health nor fault, and spending a
  * reserved status colour on it would blunt the ones that mean something. */
-const CHIP: Record<AgentState, { tone: string; label: string; glyph: "disc" | "ring" | "dash" }> = {
+const CHIP: Record<AgentState, { tone: string; label: string; glyph: "disc" | "ring" | "dash" | "slash" }> = {
   live: { tone: "var(--war-good)", label: "live", glyph: "disc" },
   gated: { tone: "var(--war-warning)", label: "gated", glyph: "ring" },
+  /* Neither "on demand" nor "dormant" is health or fault, so both wear ink
+   * rather than a reserved status colour. Spending good/warning on "a human has
+   * to start it" would blunt the two colours that mean something. */
   "on-demand": { tone: "var(--war-ink-3)", label: "on demand", glyph: "dash" },
+  dormant: { tone: "var(--war-ink-3)", label: "dormant", glyph: "slash" },
 };
 
-function Glyph({ shape }: { shape: "disc" | "ring" | "dash" }) {
+function Glyph({ shape }: { shape: "disc" | "ring" | "dash" | "slash" }) {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden fill="none" stroke="currentColor">
       {shape === "disc" ? (
         <circle cx="5" cy="5" r="4" fill="currentColor" stroke="none" />
       ) : shape === "ring" ? (
         <circle cx="5" cy="5" r="3.5" strokeWidth="1.75" />
+      ) : shape === "slash" ? (
+        <>
+          <circle cx="5" cy="5" r="3.5" strokeWidth="1.5" />
+          <path d="M2.5 7.5 7.5 2.5" strokeWidth="1.5" strokeLinecap="round" />
+        </>
       ) : (
         <path d="M1.5 5h7" strokeWidth="1.75" strokeLinecap="round" />
       )}
