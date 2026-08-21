@@ -2,6 +2,7 @@ import okrsJson from "@/data/okrs.json";
 import ledgerJson from "@/data/ledger.json";
 import deploysJson from "@/data/deploys.json";
 import linksJson from "@/data/links.json";
+import loopStatusJson from "@/data/loop-status.json";
 
 /* Real data only — everything on /war derives from versioned JSON in /data
  * (see CLAUDE.md). No mock telemetry. */
@@ -285,4 +286,178 @@ export function objectiveProgress(o: Objective): number {
   if (o.keyResults.length === 0) return 0;
   const mean = o.keyResults.reduce((s, kr) => s + kr.progress, 0) / o.keyResults.length;
   return Math.min(1, Math.max(0, mean));
+}
+
+
+/* ---------------------------------------------------------------------------
+ * The loop's own state.
+ *
+ * Written by `npm run sync:loop` from the DGX, which is the only place these
+ * facts exist. Before this panel, the site could say what the loop had DONE
+ * (the committed passes) and nothing at all about whether it was still alive —
+ * so a healthy timer firing every ten minutes over an empty queue looked
+ * identical to a dead box, for ten days.
+ *
+ * loopState() is dueState()'s shape on purpose: a discriminated kind the render
+ * site switches on, so every boundary is a state the panel can draw rather than
+ * a number it clamps. The boundaries here are: no file, a snapshot too old to
+ * make claims from, a stopped scheduler, a failure newer than the last success,
+ * an empty queue, and a fed one. Six, all reachable.
+ * ------------------------------------------------------------------------- */
+
+export type LoopStatus = {
+  schema: number;
+  syncedAt: string;
+  loop: {
+    lastPassAt: string | null;
+    passCount: number;
+    docTypes: string[];
+    queueDepth: number | null;
+    processedCount: number | null;
+    scheduler: { active: boolean; lastTickAt: string | null; nextTickAt: string | null };
+    lastTick: { exit: number | null; meaning: string; at: string | null };
+    lastFailureAt: string | null;
+  };
+};
+
+/* A snapshot older than this can still be SHOWN — it cannot be used to assert
+ * what the queue holds right now. 24h because the sync is a human action, not a
+ * feed; the exact age is always rendered beside it so a reader can judge for
+ * themselves rather than trusting this threshold. */
+export const LOOP_SNAPSHOT_STALE_MS = 24 * 60 * 60 * 1000;
+
+export type LoopStateKind =
+  | "unknown"
+  | "stale"
+  | "down"
+  | "failing"
+  | "starving"
+  | "working";
+
+export type LoopState = {
+  kind: LoopStateKind;
+  role: StatusRole;
+  label: string;
+  detail: string;
+};
+
+export function getLoopStatus(): LoopStatus | null {
+  const raw = loopStatusJson as unknown as LoopStatus;
+  if (!raw || typeof raw.syncedAt !== "string" || !raw.loop) return null;
+  return raw;
+}
+
+export function loopState(status: LoopStatus | null, anchor: number): LoopState {
+  if (!status) {
+    return {
+      kind: "unknown",
+      role: "warning",
+      label: "Unknown",
+      detail: "No status snapshot has been committed. Run `npm run sync:loop`.",
+    };
+  }
+
+  const { loop } = status;
+  const age = anchor - Date.parse(status.syncedAt);
+
+  /* Staleness is checked BEFORE health, deliberately. Every state below is a
+   * claim about the loop right now, and a day-old snapshot cannot support one.
+   * Saying "starving" from stale data is the same class of error as the
+   * countdown that clamped at zero: an assertion the data no longer licenses. */
+  if (!Number.isFinite(age) || age > LOOP_SNAPSHOT_STALE_MS) {
+    return {
+      kind: "stale",
+      role: "warning",
+      label: "Snapshot stale",
+      detail:
+        "These numbers were true when the snapshot was taken and cannot be read as current. Sync to refresh.",
+    };
+  }
+
+  if (!loop.scheduler?.active) {
+    return {
+      kind: "down",
+      role: "critical",
+      label: "Scheduler stopped",
+      detail: "The timer is not active. No pass will run until it is started again.",
+    };
+  }
+
+  /* Health is the LAST TICK's exit code, not the last failure's age.
+   *
+   * The first version of this compared lastFailureAt to lastPassAt, and on the
+   * real data that read "Last run failed" — because the Aug 11 failure landed
+   * 27 minutes after the Aug 11 pass. Around fourteen hundred successful ticks
+   * have run since. The last run did not fail; it idled, correctly. Comparing a
+   * failure against the last SUCCESS instead of against the last EVENT makes a
+   * fault permanent the moment it happens after the newest success, which for a
+   * queue that is usually empty is almost always.
+   *
+   * exit 3 is the only code that means failure (0 converged, 2 already
+   * recorded, 4 idle). A failure stamped after the last tick counts too, since
+   * a unit that dies before writing its exit leaves the log as the only trace. */
+  const failedAt = loop.lastFailureAt ? Date.parse(loop.lastFailureAt) : NaN;
+  const tickAt = loop.lastTick?.at ? Date.parse(loop.lastTick.at) : NaN;
+  const tickFailed = loop.lastTick?.exit === 3;
+  const failureAfterLastTick =
+    Number.isFinite(failedAt) && (!Number.isFinite(tickAt) || failedAt > tickAt);
+  if (tickFailed || failureAfterLastTick) {
+    return {
+      kind: "failing",
+      role: "serious",
+      label: "Last run failed",
+      detail: "The most recent tick did not complete. The failure log lives on the loop host.",
+    };
+  }
+
+  /* The state this project actually lives in. It is NOT "good" — nothing is
+   * being produced — and it is NOT "critical" — nothing is broken. A machine
+   * that works and is unfed needs its own word, or the dashboard rounds it to
+   * one of the two lies either side of it. */
+  if (loop.queueDepth === 0) {
+    return {
+      kind: "starving",
+      role: "warning",
+      label: "Idle — nothing queued",
+      detail: "The scheduler is healthy and the queue is empty. Idle ticks are correct, not a fault.",
+    };
+  }
+
+  if (typeof loop.queueDepth === "number" && loop.queueDepth > 0) {
+    return {
+      kind: "working",
+      role: "good",
+      label: "Fed — work queued",
+      detail: "Documents are waiting; the next tick will take one.",
+    };
+  }
+
+  return {
+    kind: "unknown",
+    role: "warning",
+    label: "Queue unreadable",
+    detail: "The snapshot carries no queue depth. The host answered, but not with a count.",
+  };
+}
+
+/** Whole days between two instants, floored. Used for "last pass N days ago". */
+export function daysBetween(fromISO: string | null, anchor: number): number | null {
+  if (!fromISO) return null;
+  const t = Date.parse(fromISO);
+  if (!Number.isFinite(t)) return null;
+  return Math.floor((anchor - t) / 86_400_000);
+}
+
+/* The scheduler's interval, derived from the two stamps the snapshot already
+ * carries. Rendering "next tick" alone was wrong: the snapshot is a manual
+ * sample, so by the time anyone reads it the "next" tick is usually in the
+ * past, and the panel cheerfully printed "next tick 20m ago". Cadence stays
+ * true however old the sample is; the next tick is shown only while it is
+ * genuinely still ahead. */
+export function tickIntervalMs(status: LoopStatus | null): number | null {
+  const last = status?.loop?.scheduler?.lastTickAt;
+  const next = status?.loop?.scheduler?.nextTickAt;
+  if (!last || !next) return null;
+  const ms = Date.parse(next) - Date.parse(last);
+  return Number.isFinite(ms) && ms > 0 ? ms : null;
 }

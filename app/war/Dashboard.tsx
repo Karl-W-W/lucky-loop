@@ -6,6 +6,7 @@ import {
   getCommits,
   getLedger,
   getLinks,
+  getLoopStatus,
   getObjectives,
   getProductionDeploys,
   isLedgerFromGit,
@@ -22,6 +23,7 @@ import Clock from "./components/Clock";
 import FlowPanel from "./components/FlowPanel";
 import LedgerFeed from "./components/LedgerFeed";
 import LinksRail from "./components/LinksRail";
+import LoopStatusPanel from "./components/LoopStatusPanel";
 import OkrPanel from "./components/OkrPanel";
 import StatTile from "./components/StatTile";
 
@@ -155,6 +157,14 @@ export default function Dashboard({ anchor }: { anchor: number }) {
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {/* Directly under the stat tiles, above the OKRs: every other panel
+            * on this page reports what the project HAS done. This one reports
+            * whether it is running right now — and for ten days in August the
+            * answer was "a healthy timer over an empty queue", which no surface
+            * anywhere could say. */}
+          <div className="lg:col-span-3">
+            <LoopStatusPanel status={getLoopStatus()} anchor={anchor} />
+          </div>
           <div className="lg:col-span-2">
             <OkrPanel objectives={objectives} anchor={anchor} />
           </div>
