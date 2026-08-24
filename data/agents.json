@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "note": "The roster is a CHARTER, not a monitor. Each row declares what an agent may and may not do. Liveness is claimed ONLY where it is derived from committed data — a hand-typed 'last seen' is the same lie as a hand-typed canvas label.",
+  "note": "The roster is a CHARTER, not a monitor. Each row declares what an agent may and may not do. Liveness is claimed ONLY where it is derived from committed data \u2014 a hand-typed 'last seen' is the same lie as a hand-typed canvas label.",
   "agents": [
     {
       "id": "loop",
       "name": "The loop",
-      "runtime": "systemd --user · loop host",
+      "runtime": "systemd --user \u00b7 loop host",
       "cadence": "every 10 minutes, unattended",
       "since": "2026-08-11",
       "state": "live",
-      "does": "Takes one queued document, runs perceive → decide → act → evaluate → adapt, writes a redacted artifact and a graded vault event.",
+      "does": "Takes one queued document, runs perceive \u2192 decide \u2192 act \u2192 evaluate \u2192 adapt, writes a redacted artifact and a graded vault event.",
       "cannot": "Commit. Send anything. See this repository."
     },
     {
@@ -20,27 +20,27 @@
       "since": "2026-08-21",
       "state": "live",
       "does": "Runs the redaction gate, its tests, the drift gate, a ledger floor check and the build, on a server rather than on one laptop's git config.",
-      "cannot": "Run the by-name deny-list — it is gitignored. Green here is not \"the names ran\"."
+      "cannot": "Run the by-name deny-list \u2014 it is gitignored. Green here is not \"the names ran\"."
     },
     {
       "id": "pulse",
       "name": "PULSE",
-      "runtime": "scheduled cloud agent",
+      "runtime": "scheduled cloud agent \u2192 Slack #pulse",
       "cadence": "weekdays 07:22 UTC",
       "since": "2026-08-21",
       "state": "live",
-      "does": "Reads loop-status.json and delivers one line a day — days since the last pass, queue depth, doc types — always stamped with when the snapshot was taken.",
+      "does": "Reads loop-status.json and posts one line a day to #pulse \u2014 days since the last pass, queue depth, doc types \u2014 always stamped with when the snapshot was taken.",
       "cannot": "See the loop host, the vault or the Mac. Stay silent on a quiet day: an unchanged number is the signal."
     },
     {
       "id": "sentinel",
       "name": "SENTINEL",
-      "runtime": "scheduled cloud agent",
+      "runtime": "scheduled cloud agent \u2192 Slack #sentinel",
       "cadence": "weekdays 08:22 UTC",
       "since": "2026-08-21",
       "state": "live",
-      "does": "Compares what production serves against what this repository committed, and reports both values with their sources when they disagree.",
-      "cannot": "Fix anything it finds. Speak when they match — silence is its normal output."
+      "does": "Checks the committed files are coherent and the gates still pass, and compares production against the repository when the sandbox allows outbound network.",
+      "cannot": "Fix anything it finds. Reach production on most runs \u2014 egress is blocked, and it says so rather than claiming a match it could not verify."
     },
     {
       "id": "herald",
@@ -49,19 +49,22 @@
       "cadence": "dark",
       "since": "2026-08-21",
       "state": "gated",
-      "gate": { "minPasses": 5, "minDocTypes": 3 },
-      "does": "Drafts the launch surface — nothing else.",
+      "gate": {
+        "minPasses": 5,
+        "minDocTypes": 3
+      },
+      "does": "Drafts the launch surface \u2014 nothing else.",
       "cannot": "Send. Ever. Every draft queues for a human. It stays dark until the loop has produced enough to describe honestly."
     },
     {
       "id": "hands",
       "name": "The hands",
-      "runtime": "Claude Code · this Mac",
+      "runtime": "Claude Code \u00b7 this Mac",
       "cadence": "on demand",
       "since": "2026-07-22",
       "state": "on-demand",
       "does": "Reaches the loop host, the vault and the working tree. Closes what no cloud agent can reach, and commits after a human reads the diff.",
-      "cannot": "Persist. Every session ends when the terminal closes — which is why the roster and the status file are files, not memories."
+      "cannot": "Persist. Every session ends when the terminal closes \u2014 which is why the roster, the status file and the runbook are files, not memories."
     },
     {
       "id": "scout",

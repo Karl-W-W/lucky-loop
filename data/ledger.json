@@ -1,9 +1,19 @@
 {
-  "generatedAt": 1787323832000,
-  "builtAt": 1787324963688,
+  "generatedAt": 1787600450000,
+  "builtAt": 1787600599676,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "a727fa3282efa2b732da54b2dde33238513de91a",
+      "t": 1787600450000,
+      "msg": "chore(loop): refresh the host snapshot — 13 days, still no fuel"
+    },
+    {
+      "sha": "5ec49a009e396c1a232f2904c5a10ae19bc09f3d",
+      "t": 1787324980000,
+      "msg": "feat(war): the rail is an asset index now, and the canvas stops saying \"2 of 6\""
+    },
     {
       "sha": "e4abc10c254e9448d9e60cd64c5feb5a57e9e836",
       "t": 1787323832000,
