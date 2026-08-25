@@ -84,6 +84,67 @@ gates. So generalisation across real document types remains unproven, and
 imply breadth this does not support; `/` deliberately makes no claim about
 *what* the passes ran on, and `/loop` carries the composition.
 
+## Hop 0 is a GATE, not a gap — and the Hermes verdict (2026-08-25)
+
+Filling `loop/inbox/` was counted as the last missing automation for fourteen
+days. It is not missing. The loop derives an artifact from the document and
+publishes it to a PUBLIC repo through gates that have already been shown
+fail-open once, so **choosing the document IS the control.** Automating the
+choice removes a control. Automating what sat on top of the choice removes
+toil. Only the second one shipped, and the distinction is the whole finding.
+
+`npm run feed:loop` (`scripts/feed-loop.mjs`) is the symmetric twin of
+`npm run sync:loop`, guards copied rather than reinvented, and **it sends
+nothing by default.** It extracts to UTF-8 (`run.py` does `read_text` and
+nothing else, so a PDF otherwise "succeeds" as mojibake); names the item
+`item-NNN.txt`, because `pick_item()` prints the filename to stdout whenever the
+queue holds more than one item and the unit sends stdout to the journal — a
+filename is a document title, the same rule `sync-loop.mjs` already applies in
+the other direction; checks the host still holds `name_tokens_local.py` BEFORE
+the bytes cross, rather than letting `run.py` fail-closed ten minutes later into
+a journal nobody reads; refuses a name collision; and verifies the sha256 back
+off the host. It reports the document's SHAPE — PII classes `redact.py` can see,
+count of tokens gate 2 will deny-list — never its text, because the terminal it
+prints to is often one an agent is reading. `--probe` proves the wire with a
+dot-prefixed file that `pick_item()` filters by its own rule. `--yes` is a
+DECLARED human step, not an enforced one; say that plainly rather than dressing
+it up.
+
+**Hermes Bot Mode: NO on the one question it was given** — can a single
+Perceiver bot fill the inbox unattended. Verified first-hand against the
+vendor's docs, not via a summary:
+
+- **Bot Mode "ships built into the desktop app"**, a Bot is created by hitting
+  "New Agent" in a GUI roster, and **there is no `hermes bot` command**. On a
+  headless Linux box what remains is `hermes profile create` + `hermes cron
+  create` — a cron job. That box already runs a cron job against that inbox
+  every ten minutes.
+- **Routines deliver to chat**: "Runs land in the Bot's own chat history." The
+  filesystem is not a delivery target.
+- **`approvals.cron_mode` defaults to `deny`** — an unattended session refuses
+  dangerous shell commands and "the agent must find another path". Letting a
+  Perceiver shell out unattended means turning that off on the box holding real
+  mail, the vault, and a passphrase-less SSH key.
+- **Nothing in Hermes fetches the documents.** Email is an INBOUND adapter that
+  delivers what arrives; the one reach-in path is a Google Workspace skill over
+  OAuth, whose loopback flow the docs say breaks headless, worked around with an
+  `ssh -N -L` port-forward from the laptop. That is a human at a browser.
+- **In Hermes' favour, against the first draft of this finding:** it DOES ship
+  document extraction for PDF text layers and .docx/.xlsx/.odt/.rtf/.epub. The
+  format gap is real but smaller than claimed. Scanned pages still need OCR plus
+  a vision model, which a text-only local model cannot do.
+- The model objection is the WEAK one and should not be leaned on: the docs list
+  `llama3.2:3b` as no-tool-calling, "lightweight quick answers only", and reject
+  any model under 64,000 tokens of context at startup — but the host already
+  holds `qwen2.5:14b`, `llama3.3:70b` and `nemotron-3-super:120b`. The honest
+  version is that a Perceiver would simply not run on the loop's model.
+
+Hop 0 decomposes into **obtain → extract → decide-it-may-be-published →
+deposit.** Hermes does *extract* well and *deposit* trivially — so does `scp`.
+It cannot *obtain* without a new credential on the least-secured box, and it
+must not *decide*. **Do not install Hermes to close Hop 0.** If it is ever
+installed here, install it for a different job and name that job.
+
 ## Style
 
 Keep the current dark command-center look: tokens live on `.war-root` in

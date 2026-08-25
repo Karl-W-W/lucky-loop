@@ -415,9 +415,23 @@ NODES: list[dict] = [
     dict(
         key="inbox", col="inbox", row=0, icon="inbox", status="live",
         title="loop/inbox/ — the only real input",
-        blurb="One exported admin item. Gitignored: raw documents never reach git.",
-        role="A real mail/bill item is dropped here by hand. Exactly one item per pass.",
-        origin="loop/run.py :: pick_item + .gitignore",
+        blurb="One exported admin item. Gitignored: raw documents never reach git. `npm run feed:loop` stages one; the yes stays human.",
+        role=(
+            "Hop 0, and the only hop that is a GATE rather than a gap. It was counted as missing "
+            "automation for fourteen days; it is not. The loop derives an artifact from this "
+            "document and that artifact is published to a PUBLIC repository through gates that "
+            "have already been shown fail-open once, so choosing the document IS the control. "
+            "What was toil on top of that control, and is now one command: extraction to UTF-8 "
+            "(run.py does read_text and nothing else, so a PDF 'succeeds' as mojibake); a neutral "
+            "item name (pick_item prints the filename to stdout whenever the queue holds more than "
+            "one item, the unit sends stdout to the journal, and a filename is a document title); "
+            "and the pre-flight that the host still holds name_tokens_local.py, without which "
+            "run.py fail-closes ten minutes later into a journal nobody reads. feed-loop.mjs does "
+            "those three and then stops — its default sends nothing and prints what you would be "
+            "deciding. That is a DECLARED human step, not an enforced one: anything that can run "
+            "the command can pass --yes. Enforcing it needs a second party this project does not have."
+        ),
+        origin="loop/run.py :: pick_item + scripts/feed-loop.mjs",
         src=("loop/run.py", r"^def pick_item", 12),
     ),
     dict(

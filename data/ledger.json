@@ -1,9 +1,14 @@
 {
-  "generatedAt": 1787600450000,
-  "builtAt": 1787600599676,
+  "generatedAt": 1787600661000,
+  "builtAt": 1787668669921,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "3060fe398a0c86fd9d0f7d4cfe2d7841d938d76e",
+      "t": 1787600661000,
+      "msg": "chore(war): the roster now says where these agents deliver"
+    },
     {
       "sha": "a727fa3282efa2b732da54b2dde33238513de91a",
       "t": 1787600450000,
