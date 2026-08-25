@@ -1,9 +1,29 @@
 {
-  "generatedAt": 1787600661000,
-  "builtAt": 1787668669921,
+  "generatedAt": 1787669556000,
+  "builtAt": 1787669556877,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "f6ed92cdfe7c893ac5d4bc9f8c405fe5cb9cd714",
+      "t": 1787669556000,
+      "msg": "chore(canvas): 2 passes -> 3, derived not typed"
+    },
+    {
+      "sha": "1da102c329e92f372fde4d0da313d9b7e897e403",
+      "t": 1787669534000,
+      "msg": "fix(feed): count lines the way run.py does, or the preview lies about the record"
+    },
+    {
+      "sha": "b78520db676334815bdabc503865eace8284b4f1",
+      "t": 1787669505000,
+      "msg": "feat(loop): pass three — the first document that is not an invoice"
+    },
+    {
+      "sha": "05105de0b5fe6a2239415cfb9763803b31073ba5",
+      "t": 1787668714000,
+      "msg": "feat(loop): hop 0 was a gate, not a gap — one command to stage the fuel"
+    },
     {
       "sha": "3060fe398a0c86fd9d0f7d4cfe2d7841d938d76e",
       "t": 1787600661000,
