@@ -1,25 +1,26 @@
 {
   "schema": 1,
   "about": "Sampled from the loop host by scripts/sync-loop.mjs. A SNAPSHOT, not a feed: every field below was true at syncedAt and says nothing about now. Show syncedAt beside anything you render from this file.",
-  "syncedAt": "2026-08-24T19:40:16Z",
+  "syncedAt": "2026-08-25T14:50:53Z",
   "loop": {
-    "lastPassAt": "2026-08-11T13:40:05Z",
-    "passCount": 2,
+    "lastPassAt": "2026-08-25T14:50:06Z",
+    "passCount": 3,
     "docTypes": [
       "invoice",
+      "other",
       "vat-invoice"
     ],
     "queueDepth": 0,
-    "processedCount": 2,
+    "processedCount": 3,
     "scheduler": {
       "active": true,
-      "lastTickAt": "2026-08-24T19:40:01Z",
-      "nextTickAt": "2026-08-24T19:50:00Z"
+      "lastTickAt": "2026-08-25T14:50:01Z",
+      "nextTickAt": "2026-08-25T15:00:00Z"
     },
     "lastTick": {
-      "exit": 4,
-      "meaning": "idle — the inbox was empty, nothing to process",
-      "at": "2026-08-24T19:40:01Z"
+      "exit": 0,
+      "meaning": "converged — a pass ran and its assertion held",
+      "at": "2026-08-25T14:50:08Z"
     },
     "lastFailureAt": "2026-08-11T14:07:06Z"
   }
