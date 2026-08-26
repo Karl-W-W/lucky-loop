@@ -84,6 +84,37 @@ gates. So generalisation across real document types remains unproven, and
 imply breadth this does not support; `/` deliberately makes no claim about
 *what* the passes ran on, and `/loop` carries the composition.
 
+## The loop is an ADMIN TRIAGE queue, not a general document loop (2026-08-26)
+
+`loop/graph.py:56-57` fixes the entire vocabulary:
+
+```python
+ISSUER_KINDS = ["cloud-provider", "utility", "telecom", "tax-authority", "bank", "other"]
+DOC_TYPES    = ["invoice", "vat-invoice", "reminder", "statement", "notice", "receipt", "other"]
+```
+
+`perceive()` prompts with *"You classify a document for an admin triage queue"*,
+and the assertions it can be held to are `bill_has_amount`, `urgency_justified`,
+`disposition_actionable`. There is **no realm concept anywhere** — not in
+`run.py`, which takes a single flat `--inbox`, and not in the graph.
+
+So a car-export lead or a farm document dropped into `loop/inbox/` is not
+mis-handled by accident: it is *forced* into the billing enum, best case landing
+on `other`/`other` and then judged by an assertion written for bills. **Adding a
+second inbox directory would not fix this** — the enum does the classifying, not
+the path. Giving these realms a real home means realm-specific enums and a
+per-realm assertion set, which changes the compiled graph, `loop-def.json` and
+therefore the canvas and the drift gate. That is a real piece of work, not a
+directory.
+
+Until then, non-admin documents do NOT enter the loop. Their drop targets are
+`~/brain/realms/<realm>/` on the DGX, read by the nightly queue's memo jobs,
+which produce a grounded summary and never touch `~/ll-loop/inbox/`. Each realm
+folder carries a dot-prefixed `.README`; the queue's source gate skips dotfiles,
+the same rule `pick_item()` already uses for `.done/`, so the explainer never
+becomes a source. An empty realm reports "no source" and does not run — that is
+the resting state, not a failure.
+
 ## Hop 0 is a GATE, not a gap — and the Hermes verdict (2026-08-25)
 
 Filling `loop/inbox/` was counted as the last missing automation for fourteen
