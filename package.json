@@ -19,7 +19,8 @@
     "feed:loop": "node scripts/feed-loop.mjs",
     "agents:build": "node scripts/gen-agents.mjs",
     "agents:check": "node scripts/gen-agents.mjs --check",
-    "agents:deploy": "node scripts/gen-agents.mjs --deploy"
+    "agents:deploy": "node scripts/gen-agents.mjs --deploy",
+    "drop:realm": "node scripts/drop-realm.mjs"
   },
   "dependencies": {
     "next": "16.2.11",
