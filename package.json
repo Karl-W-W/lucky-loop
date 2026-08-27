@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/gen-ledger.mjs && python3 loop/check_artifacts.py && python3 langflow/gen-flow.py --check-drift",
+    "prebuild": "node scripts/gen-ledger.mjs && python3 loop/check_artifacts.py && python3 langflow/gen-flow.py --check-drift && node scripts/gen-agents.mjs --check",
     "check:flow": "python3 langflow/gen-flow.py --check",
     "check:drift": "python3 langflow/gen-flow.py --check-drift",
     "check:redaction": "python3 loop/check_artifacts.py",
@@ -16,7 +16,10 @@
     "start": "next start",
     "lint": "eslint",
     "sync:loop": "node scripts/sync-loop.mjs",
-    "feed:loop": "node scripts/feed-loop.mjs"
+    "feed:loop": "node scripts/feed-loop.mjs",
+    "agents:build": "node scripts/gen-agents.mjs",
+    "agents:check": "node scripts/gen-agents.mjs --check",
+    "agents:deploy": "node scripts/gen-agents.mjs --deploy"
   },
   "dependencies": {
     "next": "16.2.11",
