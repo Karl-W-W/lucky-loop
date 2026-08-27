@@ -1,4 +1,4 @@
-import { getAgents, heraldGate, type AgentState, type LoopStatus } from "../data";
+import { getAgents, agentLimits, heraldGate, type AgentState, type LoopStatus } from "../data";
 
 /* State is a chip: a shape-distinct glyph, a word, and a colour — all three,
  * because any one of them alone fails somebody. "on-demand" is deliberately
@@ -39,8 +39,10 @@ export default function AgentRoster({ status }: { status: LoopStatus | null }) {
     <section className="war-card flex h-full flex-col gap-4 p-4" aria-label="Agent roster">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-sm font-semibold">Who works here</h2>
+        {/* Both numbers are DERIVED. A hand-typed count is the same lie as a
+          * hand-typed canvas label — see _run_count() in gen-flow.py. */}
         <span className="text-xs text-[var(--war-ink-3)]">
-          {agents.length} agents · data/agents.json
+          {agents.length} agents · {agents.filter((a) => a.hermes).length} generated from this file
         </span>
       </div>
 
@@ -48,6 +50,7 @@ export default function AgentRoster({ status }: { status: LoopStatus | null }) {
         {agents.map((a) => {
           const chip = CHIP[a.state];
           const gate = heraldGate(a, status);
+          const limits = agentLimits(a);
           return (
             <li
               key={a.id}
@@ -67,13 +70,45 @@ export default function AgentRoster({ status }: { status: LoopStatus | null }) {
                 {a.runtime} · {a.cadence}
               </div>
 
+              {/* Generated agents carry their deployment facts, because those
+                * are the ones that used to drift silently: the model actually
+                * pinned, and whether this profile can stage at all. */}
+              {a.hermes ? (
+                <div className="flex flex-col gap-1 rounded border border-[var(--war-border)] bg-[var(--war-surface)] px-2 py-1.5">
+                  <div className="flex flex-wrap items-center gap-x-2 font-mono text-[10px] text-[var(--war-ink-3)]">
+                    <span className="text-[var(--war-series-1)]">generated</span>
+                    <span>{a.hermes.host}</span>
+                    <span>·</span>
+                    <span>{a.hermes.model}</span>
+                  </div>
+                  {a.hermes.staging && !a.hermes.staging.available ? (
+                    <div className="font-mono text-[10px] text-[var(--war-warning)]">
+                      cannot stage from {a.hermes.host}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               <p className="text-xs leading-relaxed text-[var(--war-ink-2)]">{a.does}</p>
 
               {/* The limit is rendered as prominently as the capability. A
-                * roster that lists only what agents CAN do is a brochure. */}
-              <p className="text-xs leading-relaxed text-[var(--war-ink-3)]">
-                <span className="text-[var(--war-ink-2)]">Cannot:</span> {a.cannot}
-              </p>
+                * roster that lists only what agents CAN do is a brochure. For a
+                * generated agent these are the exact lines of its own "Never"
+                * section — the page and the agent read the same source. */}
+              <div className="text-xs leading-relaxed text-[var(--war-ink-3)]">
+                <span className="text-[var(--war-ink-2)]">Cannot:</span>{" "}
+                {limits.length === 1 ? (
+                  limits[0]
+                ) : (
+                  <ul className="mt-1 flex list-none flex-col gap-1">
+                    {limits.map((c, i) => (
+                      <li key={i} className="border-l border-[var(--war-axis)] pl-2">
+                        {c.replace(/\*\*/g, "").replace(/^Never /, "")}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
               {gate ? (
                 <p className="text-xs" style={{ color: gate.met ? "var(--war-good)" : "var(--war-ink-3)" }}>

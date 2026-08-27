@@ -480,6 +480,21 @@ export function tickIntervalMs(status: LoopStatus | null): number | null {
 
 export type AgentState = "live" | "gated" | "on-demand" | "dormant";
 
+/** Present only on agents this repo GENERATES onto a host (scripts/gen-agents.mjs).
+ *  Its absence is meaningful: those rows are describing something the repo does
+ *  not deploy — CI, a cloud agent, a human at a terminal. */
+export type AgentHermes = {
+  host: string;
+  profile: string;
+  displayName: string;
+  model: string;
+  baseUrl: string;
+  contextLength: number;
+  template: string;
+  hooks?: string[];
+  staging?: { available: boolean; repoPath: string | null; reason: string; sayExactly?: string };
+};
+
 export type Agent = {
   id: string;
   name: string;
@@ -489,11 +504,20 @@ export type Agent = {
   state: AgentState;
   gate?: { minPasses: number; minDocTypes: number };
   does: string;
-  cannot: string;
+  /* A string on hand-written rows; an array on generated ones, where each entry
+   * is one line of the agent's own "## Never" section. Same source, two
+   * renderings — the roster and the soul cannot disagree about the limits. */
+  cannot: string | string[];
+  hermes?: AgentHermes;
 };
 
 export function getAgents(): Agent[] {
   return (agentsJson as { agents: Agent[] }).agents;
+}
+
+/** The limits, always as a list. A single prose string is one limit. */
+export function agentLimits(agent: Agent): string[] {
+  return Array.isArray(agent.cannot) ? agent.cannot : [agent.cannot];
 }
 
 /** A gated agent's distance from its own unlock, read off the loop's record
