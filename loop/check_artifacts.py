@@ -71,7 +71,12 @@ from redact import (  # noqa: E402
     verify_no_source_tokens,
 )
 
-ARTIFACTS = ["data/loop-runs.json", "data/loop-def.json", "data/loop-status.json"]
+ARTIFACTS = [
+    "data/loop-runs.json",
+    "data/loop-def.json",
+    "data/loop-status.json",
+    "data/failure-status.json",
+]
 # loop-status.json joined the list the same day it was created. It carries counts
 # and timestamps only, by construction — but "by construction" is a claim about
 # today's writer, and the gate is what keeps it true of every future one.

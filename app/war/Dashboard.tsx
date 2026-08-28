@@ -7,6 +7,7 @@ import {
   getLedger,
   getLinks,
   getLoopStatus,
+  getFailureStatus,
   getObjectives,
   getProductionDeploys,
   isLedgerFromGit,
@@ -21,6 +22,7 @@ import AgentRoster from "./components/AgentRoster";
 import ArchitecturePanel from "./components/ArchitecturePanel";
 import AutoRefresh from "./components/AutoRefresh";
 import Clock from "./components/Clock";
+import FailurePanel from "./components/FailurePanel";
 import FlowPanel from "./components/FlowPanel";
 import LedgerFeed from "./components/LedgerFeed";
 import LinksRail from "./components/LinksRail";
@@ -168,6 +170,15 @@ export default function Dashboard({ anchor }: { anchor: number }) {
           </div>
           <div className="lg:col-span-3">
             <AgentRoster status={getLoopStatus()} />
+          </div>
+          {/* Immediately after the loop, before anything that reports
+            * achievement. Every other panel on this page renders successes; a
+            * page that only renders successes is an advertisement. This one was
+            * added on 2026-08-28, when the workstation had been failing a
+            * scheduled job on every retry for weeks and the route to the loop
+            * host had died 59 times, and no surface anywhere said so. */}
+          <div className="lg:col-span-3">
+            <FailurePanel status={getFailureStatus()} anchor={anchor} />
           </div>
           <div className="lg:col-span-2">
             <OkrPanel objectives={objectives} anchor={anchor} />

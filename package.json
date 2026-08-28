@@ -20,7 +20,8 @@
     "agents:build": "node scripts/gen-agents.mjs",
     "agents:check": "node scripts/gen-agents.mjs --check",
     "agents:deploy": "node scripts/gen-agents.mjs --deploy",
-    "drop:realm": "node scripts/drop-realm.mjs"
+    "drop:realm": "node scripts/drop-realm.mjs",
+    "sync:failures": "node scripts/sync-failures.mjs"
   },
   "dependencies": {
     "next": "16.2.11",

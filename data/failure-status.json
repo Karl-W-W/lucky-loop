@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "about": "The failure channel, sampled from the loop host and this workstation. A SNAPSHOT, not a feed: every field was true at syncedAt and says nothing about now. Show syncedAt beside anything rendered from this file. Counts and coarse kinds only — never a path, filename, session id or launchd label, because this file is committed to a public repository.",
+  "syncedAt": "2026-08-28T13:17:10Z",
+  "windowDays": 7,
+  "loopHost": {
+    "orphanReaps": {
+      "window": 33,
+      "today": 17,
+      "distinctSessions": 3
+    },
+    "serviceRestarts": 0,
+    "failedUnits": {
+      "named": [],
+      "otherCount": 1
+    },
+    "deadMan": {
+      "entries": 1,
+      "lastAt": "2026-08-11T16:07:06+02:00"
+    }
+  },
+  "workstation": {
+    "failingJobs": 2,
+    "kinds": [
+      "configuration",
+      "transport"
+    ],
+    "routeDeaths": 59
+  }
+}

@@ -1,9 +1,44 @@
 {
-  "generatedAt": 1787669556000,
-  "builtAt": 1787669556877,
+  "generatedAt": 1787922066000,
+  "builtAt": 1787923159869,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "54f6c38bd53cbca6bfe170aa1cdbdf364ca6ec96",
+      "t": 1787922066000,
+      "msg": "docs(hermes): name the job — interface and chat runtime, never orchestration"
+    },
+    {
+      "sha": "4ccc51dcb5929352ec8613dec0bea4d2e4e11c55",
+      "t": 1787837629000,
+      "msg": "feat(realms): one command to put a document where the queue will read it"
+    },
+    {
+      "sha": "a34b76114b9ed23ae7a4c49b855f5c6dfed9d378",
+      "t": 1787837337000,
+      "msg": "feat(war): the roster shows what is generated, and every limit"
+    },
+    {
+      "sha": "8c21310cb1cb238d5c8f7f168033178cd72da391",
+      "t": 1787837201000,
+      "msg": "feat(agents): the factory — registry generates the souls, drift gate holds them"
+    },
+    {
+      "sha": "144b04cedb0a8125cfecb3d753c9ab8f03163246",
+      "t": 1787836588000,
+      "msg": "fix(feed): a literal NUL made the whole file invisible to grep"
+    },
+    {
+      "sha": "4554fddbeb2ba067d2802d5269427caeb79f4662",
+      "t": 1787745329000,
+      "msg": "docs(loop): the loop is admin triage — realms get drop targets, not an inbox"
+    },
+    {
+      "sha": "14c4c5df337f47f064c299a90ddf7550de50bd15",
+      "t": 1787669570000,
+      "msg": "chore(ledger): regenerate — picks up 05105de"
+    },
     {
       "sha": "f6ed92cdfe7c893ac5d4bc9f8c405fe5cb9cd714",
       "t": 1787669556000,

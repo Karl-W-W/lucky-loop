@@ -3,6 +3,7 @@ import ledgerJson from "@/data/ledger.json";
 import deploysJson from "@/data/deploys.json";
 import linksJson from "@/data/links.json";
 import loopStatusJson from "@/data/loop-status.json";
+import failureStatusJson from "@/data/failure-status.json";
 import agentsJson from "@/data/agents.json";
 
 /* Real data only — everything on /war derives from versioned JSON in /data
@@ -536,5 +537,128 @@ export function heraldGate(
     docTypes,
     needPasses: agent.gate.minPasses,
     needDocTypes: agent.gate.minDocTypes,
+  };
+}
+
+
+/* ---------------------------------------------------------------------------
+ * THE FAILURE CHANNEL
+ *
+ * The 2026-08-19 audit recorded that failures are invisible to every UI, and it
+ * stayed true until 2026-08-28. The cost of that was not theoretical: a launchd
+ * job had been failing on every retry for weeks with its own error log pointed
+ * at an unmounted volume, and the route to the loop host had died 59 times,
+ * reaping the Desktop's socket 33 times in three days. Every surface said the
+ * system was fine, because every surface only rendered successes.
+ *
+ * failureState() follows loopState() which follows dueState(): a discriminated
+ * kind the render site switches on. The boundaries that must each be a DRAWABLE
+ * state rather than a clamped number are — no file at all, a snapshot too old
+ * to assert from, genuinely nothing failing, and something failing now. The
+ * third one is the one that is easy to get wrong: "zero failures" and "we have
+ * not looked" must never render the same, which is exactly the bug
+ * loop-status.json was created to kill on the other side of the house.
+ * ------------------------------------------------------------------------- */
+
+export type FailureStatus = {
+  schema: number;
+  syncedAt: string;
+  windowDays: number;
+  loopHost: {
+    orphanReaps: { window: number; today: number; distinctSessions: number };
+    serviceRestarts: number | null;
+    failedUnits: { named: string[]; otherCount: number };
+    deadMan: { entries: number; lastAt: string | null };
+  };
+  workstation: { failingJobs: number; kinds: string[]; routeDeaths: number | null };
+};
+
+export type FailureStateKind = "unknown" | "stale" | "quiet" | "degrading" | "failing";
+
+export type FailureState = {
+  kind: FailureStateKind;
+  role: StatusRole;
+  label: string;
+  detail: string;
+};
+
+export function getFailureStatus(): FailureStatus | null {
+  const raw = failureStatusJson as unknown as FailureStatus;
+  if (!raw || typeof raw.syncedAt !== "string" || !raw.loopHost) return null;
+  return raw;
+}
+
+/* Total live failure signals in the snapshot. Route deaths are excluded on
+ * purpose: they are a LIFETIME count from an unrotated log, so adding them
+ * would make the number grow forever and never return to zero — a meter that
+ * can only rise is a meter nobody reads. They render as their own figure. */
+export function failureSignals(s: FailureStatus | null): number {
+  if (!s) return 0;
+  return (
+    s.loopHost.failedUnits.named.length +
+    s.loopHost.failedUnits.otherCount +
+    s.workstation.failingJobs +
+    (s.loopHost.orphanReaps.today > 0 ? 1 : 0)
+  );
+}
+
+export function failureState(s: FailureStatus | null, anchor: number): FailureState {
+  if (!s) {
+    return {
+      kind: "unknown",
+      role: "warning",
+      label: "Not sampled",
+      detail:
+        "No failure snapshot is committed, so this panel can say nothing. " +
+        "That is not the same as nothing being wrong. Run `npm run sync:failures`.",
+    };
+  }
+
+  const age = anchor - Date.parse(s.syncedAt);
+  if (Number.isFinite(age) && age > LOOP_SNAPSHOT_STALE_MS) {
+    return {
+      kind: "stale",
+      role: "warning",
+      label: "Snapshot stale",
+      detail:
+        "The last sample is over a day old. Everything below was true then; " +
+        "nothing here is a claim about now.",
+    };
+  }
+
+  const n = failureSignals(s);
+  if (n === 0) {
+    return {
+      kind: "quiet",
+      role: "good",
+      label: "Nothing failing",
+      detail:
+        "No failed unit, no failing workstation job, and no socket reaped today " +
+        "as at the sample below. The empty case, reported — not an absence of looking.",
+    };
+  }
+
+  /* Reaps alone are degradation: the route is flapping and the Desktop keeps
+   * recovering. A failed unit or a stuck job is something that is not
+   * recovering, and outranks it. */
+  const hard = s.loopHost.failedUnits.named.length + s.loopHost.failedUnits.otherCount + s.workstation.failingJobs;
+  if (hard === 0) {
+    return {
+      kind: "degrading",
+      role: "warning",
+      label: "Route degrading",
+      detail:
+        `The socket to the loop host was reaped ${s.loopHost.orphanReaps.today} time(s) today. ` +
+        "Nothing is stuck — the connection keeps dropping and recovering.",
+    };
+  }
+
+  return {
+    kind: "failing",
+    role: "critical",
+    label: hard === 1 ? "1 thing failing" : `${hard} things failing`,
+    detail:
+      "At least one unit or scheduled job is failing and not recovering on its own. " +
+      "A retry loop is not a fix.",
   };
 }
