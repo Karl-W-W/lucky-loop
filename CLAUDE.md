@@ -176,6 +176,30 @@ It cannot *obtain* without a new credential on the least-secured box, and it
 must not *decide*. **Do not install Hermes to close Hop 0.** If it is ever
 installed here, install it for a different job and name that job.
 
+**The job is named, 2026-08-28. Hermes is installed, and its job is: interface
+and chat runtime, never orchestration.** It is the room where Karl talks to his
+agents — nothing decides there, nothing is acquired there, nothing is
+orchestrated there. The hands-on verdict behind this is that the vendor
+*excludes* the orchestration case by contract, not by weakness:
+`tools/bot_mode_dm.py` injects the teammate tool ONLY into a human-facing Bot
+Chat session and never into cron agents or subagents; `tools/bot_relay.py` gives
+the Desktop every socket, so cross-machine envelopes expire as `queued_expired`
+after 900 s with the laptop closed; and `approvals.cron_mode` /
+`single_query_mode` both ship `"deny"`. Orchestration lives in `loop-factory`
+(`delegate` → `claude -p` on Max), and that split is the signed ADR amendment of
+2026-08-28.
+
+`gbrain` is wired into Hermes as an MCP server on BOTH hosts as of 2026-08-28 —
+DGX registers `~/brain/tools/gbrain-mcp.sh` directly, the Mac reaches it over
+`ssh dgx-remote`. It is scoped to **76 read-only tools by allowlist**
+(`mcp_servers.gbrain.tools.include`), not the 131 `hermes mcp add` enables by
+default. That is not fussiness: `data/agents.json` publishes on a public website
+that Scout may "never write to the vault", and the default set includes
+`put_page`, `delete_page`, `forget` and `purge_deleted_pages`. An allowlist also
+fails CLOSED when gbrain upgrades — a denylist would silently grant whatever new
+write tool 0.47 ships. Same reasoning as every other gate here. If an agent
+genuinely needs a new tool, add it to that list where a human can see it.
+
 ## Style
 
 Keep the current dark command-center look: tokens live on `.war-root` in
