@@ -22,7 +22,8 @@
     "agents:deploy": "node scripts/gen-agents.mjs --deploy",
     "drop:realm": "node scripts/drop-realm.mjs",
     "sync:failures": "node scripts/sync-failures.mjs",
-    "check:mcp": "node scripts/check-mcp-invariant.mjs"
+    "check:mcp": "node scripts/check-mcp-invariant.mjs",
+    "sync:agents": "node scripts/sync-agent-liveness.mjs"
   },
   "dependencies": {
     "next": "16.2.11",

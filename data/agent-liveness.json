@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "about": "Derived liveness for the agent roster. A SNAPSHOT: every field was true at syncedAt and says nothing about now — render syncedAt beside anything from this file. `unknown` means NOT INSTRUMENTED, which is neither live nor failed; it is never a fallback for a value we could not derive. Produced by scripts/sync-agent-liveness.mjs; never hand-edit.",
+  "syncedAt": "2026-08-31T19:53:22Z",
+  "derivedCount": 4,
+  "totalCount": 9,
+  "liveness": {
+    "loop": {
+      "state": "live",
+      "evidence": "timer active, last tick 0.1h ago"
+    },
+    "gatekeeper": {
+      "state": "live",
+      "evidence": "last run 0.4d ago (success)"
+    },
+    "pulse": {
+      "state": "unknown",
+      "evidence": "scheduled cloud agent reporting into Slack — no local evidence path"
+    },
+    "sentinel": {
+      "state": "unknown",
+      "evidence": "scheduled cloud agent reporting into Slack — no local evidence path"
+    },
+    "herald": {
+      "state": "unknown",
+      "evidence": "not yet commissioned — see its charter disposition"
+    },
+    "hands": {
+      "state": "unknown",
+      "evidence": "a human at a terminal; liveness is not a property this can have"
+    },
+    "scout-workspace": {
+      "state": "unknown",
+      "evidence": "third-party workspace — nothing here can observe it"
+    },
+    "hermes-loop": {
+      "state": "live",
+      "evidence": "hermes-serve active, profile loop present"
+    },
+    "hermes-scout": {
+      "state": "live",
+      "evidence": "hermes-serve active, profile scout present"
+    }
+  }
+}

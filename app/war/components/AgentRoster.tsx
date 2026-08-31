@@ -1,20 +1,24 @@
-import { getAgents, agentLimits, heraldGate, type AgentState, type LoopStatus } from "../data";
+import { getAgents, getAgentLiveness, agentLimits, heraldGate, type AgentState, type LoopStatus } from "../data";
 
 /* State is a chip: a shape-distinct glyph, a word, and a colour — all three,
- * because any one of them alone fails somebody. "on-demand" is deliberately
- * ink, not a status colour: it is neither health nor fault, and spending a
- * reserved status colour on it would blunt the ones that mean something. */
-const CHIP: Record<AgentState, { tone: string; label: string; glyph: "disc" | "ring" | "dash" | "slash" }> = {
+ * because any one of them alone fails somebody.
+ *
+ * These three values are DERIVED (scripts/sync-agent-liveness.mjs), never
+ * declared. The roster used to carry a hand-typed `state` that read "live" for
+ * two agents with no evidence path at all; that field is gone.
+ *
+ * "not instrumented" wears ink, not a status colour. It is neither health nor
+ * fault — it is the absence of a measurement — and spending a reserved status
+ * colour on it would blunt the two that mean something. It is also NOT a
+ * fallback: an agent reads this way only because nothing here can observe it,
+ * and the row says which. */
+const CHIP: Record<AgentState, { tone: string; label: string; glyph: "disc" | "ring" | "slash" }> = {
   live: { tone: "var(--war-good)", label: "live", glyph: "disc" },
-  gated: { tone: "var(--war-warning)", label: "gated", glyph: "ring" },
-  /* Neither "on demand" nor "dormant" is health or fault, so both wear ink
-   * rather than a reserved status colour. Spending good/warning on "a human has
-   * to start it" would blunt the two colours that mean something. */
-  "on-demand": { tone: "var(--war-ink-3)", label: "on demand", glyph: "dash" },
-  dormant: { tone: "var(--war-ink-3)", label: "dormant", glyph: "slash" },
+  idle: { tone: "var(--war-warning)", label: "idle", glyph: "ring" },
+  unknown: { tone: "var(--war-ink-3)", label: "not instrumented", glyph: "slash" },
 };
 
-function Glyph({ shape }: { shape: "disc" | "ring" | "dash" | "slash" }) {
+function Glyph({ shape }: { shape: "disc" | "ring" | "slash" }) {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden fill="none" stroke="currentColor">
       {shape === "disc" ? (
@@ -35,6 +39,7 @@ function Glyph({ shape }: { shape: "disc" | "ring" | "dash" | "slash" }) {
 
 export default function AgentRoster({ status }: { status: LoopStatus | null }) {
   const agents = getAgents();
+  const liveness = getAgentLiveness();
   return (
     <section className="war-card flex h-full flex-col gap-4 p-4" aria-label="Agent roster">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -42,13 +47,16 @@ export default function AgentRoster({ status }: { status: LoopStatus | null }) {
         {/* Both numbers are DERIVED. A hand-typed count is the same lie as a
           * hand-typed canvas label — see _run_count() in gen-flow.py. */}
         <span className="text-xs text-[var(--war-ink-3)]">
-          {agents.length} agents · {agents.filter((a) => a.hermes).length} generated from this file
+          {agents.length} agents · {agents.filter((a) => a.hermes).length} generated from this file ·{" "}
+          {liveness.derivedCount}/{liveness.totalCount} liveness derived at{" "}
+          {liveness.syncedAt.replace("T", " ").replace("Z", "Z")}
         </span>
       </div>
 
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {agents.map((a) => {
-          const chip = CHIP[a.state];
+          const live = liveness.of(a.id);
+          const chip = CHIP[live.state];
           const gate = heraldGate(a, status);
           const limits = agentLimits(a);
           return (
@@ -57,7 +65,7 @@ export default function AgentRoster({ status }: { status: LoopStatus | null }) {
               className="flex flex-col gap-2 rounded-md border border-[var(--war-border)] bg-[var(--war-surface-2)] p-3"
             >
               <div className="flex items-center gap-2">
-                <span style={{ color: chip.tone }} className="shrink-0">
+                <span style={{ color: chip.tone }} className="shrink-0" title={live.evidence}>
                   <Glyph shape={chip.glyph} />
                 </span>
                 <span className="text-sm font-semibold">{a.name}</span>

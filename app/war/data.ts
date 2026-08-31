@@ -5,6 +5,7 @@ import linksJson from "@/data/links.json";
 import loopStatusJson from "@/data/loop-status.json";
 import failureStatusJson from "@/data/failure-status.json";
 import agentsJson from "@/data/agents.json";
+import agentLivenessJson from "@/data/agent-liveness.json";
 
 /* Real data only — everything on /war derives from versioned JSON in /data
  * (see CLAUDE.md). No mock telemetry. */
@@ -479,7 +480,13 @@ export function tickIntervalMs(status: LoopStatus | null): number | null {
  * exactly the lie the canvas told for two weeks.
  * ------------------------------------------------------------------------- */
 
-export type AgentState = "live" | "gated" | "on-demand" | "dormant";
+/** DERIVED liveness, never declared. `unknown` means NOT INSTRUMENTED — there is
+ *  no evidence path for that agent — which is neither live nor failed, and is
+ *  never a fallback for a value we could not derive. Produced by
+ *  scripts/sync-agent-liveness.mjs into data/agent-liveness.json. */
+export type AgentState = "live" | "idle" | "unknown";
+
+export type AgentLiveness = { state: AgentState; evidence: string };
 
 /** Present only on agents this repo GENERATES onto a host (scripts/gen-agents.mjs).
  *  Its absence is meaningful: those rows are describing something the repo does
@@ -502,7 +509,6 @@ export type Agent = {
   runtime: string;
   cadence: string;
   since: string;
-  state: AgentState;
   gate?: { minPasses: number; minDocTypes: number };
   does: string;
   /* A string on hand-written rows; an array on generated ones, where each entry
@@ -514,6 +520,33 @@ export type Agent = {
 
 export function getAgents(): Agent[] {
   return (agentsJson as { agents: Agent[] }).agents;
+}
+
+/** Derived liveness for the roster, with the sample time it was true at.
+ *
+ *  The roster itself carries NO liveness field. It used to: a hand-typed
+ *  `state` that read `live` for two agents which have no evidence path at all.
+ *  An agent with no deriver reports `unknown`, and the UI must render that as
+ *  "not instrumented" rather than as a state. */
+export function getAgentLiveness(): {
+  syncedAt: string;
+  derivedCount: number;
+  totalCount: number;
+  of: (id: string) => AgentLiveness;
+} {
+  const raw = agentLivenessJson as {
+    syncedAt: string;
+    derivedCount: number;
+    totalCount: number;
+    liveness: Record<string, AgentLiveness>;
+  };
+  return {
+    syncedAt: raw.syncedAt,
+    derivedCount: raw.derivedCount,
+    totalCount: raw.totalCount,
+    of: (id) =>
+      raw.liveness[id] ?? { state: "unknown", evidence: "no deriver defined for this agent id" },
+  };
 }
 
 /** The limits, always as a list. A single prose string is one limit. */

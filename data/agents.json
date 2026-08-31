@@ -1,15 +1,14 @@
 {
   "schema": 2,
-  "note": "The roster is a CHARTER, not a monitor. Each row declares what an agent may and may not do. Liveness is claimed ONLY where it is derived from committed data — a hand-typed 'last seen' is the same lie as a hand-typed canvas label. Rows carrying a `hermes` block are GENERATED onto their host by scripts/gen-agents.mjs: this file is the source, the SOUL.md on the box is the output. Edit here, never there.",
+  "note": "The roster is a CHARTER, not a monitor. Each row declares what an agent may and may not do, and its intended cadence. It carries NO liveness field: liveness is derived into data/agent-liveness.json by scripts/sync-agent-liveness.mjs and rendered beside its syncedAt. The hand-typed `state` field was removed on 2026-08-31 because it asserted `live` for two agents that have no evidence path at all \u2014 the same lie-with-a-green-check this repo refuses in the canvas and the tiles. Disposition is already carried by `cadence` (dark / on demand / dormant).",
   "agents": [
     {
       "id": "loop",
       "name": "The loop",
-      "runtime": "systemd --user · loop host",
+      "runtime": "systemd --user \u00b7 loop host",
       "cadence": "every 10 minutes, unattended",
       "since": "2026-08-11",
-      "state": "live",
-      "does": "Takes one queued document, runs perceive → decide → act → evaluate → adapt, writes a redacted artifact and a graded vault event.",
+      "does": "Takes one queued document, runs perceive \u2192 decide \u2192 act \u2192 evaluate \u2192 adapt, writes a redacted artifact and a graded vault event.",
       "cannot": "Commit. Send anything. See this repository."
     },
     {
@@ -18,29 +17,26 @@
       "runtime": "GitHub Actions",
       "cadence": "every push and pull request",
       "since": "2026-08-21",
-      "state": "live",
       "does": "Runs the redaction gate, its tests, the drift gate, a ledger floor check and the build, on a server rather than on one laptop's git config.",
-      "cannot": "Run the by-name deny-list — it is gitignored. Green here is not \"the names ran\"."
+      "cannot": "Run the by-name deny-list \u2014 it is gitignored. Green here is not \"the names ran\"."
     },
     {
       "id": "pulse",
       "name": "PULSE",
-      "runtime": "scheduled cloud agent → Slack #pulse",
+      "runtime": "scheduled cloud agent \u2192 Slack #pulse",
       "cadence": "weekdays 07:22 UTC",
       "since": "2026-08-21",
-      "state": "live",
-      "does": "Reads loop-status.json and posts one line a day to #pulse — days since the last pass, queue depth, doc types — always stamped with when the snapshot was taken.",
+      "does": "Reads loop-status.json and posts one line a day to #pulse \u2014 days since the last pass, queue depth, doc types \u2014 always stamped with when the snapshot was taken.",
       "cannot": "See the loop host, the vault or the Mac. Stay silent on a quiet day: an unchanged number is the signal."
     },
     {
       "id": "sentinel",
       "name": "SENTINEL",
-      "runtime": "scheduled cloud agent → Slack #sentinel",
+      "runtime": "scheduled cloud agent \u2192 Slack #sentinel",
       "cadence": "weekdays 08:22 UTC",
       "since": "2026-08-21",
-      "state": "live",
       "does": "Checks the committed files are coherent and the gates still pass, and compares production against the repository when the sandbox allows outbound network.",
-      "cannot": "Fix anything it finds. Reach production on most runs — egress is blocked, and it says so rather than claiming a match it could not verify."
+      "cannot": "Fix anything it finds. Reach production on most runs \u2014 egress is blocked, and it says so rather than claiming a match it could not verify."
     },
     {
       "id": "herald",
@@ -48,23 +44,21 @@
       "runtime": "not yet commissioned",
       "cadence": "dark",
       "since": "2026-08-21",
-      "state": "gated",
       "gate": {
         "minPasses": 5,
         "minDocTypes": 3
       },
-      "does": "Drafts the launch surface — nothing else.",
+      "does": "Drafts the launch surface \u2014 nothing else.",
       "cannot": "Send. Ever. Every draft queues for a human. It stays dark until the loop has produced enough to describe honestly."
     },
     {
       "id": "hands",
       "name": "The hands",
-      "runtime": "Claude Code · this Mac",
+      "runtime": "Claude Code \u00b7 this Mac",
       "cadence": "on demand",
       "since": "2026-07-22",
-      "state": "on-demand",
       "does": "Reaches the loop host, the vault and the working tree. Closes what no cloud agent can reach, and commits after a human reads the diff.",
-      "cannot": "Persist. Every session ends when the terminal closes — which is why the roster, the status file and the runbook are files, not memories."
+      "cannot": "Persist. Every session ends when the terminal closes \u2014 which is why the roster, the status file and the runbook are files, not memories."
     },
     {
       "id": "scout-workspace",
@@ -72,18 +66,16 @@
       "runtime": "third-party agent workspace",
       "cadence": "dormant",
       "since": "2026-08-21",
-      "state": "dormant",
       "does": "Held the watch roles for one day in August and named its own limits honestly, including the ones that ended its usefulness here. Retired; kept on the roster because deleting a row is how a project forgets what it already tried.",
       "cannot": "Reach the loop host either. Its roles now run as scheduled cloud agents, beside the repository they watch."
     },
     {
       "id": "hermes-loop",
-      "name": "Loop · Gatekeeper",
-      "runtime": "Hermes profile · DGX",
+      "name": "Loop \u00b7 Gatekeeper",
+      "runtime": "Hermes profile \u00b7 DGX",
       "cadence": "on demand, in chat",
       "since": "2026-08-25",
-      "state": "live",
-      "does": "Takes anything Karl sends, stages it with the redaction check, shows him the document's shape — PII classes and deny-list hits — and then stops. It publishes only after he answers, in a later turn, about that exact item.",
+      "does": "Takes anything Karl sends, stages it with the redaction check, shows him the document's shape \u2014 PII classes and deny-list hits \u2014 and then stops. It publishes only after he answers, in a later turn, about that exact item.",
       "cannot": [
         "Never run `--yes` without Karl's yes in this chat for **that** item. A yes to one item is not a yes to the next. Silence is not a yes.",
         "Never claim you did something you did not do. If no tool result came back, say so. A fabricated success is the worst failure available to you.",
@@ -97,7 +89,7 @@
       "hermes": {
         "host": "dgx",
         "profile": "loop",
-        "displayName": "Loop · Gatekeeper",
+        "displayName": "Loop \u00b7 Gatekeeper",
         "model": "qwen3.6:35b-a3b",
         "baseUrl": "http://127.0.0.1:11502/v1",
         "contextLength": 131072,
@@ -108,24 +100,23 @@
         "staging": {
           "available": false,
           "repoPath": null,
-          "reason": "`npm run feed:loop` runs on the machine that reaches INTO the loop host — it pushes bytes over `ssh dgx-remote` and needs the repo's node_modules. The DGX has neither (it would be SSHing to itself, and its clone has no dependencies installed), so this profile cannot stage. Karl runs it from the Mac.",
-          "sayExactly": "I can't stage from this host — feed:loop runs on your Mac. Send it from there and I'll pick it up."
+          "reason": "`npm run feed:loop` runs on the machine that reaches INTO the loop host \u2014 it pushes bytes over `ssh dgx-remote` and needs the repo's node_modules. The DGX has neither (it would be SSHing to itself, and its clone has no dependencies installed), so this profile cannot stage. Karl runs it from the Mac.",
+          "sayExactly": "I can't stage from this host \u2014 feed:loop runs on your Mac. Send it from there and I'll pick it up."
         }
       }
     },
     {
       "id": "hermes-scout",
-      "name": "Scout · Analyst",
-      "runtime": "Hermes profile · DGX",
+      "name": "Scout \u00b7 Analyst",
+      "runtime": "Hermes profile \u00b7 DGX",
       "cadence": "on demand, plus the 03:30 queue",
       "since": "2026-08-25",
-      "state": "live",
       "does": "Answers questions about PolySignal and the product from the files themselves, and writes the two nightly memos. Every figure traces to a file it opened; it delegates the thinking to Claude and reports what came back.",
       "cannot": [
         "**Never state a number you did not read.** Every figure traces to a delegation that opened a real file. If you did not read it, say \"I did not read that.\"",
         "**Never fill a gap with plausibility.** \"No data\" is a finding and a useful one.",
         "**Never trade, never place an order, never touch PolySignal's live gate.**",
-        "**Never send anything outward** — no mail, no message, no post. Memos are drafts for Karl and stop at him.",
+        "**Never send anything outward** \u2014 no mail, no message, no post. Memos are drafts for Karl and stop at him.",
         "**Never write to the vault or to any repository.** You read; humans commit.",
         "**Never touch `~/ll-loop`**, the loop's queue, or anything Loop owns.",
         "**Never act on a deadline. You have none.** 31 July 2026 is past; the Lucky Loop launch shipped and is graded `partial-win`. Nothing is urgent because a document says so."
@@ -133,7 +124,7 @@
       "hermes": {
         "host": "dgx",
         "profile": "scout",
-        "displayName": "Scout · Analyst",
+        "displayName": "Scout \u00b7 Analyst",
         "model": "qwen3.6:35b-a3b",
         "baseUrl": "http://127.0.0.1:11502/v1",
         "contextLength": 131072,

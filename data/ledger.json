@@ -1,9 +1,34 @@
 {
-  "generatedAt": 1787922066000,
-  "builtAt": 1787923159869,
+  "generatedAt": 1788173614000,
+  "builtAt": 1788206132533,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "bcf043c88d9362aa2e01f1d4d6d95b820a80421d",
+      "t": 1788173614000,
+      "msg": "feat(ritual): /clockin and /clockout — the session ritual stops depending on chat"
+    },
+    {
+      "sha": "93a09158e532c54cd6c97646527c89d09dc801d1",
+      "t": 1787950073000,
+      "msg": "docs(handoff): 2026-08-28 — five claims died, R-5 closed, Librarian's first turn"
+    },
+    {
+      "sha": "01debecf454deb29a309fef7a4b33828b1e620b9",
+      "t": 1787946793000,
+      "msg": "feat(gates): the MCP allowlist is a contract, not a habit"
+    },
+    {
+      "sha": "13520aa600f680eebf16ce913a9d6d06c4823c67",
+      "t": 1787936149000,
+      "msg": "docs(findings): an indicator whose failing state was unreachable"
+    },
+    {
+      "sha": "6333628f6d2e99a02c44523400e5c31045bd2f41",
+      "t": 1787923198000,
+      "msg": "feat(war): render what is failing — the channel no surface has ever had"
+    },
     {
       "sha": "54f6c38bd53cbca6bfe170aa1cdbdf364ca6ec96",
       "t": 1787922066000,

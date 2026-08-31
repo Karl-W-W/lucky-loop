@@ -76,6 +76,11 @@ ARTIFACTS = [
     "data/loop-def.json",
     "data/loop-status.json",
     "data/failure-status.json",
+    # Derived agent liveness. It carries agent ids, a derived state and a short
+    # evidence string — counts and states only, never a hostname, filename or
+    # session id — but it is committed and rendered publicly like the rest, so
+    # it is gated like the rest rather than trusted to stay clean.
+    "data/agent-liveness.json",
 ]
 # loop-status.json joined the list the same day it was created. It carries counts
 # and timestamps only, by construction — but "by construction" is a claim about
