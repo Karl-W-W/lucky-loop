@@ -20,7 +20,7 @@ set -uo pipefail
 # Only pay the cost when a loop artifact is actually part of this commit.
 staged=$(git diff --cached --name-only --diff-filter=ACM)
 case "$staged" in
-  *data/loop-runs.json*|*data/loop-def.json*|*data/loop-status.json*) ;;
+  *data/loop-runs.json*|*data/loop-def.json*|*data/loop-status.json*|*data/failure-status.json*|*data/agent-liveness.json*) ;;
   *) exit 0 ;;
 esac
 
