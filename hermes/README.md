@@ -6,7 +6,7 @@ source of truth. Install by copying:
 
 | File here | Installed at | Reload |
 |---|---|---|
-| `desktop-plugins/fleet/plugin.js` | Mac `~/.hermes/desktop-plugins/fleet/plugin.js` | hot (fs-watched); write atomically |
+| `desktop-plugins/fleet/plugin.js` — two sidebar rows: **Today** (`/today`) and **Fleet** (`/fleet`, unchanged) | Mac `~/.hermes/desktop-plugins/fleet/plugin.js` | hot (fs-watched); write atomically; a route already on screen remounts only after navigating away or restarting the app |
 | `plugins/fleet/dashboard/plugin_api.py` | loop host `~/.hermes/plugins/fleet/dashboard/plugin_api.py` | `systemctl --user restart hermes-serve` |
 | `plugins/fleet/dashboard/today_api.py` | loop host, same directory | same |
 | `plugins/fleet/dashboard/manifest.json` | loop host, same directory | same |

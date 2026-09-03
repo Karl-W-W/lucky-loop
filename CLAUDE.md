@@ -208,7 +208,9 @@ rewrite of the Fleet plugin with four blocks in reading order — NEEDS YOU (the
 block with actions, each a copy-pasteable command), WHAT THE AGENTS DID (one row per
 nightly job, delegation, loop tick and cron run; expand for the text), GOALS (this
 repo's `data/okrs.json`, with each key result labelled **derived** or **declared**),
-THE BOX (one line; the former Fleet sections fold out as details). The same page is
+THE BOX (one line; the Fleet sections also fold out as details). **Fleet stays as its
+own sidebar row and page, unchanged** — Today was added beside it, not in place of it;
+the first cut renamed the row and Karl read that as a removal. The same page is
 served as text at `/api/plugins/fleet/today.txt` for an agent's context window.
 
 Sources of truth, and where the code lives:
@@ -223,7 +225,10 @@ Sources of truth, and where the code lives:
 - The queue is `queue/needs-you.json` in the PRIVATE vault, never in this repo. Rule
   (O4/KR2): **an item exists there before it is mentioned in chat.** Agents add
   items; only Karl closes one (`done: true` + `doneOn`). `/clockin` reads it,
-  `/clockout` appends to it.
+  `/clockout` appends to it. Each item keeps three fields apart: `steps` (what a
+  person does, in words), `command` (EXACTLY what to paste — no comments, no
+  placeholders; zsh has `interactivecomments` off, so a glued-on `# note` becomes
+  arguments and the command fails), `check` (proves it took; placeholders allowed).
 - Derived key results are computed in `today_api.py`, keyed by objective/KR id, from
   files the loop host holds: the queue, `~/ll-loop/out/loop-runs.json`, the
   retrieval-eval dashboard. Everything else renders as **declared**. A derivation that

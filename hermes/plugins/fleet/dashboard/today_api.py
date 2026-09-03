@@ -635,8 +635,13 @@ def _digest(d: Dict[str, Any]) -> str:
              + (f" · {ny['error']}" if ny.get("error") else ""))
     for i in ny.get("items", []):
         L.append(f"  {i.get('priority', '?')}. {i.get('title')}  [since {i.get('since')}, {i.get('age_days')} d]")
+        if i.get("steps"):
+            L.append(f"     do:    {i['steps']}")
         if i.get("command"):
-            L.append(f"     $ {i['command']}")
+            for k, ln in enumerate(str(i["command"]).splitlines()):
+                L.append(f"     {'paste:' if k == 0 else '      '} {ln}")
+        if i.get("check"):
+            L.append(f"     check: {i['check']}")
     for i in ny.get("derived", []):
         L.append(f"  •  {i.get('title')}  [derived]")
     L.append(f"AGENTS: {len(ag.get('items', []))} row(s), {ag.get('failed_count')} failed")

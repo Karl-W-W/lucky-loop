@@ -68,6 +68,11 @@ const CSS = `
   white-space:pre-wrap;overflow-wrap:anywhere;flex:1;padding:6px 8px;border-radius:6px;
   background:rgba(128,128,128,.1)}
 .tdy-since{font-size:11px;opacity:.5;margin-top:5px;font-variant-numeric:tabular-nums}
+.tdy-steps{display:flex;gap:8px;align-items:flex-start;margin-top:7px;font-size:12.5px;opacity:.85;
+  white-space:pre-wrap;max-width:88ch}
+.tdy-lbl{flex:none;display:inline-block;min-width:44px;font-size:10px;text-transform:uppercase;
+  letter-spacing:.08em;opacity:.55;margin-top:6px}
+.tdy-check{opacity:.7}
 .tdy-tag{display:inline-block;margin-left:8px;padding:0 6px;border-radius:4px;font-size:9.5px;
   text-transform:uppercase;letter-spacing:.06em;background:rgba(128,128,128,.18);opacity:.85;vertical-align:middle}
 .tdy-rows{display:grid;gap:4px}
@@ -232,9 +237,19 @@ function NeedsYou({ data: d }) {
         h('div', null,
           h('div', { className: 'tdy-title' }, i.title),
           i.why ? h('div', { className: 'tdy-why' }, i.why) : null,
+          // Three distinct things, never mixed on one line: STEPS a person follows
+          // (not shell), COMMAND that is exactly what to paste (no comments, no
+          // placeholders), CHECK that proves it took (placeholders allowed, marked).
+          i.steps ? h('div', { className: 'tdy-steps' },
+            h('span', { className: 'tdy-lbl' }, 'Do'), i.steps) : null,
           i.command ? h('div', { className: 'tdy-cmdrow' },
+            h('span', { className: 'tdy-lbl' }, 'Paste'),
             h('pre', { className: 'tdy-cmd' }, i.command),
             h(CopyBtn, { text: i.command, small: true })) : null,
+          i.check ? h('div', { className: 'tdy-cmdrow' },
+            h('span', { className: 'tdy-lbl' }, 'Check'),
+            h('pre', { className: 'tdy-cmd tdy-check' }, i.check),
+            h(CopyBtn, { text: i.check, small: true })) : null,
           h('div', { className: 'tdy-since' },
             'waiting since ' + (i.since || '?') +
             (i.age_days !== null && i.age_days !== undefined ? ' · ' + i.age_days + ' days' : '') +
@@ -605,18 +620,91 @@ function makeTodayPage(rest) {
   }
 }
 
+/* ------------------------------------------------------------------------ */
+/* Fleet — the full view of the box, unchanged, as its own page.             */
+/* Today ADDS a page; it does not replace this one (Karl, 2026-09-03).       */
+/* ------------------------------------------------------------------------ */
+function makeFleetPage(rest) {
+  return function FleetPage() {
+    const [data, setData] = useState(null)
+    const [err, setErr] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [lastOkAt, setLastOkAt] = useState(null)
+    const [errAt, setErrAt] = useState(null)
+
+    useEffect(() => {
+      injectStyle()
+      let dead = false
+      const tick = () =>
+        rest('/overview')
+          .then(d => { if (!dead) { setData(d); setErr(null); setLastOkAt(Date.now()); setLoading(false) } })
+          .catch(e => { if (!dead) { setErr(String(e)); setErrAt(Date.now()); setLoading(false) } })
+      tick()
+      const id = setInterval(tick, POLL_MS)
+      return () => { dead = true; clearInterval(id) }
+    }, [])
+
+    if (loading) return h('div', { className: 'tdy-root' }, h('p', null, 'Sampling the box…'))
+    if (err && !data) return h('div', { className: 'tdy-root' }, h(Err, { msg: err }))
+
+    const stale = Boolean(err && data)
+    const iso = t => (t ? new Date(t).toISOString() : null)
+    return h('div', { className: stale ? 'tdy-root tdy-stale' : 'tdy-root' },
+      stale ? h('div', { className: 'tdy-stalebar', role: 'alert' },
+        'STALE — the last refresh failed ' + ago(iso(errAt)) +
+        '. Everything below was sampled ' + ago(iso(lastOkAt)) + ' and is NOT current.',
+        h('small', null, 'Error: ' + err)) : null,
+      h('div', { className: 'tdy-body' },
+        h('header', null,
+          h('h1', null, 'Fleet'),
+          h('p', { className: 'tdy-oneline' }, data.maturity ||
+            'Lucky Loop is an early MVP and is not finished. This view reports what is ' +
+            'measured on one box; where something is not instrumented it says so.'),
+          h('div', { className: 'tdy-stamp' },
+            h('span', null, 'sampled ' + clock(data.sampled_at)),
+            h('span', null, 'refreshes every ' + Math.round(POLL_MS / 1000) + 's'),
+            err ? h('span', { style: { color: '#e26d5c' } }, 'last refresh failed') : null)),
+        h(FSection, { title: 'Health',
+          meta: data.health ? 'sampled ' + clock(data.health.sampled_at) : null,
+          children: h(Health, { data: data.health }) }),
+        h(FSection, { title: 'Checks',
+          meta: data.checks
+            ? (data.checks.status || '?') + ' · ' +
+              ((data.checks.total || 0) - (data.checks.failing || []).length) + '/' +
+              (data.checks.total || 0) + ' passing · written ' + ago(data.checks.checked_at)
+            : null,
+          children: h(Checks, { data: data.checks }) }),
+        h(FSection, { title: 'Unit CPU budgets',
+          meta: data.units && data.units.interval_s ? 'rate over ' + data.units.interval_s + 's' : 'first poll',
+          children: h(Units, { data: data.units }) }),
+        h(FSection, { title: 'Agent roster',
+          meta: data.roster ? (data.roster.agents || []).length + ' units' : null,
+          children: h(Roster, { data: data.roster }) }),
+        h(FSection, { title: 'Scheduled jobs',
+          meta: data.jobs
+            ? (data.jobs.timers || []).length + ' timers · ' + (data.jobs.cron || []).length + ' cron'
+            : null,
+          children: h(Jobs, { data: data.jobs }) })))
+  }
+}
+
 const plugin = {
   id: 'fleet',
-  name: 'Today',
+  name: 'Today + Fleet',
   description:
-    'The one page — what needs you, what the agents did, the goals, the box. Read-only; ' +
-    'every action is a command you run yourself. Also served as text at /today.txt for agents.',
+    'Today: what needs you, what the agents did, the goals, the box — one page, also served as ' +
+    'text at /today.txt for agents. Fleet: the full view of the box, unchanged. Read-only; ' +
+    'every action is a command you run yourself.',
   register(ctx) {
     const TodayPage = makeTodayPage(ctx.rest)
+    const FleetPage = makeFleetPage(ctx.rest)
     ctx.registerMany([
-      { id: 'page', area: ROUTES_AREA, data: { path: '/fleet' }, render: () => h(TodayPage) },
-      { id: 'nav', area: SIDEBAR_NAV_AREA, order: 5,
-        data: { codicon: 'home', label: 'Today', path: '/fleet' } }
+      { id: 'today-page', area: ROUTES_AREA, data: { path: '/today' }, render: () => h(TodayPage) },
+      { id: 'today-nav', area: SIDEBAR_NAV_AREA, order: 5,
+        data: { codicon: 'home', label: 'Today', path: '/today' } },
+      { id: 'page', area: ROUTES_AREA, data: { path: '/fleet' }, render: () => h(FleetPage) },
+      { id: 'nav', area: SIDEBAR_NAV_AREA, order: 55,
+        data: { codicon: 'pulse', label: 'Fleet', path: '/fleet' } }
     ])
   }
 }
