@@ -1,9 +1,44 @@
 {
-  "generatedAt": 1788173614000,
-  "builtAt": 1788206132533,
+  "generatedAt": 1788448840000,
+  "builtAt": 1788448960711,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "94e8aced391b120fba32d0364314025f132192d8",
+      "t": 1788448840000,
+      "msg": "feat(today): the Today page — manage the output of agents on one screen"
+    },
+    {
+      "sha": "1a1015f8fe076e4dab54f158700d4e22d5560592",
+      "t": 1788448527000,
+      "msg": "fix(okrs): O4/KR3 measures the needs-you queue, not ledger pairs a clockout writes together"
+    },
+    {
+      "sha": "8efbe2743a50dcad5bde4b2057486178d6f98a65",
+      "t": 1788447512000,
+      "msg": "feat(okrs): four live objectives replace a board that has been finished since July 30"
+    },
+    {
+      "sha": "0c9528eae843fd011b9c9e6a13c130a8e62b0019",
+      "t": 1788363435000,
+      "msg": "fix(gate): pre-commit hook covers all five gated artifacts"
+    },
+    {
+      "sha": "7324c0419413bc3770d360f0e0c38216400990d7",
+      "t": 1788211491000,
+      "msg": "docs(handoff): 2026-08-31 — 898 CPU-hours, a watchdog that made disable a lie, six corpses"
+    },
+    {
+      "sha": "75c545886a3aef5895bc179ca0d35c518b6d6d77",
+      "t": 1788206243000,
+      "msg": "docs(runbook): the DGX platform upgrade, and why it is not a patch run"
+    },
+    {
+      "sha": "eddcca4d5dc6fbbbbbc42fc46be2c9bd8b859560",
+      "t": 1788206164000,
+      "msg": "feat(agents): derive liveness, delete the field that claimed it"
+    },
     {
       "sha": "bcf043c88d9362aa2e01f1d4d6d95b820a80421d",
       "t": 1788173614000,
