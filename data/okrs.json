@@ -90,9 +90,9 @@
         },
         {
           "id": "KR3",
-          "title": "Median idea-to-action latency of 7 days or less, from decision event to outcome event in the vault ledger",
+          "title": "Median idea-to-action latency of 7 days or less, measured on the needs-you queue from an item's since to its doneOn",
           "progress": 0,
-          "note": "Karl's own self-KPI; computed from the ledger, never typed"
+          "note": "Karl's own self-KPI; computed from the queue file in the private vault, never typed. Nothing closed yet counts as 0."
         }
       ]
     },
