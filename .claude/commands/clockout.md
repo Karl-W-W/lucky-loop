@@ -38,6 +38,14 @@ Then exactly these sections:
   that proved false, what the real state was, and how it was caught. **This section is
   not optional and an empty one is suspicious.** It is the most valuable part of the file.
 
+## 1b. Update the queue
+
+Every OPEN DECISION above must exist in the vault's `queue/needs-you.json` (`id`,
+`priority`, `title`, `why`, `command`, `since`, `source`, `owner`, `done: false`).
+Add what is missing; rewrite `updatedAt`; **never set `done`** — only Karl closes an
+item. Commit and push the vault to the bare (`origin`), then fast-forward the DGX tree,
+or the Today page keeps rendering the old queue.
+
 ## 2. Log to the vault
 
 Append a session entry via `~/brain/tools/brain-log.py` — **never** by editing

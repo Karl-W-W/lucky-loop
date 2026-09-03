@@ -1,0 +1,14 @@
+{
+  "name": "fleet",
+  "label": "Fleet",
+  "description": "One view of this box — health, per-unit CPU budgets, infra checks, agent roster, scheduled jobs. Read-only; actions are emitted as commands to run.",
+  "icon": "Activity",
+  "version": "0.1.0",
+  "tab": {
+    "path": "/fleet",
+    "position": "after:skills"
+  },
+  "entry": "dist/index.js",
+  "css": "dist/style.css",
+  "api": "plugin_api.py"
+}

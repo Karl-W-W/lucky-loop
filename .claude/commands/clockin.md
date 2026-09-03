@@ -21,6 +21,13 @@ of whether data crosses is not evidence.
    "there was an overnight" corpse.
 2. Read, in this order, before asserting anything:
    - `docs/handoffs/<SINCE>.md`
+   - the **Today digest** — the Hermes Desktop Today page as text
+     (`/api/plugins/fleet/today.txt` on the loop host, pinned Desktop session token in
+     the header). It is what needs a human, what the agents did, the goals and the box
+     in one read; treat every line as a hypothesis like everything else here.
+   - `queue/needs-you.json` in the vault — every item waiting on Karl's hand. **An
+     item exists there before it is mentioned in chat.** If Phase 2 surfaces a
+     decision that is not in the queue, add it (never close one — only Karl does).
    - `CLAUDE.md` (and `AGENTS.md`)
    - vault session events since `SINCE` (gbrain MCP, read-only tools)
    - the applied `mail-triage.yaml`

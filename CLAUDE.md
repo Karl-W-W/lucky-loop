@@ -200,6 +200,38 @@ fails CLOSED when gbrain upgrades — a denylist would silently grant whatever n
 write tool 0.47 ships. Same reasoning as every other gate here. If an agent
 genuinely needs a new tool, add it to that list where a human can see it.
 
+## The Today page and the needs-you queue (2026-09-03)
+
+Karl's ruling: he wants to **manage the output of agents**, nothing else, on one
+screen a caveman could read. That screen is the Hermes Desktop **Today** page: a
+rewrite of the Fleet plugin with four blocks in reading order — NEEDS YOU (the only
+block with actions, each a copy-pasteable command), WHAT THE AGENTS DID (one row per
+nightly job, delegation, loop tick and cron run; expand for the text), GOALS (this
+repo's `data/okrs.json`, with each key result labelled **derived** or **declared**),
+THE BOX (one line; the former Fleet sections fold out as details). The same page is
+served as text at `/api/plugins/fleet/today.txt` for an agent's context window.
+
+Sources of truth, and where the code lives:
+
+- Frontend: `hermes/desktop-plugins/fleet/plugin.js` in this repo, installed at
+  `~/.hermes/desktop-plugins/fleet/plugin.js` on the Mac (hot-reloaded; write it
+  atomically — a half-written file is caught by the reloader). Backend:
+  `hermes/plugins/fleet/dashboard/{plugin_api.py,today_api.py,manifest.json}`,
+  installed under `~/.hermes/plugins/fleet/dashboard/` on the loop host; Python
+  changes need `systemctl --user restart hermes-serve` there (about 12 s; the Desktop
+  reconnects). The repo copy is the versioned one; the runtime doors are installs.
+- The queue is `queue/needs-you.json` in the PRIVATE vault, never in this repo. Rule
+  (O4/KR2): **an item exists there before it is mentioned in chat.** Agents add
+  items; only Karl closes one (`done: true` + `doneOn`). `/clockin` reads it,
+  `/clockout` appends to it.
+- Derived key results are computed in `today_api.py`, keyed by objective/KR id, from
+  files the loop host holds: the queue, `~/ll-loop/out/loop-runs.json`, the
+  retrieval-eval dashboard. Everything else renders as **declared**. A derivation that
+  flatters the work is deleted, not tuned: the first latency KR read ledger pairs a
+  clockout writes together and reported 100 %; it now measures the queue and reads 0.
+- The page is READ-ONLY like `/war` and the Fleet page before it. Hermes stays
+  interface and chat runtime; nothing on this page starts, stops, closes or sends.
+
 ## Style
 
 Keep the current dark command-center look: tokens live on `.war-root` in
