@@ -26,6 +26,100 @@
           ]
         }
       ]
+    },
+    {
+      "id": "O2",
+      "title": "Close the standing exposures before anything compounds on them",
+      "due": "2026-09-05",
+      "keyResults": [
+        {
+          "id": "KR1",
+          "title": "Rotation runbook items R-2 and R-3 closed — the old values answer 401",
+          "progress": 0,
+          "note": "human-only; the runbook lives in the private vault, not here"
+        },
+        {
+          "id": "KR2",
+          "title": "Retired GitHub repos archived so the public profile shows only live work",
+          "progress": 0,
+          "note": "17 repos on 2026-09-03, 5 with activity in the last 30 days"
+        }
+      ]
+    },
+    {
+      "id": "O3",
+      "title": "The loop earns its name on real breadth",
+      "due": "2026-10-31",
+      "keyResults": [
+        {
+          "id": "KR1",
+          "title": "10 real documents processed across at least 3 document types, zero fixtures",
+          "progress": 0.2,
+          "note": "3 passes on 2 real documents as of 2026-09-03 — counted from data/loop-runs.json, one fixture excluded"
+        },
+        {
+          "id": "KR2",
+          "title": "HERALD's gate met: 5 passes and 3 document types, derived by the roster",
+          "progress": 0,
+          "note": "the gate is in data/agents.json and the roster derives it; nothing here is hand-typed"
+        },
+        {
+          "id": "KR3",
+          "title": "Zero gate failures in CI and pre-commit for the whole window",
+          "progress": 0,
+          "note": "streak counted from 2026-09-10"
+        }
+      ]
+    },
+    {
+      "id": "O4",
+      "title": "One screen answers 'what should I do now'",
+      "due": "2026-10-15",
+      "keyResults": [
+        {
+          "id": "KR1",
+          "title": "The Hermes Desktop Today page shows goals, what the agents did, what needs a human, and box health — every number derived, with its sample time",
+          "progress": 0,
+          "note": "extends the read-only Fleet plugin; it reports, it does not control"
+        },
+        {
+          "id": "KR2",
+          "title": "Every item waiting on a human exists as a queue entry before it is mentioned in chat",
+          "progress": 0,
+          "note": "queue file in the private vault; rendered on the Today page and read at clockin"
+        },
+        {
+          "id": "KR3",
+          "title": "Median idea-to-action latency of 7 days or less, from decision event to outcome event in the vault ledger",
+          "progress": 0,
+          "note": "Karl's own self-KPI; computed from the ledger, never typed"
+        }
+      ]
+    },
+    {
+      "id": "O5",
+      "title": "The vault gets measurably smarter every week",
+      "due": "2026-10-31",
+      "keyResults": [
+        {
+          "id": "KR1",
+          "title": "gbrain brain score 59 to 75: orphan pages 111 to under 40, a person page exists, entity state blocks refreshed at clockout",
+          "progress": 0,
+          "note": "get_health on 2026-09-03: score 59, 111 of 150 linkable pages orphaned"
+        },
+        {
+          "id": "KR2",
+          "title": "Retrieval eval MRR@5 0.422 to 0.50 with the GPU reranker promoted",
+          "progress": 0,
+          "note": "CUDA build measured 0.67 s vs 25.4 s on CPU; promotion dated after 2026-09-10"
+        },
+        {
+          "id": "KR3",
+          "title": "Every work session ends with a handoff file and a vault entry — 4 of 4 weekly",
+          "progress": 0,
+          "note": "2026-09-02 ended without a handoff; the ritual exists, compliance is the result"
+        }
+      ]
     }
   ]
 }
