@@ -83,7 +83,7 @@ ssh dgx-remote 'docker run -d --rm --name pgrestoretest -e POSTGRES_PASSWORD=x p
 sleep 15
 ssh dgx-remote 'docker exec -i pgrestoretest psql -U postgres' < ~/vault-pg-$(date +%F).sql
 ssh dgx-remote 'docker exec pgrestoretest psql -U postgres -c "\l"'      # databases present?
-ssh dgx-remote 'docker exec pgrestoretest psql -U postgres -d brain -c "select count(*) from pages;"'
+ssh dgx-remote 'docker exec pgrestoretest psql -U postgres -d gbrain -c "select count(*) from pages;"'
 ssh dgx-remote 'docker stop pgrestoretest'
 ```
 
@@ -120,7 +120,7 @@ ssh dgx-remote 'uname -r; cat /etc/dgx-release | head -3; \
 ssh dgx-remote 'docker ps -a --format "{{.Names}}\t{{.Status}}"'
 
 # 3. the vault answers
-ssh dgx-remote 'docker exec brain-pgv psql -U postgres -d brain -c "select count(*) from pages;"'
+ssh dgx-remote 'docker exec brain-pgv psql -U postgres -d gbrain -c "select count(*) from pages;"'
 
 # 4. the loop and the fleet
 ssh dgx-remote 'systemctl --user is-active hermes-serve polysignal-scanner lucky-loop.timer'

@@ -228,6 +228,10 @@ function NeedsYou({ data: d }) {
   const derived = d.derived || []
   return h('div', null,
     d.error ? h('div', { className: 'tdy-err' }, d.error) : null,
+    h('div', { className: 'tdy-why', style: { marginBottom: 10 } },
+      'In any terminal: ', h('code', null, 'needs-you'), ' lists these, ',
+      h('code', null, 'needs-you 1'), ' runs item 1 line by line, ',
+      h('code', null, 'needs-you done 1'), ' closes it. Also: ctrl+b alt+b inside herdr.'),
     !items.length && !derived.length && !d.error
       ? h('p', { className: 'tdy-empty' }, 'Nothing is waiting on you.')
       : null,
