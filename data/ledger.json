@@ -1,9 +1,24 @@
 {
-  "generatedAt": 1788448840000,
-  "builtAt": 1788448960711,
+  "generatedAt": 1788539771000,
+  "builtAt": 1788542422165,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "cdef8526a15c81063424be92012ba4f341184920",
+      "t": 1788539771000,
+      "msg": "today: one-line hint that needs-you runs queue items from a terminal; runbook: the vault database is gbrain, not brain"
+    },
+    {
+      "sha": "b7acf82e522c0929fef8f58ae3d72237ddb8aaeb",
+      "t": 1788454549000,
+      "msg": "fix(today): Fleet stays as its own row; queue commands paste clean"
+    },
+    {
+      "sha": "c3f1b474ccd575e43b5e11d1aaa23d6562da6e34",
+      "t": 1788449005000,
+      "msg": "chore(ledger): regenerate — picks up today's four commits"
+    },
     {
       "sha": "94e8aced391b120fba32d0364314025f132192d8",
       "t": 1788448840000,
