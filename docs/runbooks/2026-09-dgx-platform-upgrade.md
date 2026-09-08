@@ -178,3 +178,18 @@ and it is the reason for a window rather than a Tuesday evening.
 - The reranker *decision* (park vs. promote). Independent of this upgrade,
   though deciding first saves a re-test.
 - Anything requiring a reboot happens only on Karl's explicit go.
+
+## Acceptance test after any reboot (added 2026-09-08)
+
+Every registered daemon reports a fresh heartbeat within 10 minutes of boot, or the change is
+rolled back. The check is one command, run on the box (from the Mac it forwards over ssh):
+
+```
+~/brain/tools/heartbeat check
+```
+
+It prints one PASS/FAIL line per daemon (the registry is `data/heartbeats.json` in the vault: the
+foreman, infra-watch, the loop, the scanner, the truth board, the feedback job, the nightly queue)
+and exits non-zero on any stale or missing heartbeat. Stale means older than twice the daemon's
+cadence. A daemon that does not come back by itself after boot (the scanner did not, on
+2026-09-04) is a FAIL here, not a note for later.
