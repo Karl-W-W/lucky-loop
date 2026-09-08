@@ -17,6 +17,7 @@
     "lint": "eslint",
     "sync:loop": "node scripts/sync-loop.mjs",
     "feed:loop": "node scripts/feed-loop.mjs",
+    "feed:bills": "node scripts/feed-from-bills.mjs",
     "agents:build": "node scripts/gen-agents.mjs",
     "agents:check": "node scripts/gen-agents.mjs --check",
     "agents:deploy": "node scripts/gen-agents.mjs --deploy",
