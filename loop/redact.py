@@ -64,6 +64,8 @@ NAME_TOKENS = [*DEFAULT_NAME_TOKENS, *_LOCAL_NAME_TOKENS]
 
 # Ordered: the most specific pattern must win, so EMAIL runs before DIGITS.
 PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
+    # 2026-09-08 (planted-leak test, Karl): API keys and tokens are a leak class of their own.
+    ("secret", re.compile(r"\b(?:sk-ant-[A-Za-z0-9_-]{16,}|sk-[A-Za-z0-9]{24,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,})"), "[secret]"),
     ("email", re.compile(r"[\w.+-]+@[\w-]+\.[\w.]{2,}"), "[email]"),
     ("iban", re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b"), "[iban]"),
     ("vat-id", re.compile(r"\b(?:VAT|USt|UID)[-\s]?(?:ID)?[-\s:]*[A-Z]{2}[A-Z0-9]{6,14}\b", re.I), "[vat-id]"),

@@ -164,3 +164,11 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def test_secret_pattern_planted_key_is_redacted():
+    """2026-09-08: a synthetic Anthropic-style key must never survive redaction (planted-leak test)."""
+    from redact import redact_text
+    planted = "note: sk-ant-api03-PLANTEDPLANTEDPLANTEDPLANTED0000 must not ship"
+    out = redact_text(planted) if callable(redact_text) else ""
+    assert "sk-ant-" not in str(out), out
