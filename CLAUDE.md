@@ -200,6 +200,36 @@ fails CLOSED when gbrain upgrades — a denylist would silently grant whatever n
 write tool 0.47 ships. Same reasoning as every other gate here. If an agent
 genuinely needs a new tool, add it to that list where a human can see it.
 
+## Hop 0 narrowed for ONE class: bills (2026-09-08)
+
+`scripts/feed-from-bills.mjs`, wired as the nightly-queue job `bills-to-loop`
+directly after `bills-to-vault`, turns each new bill the mail job filed under
+`~/brain/realms/admin-billing/inbox/<date>/` into `~/ll-loop/inbox/item-NNN.txt`.
+It runs unattended, so it cannot ask. **Read the section above and then read
+this one: the human no longer chooses which bill enters the loop.** What is left
+of the control, said as code rather than as intent:
+
+- **Class, not document.** One source directory, the admin-billing drop. That is
+  the only realm whose words `ISSUER_KINDS`/`DOC_TYPES` actually contain, which
+  is the same finding as the realm section above. Pointing it at `car-export` or
+  `phyto-farm` reintroduces the exact bug that section describes.
+- **Feeding is not publishing.** Nothing in the script touches the repo, git or
+  the site. The loop writes to `~/ll-loop/out`; `npm run sync:loop` still does
+  not commit, so a human still reads the diff. That is now the ONLY human step
+  left in the chain — anyone making `sync:loop` commit by itself removes the
+  last gate.
+- **The default still does nothing.** Without `--feed` it is a dry run. The
+  nightly passes `--feed`; like `feed-loop.mjs`'s `--yes` that is a declared
+  step, not an enforced one.
+- Idempotent by CONTENT: source sha256 and extracted-text sha256 are remembered
+  in `~/.local/state/lucky-loop/feed-from-bills.json` (never in this repo, never
+  under `~/.hermes`), so the same PDF arriving twice is fed once. `LL_FEED_MAX`
+  (default 3) caps a night's intake and the held-back items are PRINTED, not
+  dropped silently.
+- Output is SHAPE, never text and never a filename — `<date>/#<8 hex>`, because
+  a bill's filename is the issuer and the invoice number, and this output lands
+  on a vault page. The full paths stay in the state file on the box.
+
 ## The Today page and the needs-you queue (2026-09-03)
 
 Karl's ruling: he wants to **manage the output of agents**, nothing else, on one
