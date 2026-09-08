@@ -6,6 +6,7 @@ import loopStatusJson from "@/data/loop-status.json";
 import failureStatusJson from "@/data/failure-status.json";
 import agentsJson from "@/data/agents.json";
 import agentLivenessJson from "@/data/agent-liveness.json";
+import opsStatusJson from "@/data/ops-status.json";
 
 /* Real data only — everything on /war derives from versioned JSON in /data
  * (see CLAUDE.md). No mock telemetry. */
@@ -694,4 +695,19 @@ export function failureState(s: FailureStatus | null, anchor: number): FailureSt
       "At least one unit or scheduled job is failing and not recovering on its own. " +
       "A retry loop is not a fix.",
   };
+}
+
+
+/* Three ops numbers (Karl, 2026-09-08): needs-you count, heartbeats fresh, laps converged
+ * unattended. A snapshot from scripts/sync-ops.mjs; numbers only, by rule. */
+export type OpsStatus = {
+  syncedAt: string;
+  needsYou: number;
+  heartbeats: { fresh: number; total: number; checkedAt: string };
+  lapsConvergedUnattended: number;
+};
+export function getOpsStatus(): OpsStatus | null {
+  const raw = opsStatusJson as unknown as OpsStatus;
+  if (!raw || typeof raw.syncedAt !== "string" || typeof raw.needsYou !== "number") return null;
+  return raw;
 }

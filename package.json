@@ -23,7 +23,8 @@
     "drop:realm": "node scripts/drop-realm.mjs",
     "sync:failures": "node scripts/sync-failures.mjs",
     "check:mcp": "node scripts/check-mcp-invariant.mjs",
-    "sync:agents": "node scripts/sync-agent-liveness.mjs"
+    "sync:agents": "node scripts/sync-agent-liveness.mjs",
+    "sync:ops": "node scripts/sync-ops.mjs"
   },
   "dependencies": {
     "next": "16.2.11",

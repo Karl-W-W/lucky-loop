@@ -9,6 +9,7 @@ import {
   getLoopStatus,
   getFailureStatus,
   getObjectives,
+  getOpsStatus,
   getProductionDeploys,
   isLedgerFromGit,
   isLedgerTruncated,
@@ -43,6 +44,7 @@ export default function Dashboard({ anchor }: { anchor: number }) {
   const commits7d = perDay.reduce((a, b) => a + b, 0);
   const lastDeploy = deploys[0] ?? null;
   const builtAt = getBuildTime();
+  const ops = getOpsStatus();
   /* The hero tile stops being a countdown once the objective is met — it
    * reports the outcome instead. Both halves derive from okrs.json, so the day
    * after the deadline is a state the page can render, not a number it clamps. */
@@ -158,6 +160,26 @@ export default function Dashboard({ anchor }: { anchor: number }) {
             }
           />
         </div>
+
+        {ops ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Ops: three numbers">
+            <StatTile
+              label="Needs you"
+              value={String(ops.needsYou)}
+              note={`open items · synced ${fmtAgo(Date.parse(ops.syncedAt), anchor)}`}
+            />
+            <StatTile
+              label="Heartbeats fresh"
+              value={`${ops.heartbeats.fresh}/${ops.heartbeats.total}`}
+              note={`daemons on the box · checked ${fmtAgo(Date.parse(ops.heartbeats.checkedAt), anchor)}`}
+            />
+            <StatTile
+              label="Laps converged unattended"
+              value={String(ops.lapsConvergedUnattended)}
+              note="run-until-finished laps the foreman graded CONVERGED with no human hand"
+            />
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Directly under the stat tiles, above the OKRs: every other panel
