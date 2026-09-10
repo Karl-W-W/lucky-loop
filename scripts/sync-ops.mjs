@@ -23,7 +23,10 @@ function needsYou() {
   return q.items.filter((i) => !i.done).length;
 }
 function heartbeats() {
-  const raw = execFileSync(join(BRAIN, "tools", "heartbeat"), ["check", "--json"], { encoding: "utf8", timeout: 60_000 });
+  // exit 1 means "a daemon is stale", which is a number to show, not a reason to fail the sync
+  let raw;
+  try { raw = execFileSync(join(BRAIN, "tools", "heartbeat"), ["check", "--json"], { encoding: "utf8", timeout: 60_000 }); }
+  catch (e) { raw = e.stdout ? String(e.stdout) : ""; if (!raw.trim()) throw e; }
   const hb = JSON.parse(raw.trim().split("\n").pop());
   return { fresh: hb.fresh, total: hb.total, checkedAt: hb.now_utc };
 }
