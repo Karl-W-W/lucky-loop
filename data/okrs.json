@@ -68,6 +68,12 @@
           "title": "Zero gate failures in CI and pre-commit for the whole window",
           "progress": 0,
           "note": "streak counted from 2026-09-10"
+        },
+        {
+          "id": "KR4",
+          "title": "7 consecutive unattended converged nights (night 1 = 2026-09-08→09; an idle night neither counts nor resets)",
+          "progress": 0.14,
+          "note": "derived on the Today page from loop-runs.json (today_api.py, _converged_nights: a night is 20:00Z→08:00Z; every pass converged = +1; any other end = reset; no pass = skipped). This number is the 2026-09-10 snapshot, 1 of 7; /war shows the declared value until the OKR derivation moves to build time"
         }
       ]
     },

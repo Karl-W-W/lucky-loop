@@ -464,6 +464,46 @@ def _mrr_last() -> Dict[str, Any]:
         return {"mrr5": None, "error": f"{type(e).__name__}: {e}"}
 
 
+def _converged_nights(start: str = "2026-09-08") -> Dict[str, Any]:
+    """O3/KR4 — consecutive unattended CONVERGED nights, the definition as code (Karl, 2026-09-10).
+
+    A night N is the window 20:00Z on date N to 08:00Z on date N+1: it holds the nightly queue's
+    01:30Z bills feed and the passes it triggers. Night 1 is 2026-09-08 -> 09. For every night from
+    night 1 to the last COMPLETED night (window end <= now):
+      * no pass finished in the window   -> IDLE: neither counts nor resets (a starving loop is not a
+                                            failing loop, and it is not a converging one either);
+      * every pass in the window ended with terminationReason == "converged" -> streak + 1;
+      * any other termination            -> the streak resets to 0.
+    The counter is read from ~/ll-loop/out/loop-runs.json on this host (R3), never typed."""
+    try:
+        runs = json.loads(LL_RUNS.read_text(encoding="utf-8")).get("runs", [])
+    except Exception as e:  # noqa: BLE001
+        return {"streak": 0, "idle": 0, "nights": 0, "error": f"{type(e).__name__}: {e}"}
+    from datetime import timedelta
+    day0 = _parse_dt(start + "T20:00:00+00:00")
+    now = _now_dt()
+    streak = idle = nights = 0
+    last = None
+    n = 0
+    while True:
+        w0 = day0 + timedelta(days=n)
+        w1 = w0 + timedelta(hours=12)
+        if w1 > now:
+            break
+        nights += 1
+        inside = [r for r in runs if (t := _parse_dt(r.get("finishedAt") or "")) and w0 <= t < w1]
+        if not inside:
+            idle += 1
+        elif all(r.get("terminationReason") == "converged" for r in inside):
+            streak += 1
+            last = w0.date().isoformat()
+        else:
+            streak = 0
+            last = w0.date().isoformat()
+        n += 1
+    return {"streak": streak, "idle": idle, "nights": nights, "last_counted": last, "source": _rel(LL_RUNS)}
+
+
 def goals(loop: Dict[str, Any], queue_all: List[Dict[str, Any]]) -> Dict[str, Any]:
     okrs_path = REPO / "data" / "okrs.json"
     agents_path = REPO / "data" / "agents.json"
@@ -499,6 +539,7 @@ def goals(loop: Dict[str, Any], queue_all: List[Dict[str, Any]]) -> Dict[str, An
     # KR derivations, keyed by "<objective>/<kr>". Anything not listed is DECLARED
     # (the number in okrs.json) and rendered with that word next to it.
     q_done = {i.get("id"): bool(i.get("done")) for i in queue_all}
+    nights = _converged_nights()
     derive: Dict[str, Dict[str, Any]] = {
         "O2/KR1": {
             "progress": (int(q_done.get("r2-anthropic-key", False)) + int(q_done.get("r3-telegram-token", False))) / 2,
@@ -509,6 +550,13 @@ def goals(loop: Dict[str, Any], queue_all: List[Dict[str, Any]]) -> Dict[str, An
             "progress": round(min(1.0, (min(passes / herald["minPasses"], 1) + min(ndoc / herald["minDocTypes"], 1)) / 2), 2),
             "live": f"{passes}/{herald['minPasses']} passes · {ndoc}/{herald['minDocTypes']} doc types"
                     + (" · gate MET" if herald_met else ""),
+        },
+        "O3/KR4": {
+            "progress": round(min(1.0, nights["streak"] / 7), 2),
+            "live": (f"{nights['streak']}/7 consecutive converged nights since 2026-09-08→09 · "
+                     f"{nights['idle']} of {nights['nights']} night(s) idle (skipped)"
+                     + (f" · last counted {nights['last_counted']}" if nights.get("last_counted") else "")
+                     + (f" · {nights['error']}" if nights.get("error") else "")),
         },
         "O4/KR3": {
             "progress": (1.0 if latency["median_days"] is not None and latency["median_days"] <= 7
