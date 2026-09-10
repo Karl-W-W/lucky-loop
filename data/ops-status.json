@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "about": "Three numbers from the ops layer, sampled by scripts/sync-ops.mjs. A SNAPSHOT: every field was true at syncedAt and says nothing about now. Numbers only by rule.",
-  "syncedAt": "2026-09-10T13:02:44Z",
+  "syncedAt": "2026-09-10T14:32:52Z",
   "needsYou": 4,
   "heartbeats": {
-    "fresh": 7,
-    "total": 7,
-    "checkedAt": "2026-09-10T13:02:46Z"
+    "fresh": 9,
+    "total": 9,
+    "checkedAt": "2026-09-10T14:32:53Z"
   },
   "lapsConvergedUnattended": 1
 }
