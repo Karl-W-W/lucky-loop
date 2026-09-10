@@ -1,0 +1,15 @@
+[Unit]
+Description=Stage the loop's artifacts for the artifact-return Action every 30 minutes
+Documentation=https://github.com/Karl-W-W/lucky-loop/blob/main/docs/AUTONOMY.md
+
+[Timer]
+# :05 and :35 — off the loop's own :00/:10/:20 ticks, so a pass that finishes at :00 is staged
+# five minutes later, not thirty. The script is idempotent on CONTENT (a hash, not an mtime),
+# so an idle half hour costs one heartbeat and one log line.
+OnCalendar=*:5/30
+Persistent=true
+AccuracySec=1min
+Unit=artifact-return.service
+
+[Install]
+WantedBy=timers.target

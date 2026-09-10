@@ -1,0 +1,27 @@
+[Unit]
+# The loop host's half of the artifact-return hop (docs/AUTONOMY.md, "Hop 4"; Karl's word
+# 2026-09-10: action). Stages the loop's REDACTED artifacts plus a gate attestation in the
+# private mirror repo; the public repo's Action carries them the rest of the way as a PR.
+#
+# Install (from the repo root, once; the script itself is run from the gate checkout so the
+# box always executes the PUBLISHED version):
+#   ssh dgx-remote 'git clone -q https://github.com/Karl-W-W/lucky-loop.git ~/lucky-loop-gate'
+#   scp deploy/artifact-return.* dgx-remote:.config/systemd/user/
+#   ssh dgx-remote 'systemctl --user daemon-reload && systemctl --user enable --now artifact-return.timer'
+Description=Lucky Loop artifact-return - stage redacted artifacts in the private mirror
+Documentation=https://github.com/Karl-W-W/lucky-loop/blob/main/docs/AUTONOMY.md
+After=network-online.target
+
+# A refused run (red gate, shrinking host, foreign path) is a FAILURE here, on purpose: the
+# same dead-man that lucky-loop.service uses writes it to the failures log, and
+# loop-status.json carries that timestamp to /war as lastFailureAt.
+OnFailure=lucky-loop-failed@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/lucky-loop-gate
+Environment=BRAIN_REPO=%h/brain
+ExecStart=/usr/bin/python3 %h/lucky-loop-gate/deploy/artifact-return/artifact-return.py
+TimeoutStartSec=600
+StandardOutput=journal
+StandardError=journal

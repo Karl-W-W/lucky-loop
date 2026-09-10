@@ -1,9 +1,109 @@
 {
-  "generatedAt": 1788539771000,
-  "builtAt": 1788542422165,
+  "generatedAt": 1789045366000,
+  "builtAt": 1789047828135,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "75e56980951aa80999c32b90b412d73af1c91aa0",
+      "t": 1789045366000,
+      "msg": "ops-status: clock-out snapshot 2026-09-10"
+    },
+    {
+      "sha": "5a15dbb4d67e8df4992cd54e6688c6b23c013b95",
+      "t": 1789045328000,
+      "msg": "handoff 2026-09-10: the loop earned its name once (2 passes published unattended); sync-ops tolerates a stale-daemon exit"
+    },
+    {
+      "sha": "19dc3396e7dbe1a9a6e3eec008d019dc8fa74498",
+      "t": 1788932854000,
+      "msg": "loop-publish: 2 new pass(es), canvas regenerated — 5 pass(es) on the host"
+    },
+    {
+      "sha": "84ae1837439741c28d63900391cf88d4f32a8677",
+      "t": 1788889980000,
+      "msg": "handoff evening addendum: the word list executed, chain state for tonight"
+    },
+    {
+      "sha": "d569913d176782de2aae6fd071d2b41f554aac5f",
+      "t": 1788888429000,
+      "msg": "loop-publish: status snapshot — 3 pass(es) on the host"
+    },
+    {
+      "sha": "f7eb282fada929fb7e4a1d3c21f7786e8236b4ed",
+      "t": 1788888424000,
+      "msg": "autonomy: loop-publish, the Mac half of the artifact-return hop, plus docs/AUTONOMY.md; gate 1 gains a secret-key pattern (planted-leak test 2026-09-08: publisher went red and pushed nothing)"
+    },
+    {
+      "sha": "008baf54bfed1457a9480a8b5e449dcd6aa375f5",
+      "t": 1788888168000,
+      "msg": "merge foreman/lucky-loop-feed-from-bills: the nightly bills drop becomes the loop's queue (Karl: go, 2026-09-08)"
+    },
+    {
+      "sha": "70a303a07b51c378c6842b0c548eabc30f60057f",
+      "t": 1788886951000,
+      "msg": "handoff evening: dead-man final form (Actions + ntfy, no hand step)"
+    },
+    {
+      "sha": "ed7fbc85e504b0555c0935b809a41da89dc5ef26",
+      "t": 1788881881000,
+      "msg": "handoff 2026-09-08 evening: verifications, R5 tiers, closes, /war numbers"
+    },
+    {
+      "sha": "d0a8b6a8e0057beb6b687c2a30a203b1025feac1",
+      "t": 1788881709000,
+      "msg": "war: three ops numbers — needs-you, heartbeats fresh, laps converged unattended (scripts/sync-ops.mjs → data/ops-status.json; numbers only); canvas regenerated"
+    },
+    {
+      "sha": "4a4475f46de36e56aaef3cc3cb46d2ccdcd4171a",
+      "t": 1788879209000,
+      "msg": "handoff 2026-09-08: run-until-finished v1.2 built + Karl's ten-step order executed"
+    },
+    {
+      "sha": "677141885cdd2ed0d42038b15701880da2a76718",
+      "t": 1788878837000,
+      "msg": "feed(loop): the nightly bills drop becomes the loop's queue"
+    },
+    {
+      "sha": "c3bac304fda925ae3927ab8a56b6f3fdd103b4a0",
+      "t": 1788878749000,
+      "msg": "runbook: post-reboot acceptance test = every heartbeat fresh within 10 min, else roll back"
+    },
+    {
+      "sha": "61cf1a7d2ffce10a404e500dafbf6b2283b20497",
+      "t": 1788623689000,
+      "msg": "handoff 2026-09-05 (evening): decisions answered by delegation, one-glance worklog on the Today page, gate tightened on a proposal branch, four hand lines queued"
+    },
+    {
+      "sha": "126d0b85cf209d82507f4416aed6a81603123fb1",
+      "t": 1788621140000,
+      "msg": "handoff: closing instructions — decisions delegated, two hand lines, where the work is visible"
+    },
+    {
+      "sha": "e7f2d695a11eb401a42734d75c36a4c9adbd8aeb",
+      "t": 1788620191000,
+      "msg": "handoff: decide tool, ElevenLabs answer, builders in flight"
+    },
+    {
+      "sha": "7ed1983611c4987dad0a00083e42df507428fed8",
+      "t": 1788619932000,
+      "msg": "handoff: PolySignal branch claims independently verified"
+    },
+    {
+      "sha": "e7c4177a06f3394737c5f62f425acc77fb85e5d0",
+      "t": 1788619833000,
+      "msg": "handoff 2026-09-05: commander session — AGENT-OS, ADR-4, PolySignal ladder, vault entities, two briefs awaiting Karl's launch"
+    },
+    {
+      "sha": "e9f1d5748d7ab00a240dc08b72553b2a04b2599b",
+      "t": 1788553766000,
+      "msg": "handoff 2026-09-04: queue 7→1, upgrade done, five agents reviewed, voice + iCloud live"
+    },
+    {
+      "sha": "6e4904d0570700ed6b43bbe99ca02473d83f334b",
+      "t": 1788542550000,
+      "msg": "war(loop status): refresh the snapshot — the panel was built 2026-08-21, the shortlist line was not"
+    },
     {
       "sha": "cdef8526a15c81063424be92012ba4f341184920",
       "t": 1788539771000,

@@ -2,7 +2,8 @@
 
 Written 2026-09-05 against the brief "Lucky Loop feeds itself and publishes itself".
 Public repo: no hostnames, tunnel names or credentials appear here. "The loop host" is
-the box that runs the timer; "the Mac" is the laptop that holds the only GitHub credential.
+the box that runs the timer; "the Mac" is the laptop that holds the only GitHub account credential.
+Since 2026-09-10 the Mac is out of the chain — see "Hop 4".
 
 ## The chain, hop by hop
 
@@ -12,44 +13,78 @@ the box that runs the timer; "the Mac" is the laptop that holds the only GitHub 
 | 1 | Vault bills → `item-NNN.txt` in the loop inbox (feed-from-bills) | loop host | nightly (assumed) | being built by another agent today; NOT verified here | Until it lands: `npm run feed:loop -- --yes` on the Mac, which is a declared human step. See "the control this removes" below. |
 | 2 | Loop pass: perceive → decide → act → evaluate → adapt, artifact + gates at run time | loop host | timer, every 10 min | 2026-08-11 | No. Idle ticks (exit 4) are the resting state. |
 | 3 | Writeback: `source=loop` decision + outcome events into the vault | loop host | per pass | 2026-08-11 | No. |
-| 4 | Artifact return: host `out/` → `data/` → commit → push | the Mac | every 6 h | **2026-09-05, `loop-publish`** — agent loaded, dry run green; the install into `~/.local/bin` and the first real run are a needs-you item, because the agent that built it was refused both by the permission gate | Once, to install it. Then only when a gate is red, or the Mac is asleep. |
+| 4 | Artifact return: host `out/` → private mirror → Action → PR → `data/` | loop host (stage, every 30 min) + GitHub Actions (every 6 h) | see left | **2026-09-10, `artifact-return`** — Karl's word: action, overriding the council's mac; replaces the Mac's `loop-publish` (in service 2026-09-05 → 2026-09-10, two unattended publications) | **Yes, one tap: the merge.** On a public repo the merge is the publication (rule 3). Plus anything a gate refuses. |
 | 5 | Deploy: push → Vercel prebuild gates → build | Vercel | per push | 2026-07 | No. Prebuild runs the pattern half of the name gate only; the Mac ran both halves at hop 4. |
 | 6 | /war and /loop render committed JSON at build time | Vercel | per deploy | 2026-07 | No. Numbers are frozen at build; `syncedAt` is rendered beside every one. |
 
-## Hop 4: why a Mac launchd job, not the vault as a relay
+## Hop 4: host → private mirror → Action → PR (since 2026-09-10)
 
-Two designs were on the table. **Chosen: a launchd agent on the Mac** (`deploy/loop-publish.sh`,
+Karl's word on 2026-09-10 was **action**, overriding the council's recommendation of **mac**
+(captures/council/council-artifact-hop-off-the-mac.md in the vault; the dissent named the reason:
+a closed lid kills O3 silently and nothing watched the hop). Logged as the decision
+`hop:artifact-return-action-2026-09-10`. The council's builder conditions are all in force; none
+is optional, and each is code, not intent:
+
+1. **A dedicated PRIVATE mirror, `lucky-loop-artifacts`, holding only the redacted files** — never
+   a key to the vault mirror in a public repo's secrets. The loop host pushes there over a write
+   deploy key scoped to that one repo; that key exists by council verdict (Karl's override counts
+   as the verdict the rule of 2026-09-08 requires). The public repo holds the mirror's READ-only
+   half as the secret `ARTIFACT_MIRROR_KEY`. Nothing on the loop host can write to this repo.
+2. **Actions logs are public.** The job clones `--quiet`, prints counts and verdict words, never
+   a diff, never content.
+3. **`gate.json` fails closed.** `deploy/artifact-return/artifact-return.py` runs the redaction gate
+   and its tests on the host, in a dedicated clone of this repo reset to `origin/main` with the real
+   deny-list linked in, and writes `{gate, nameTokens, sha256, at}`. `scripts/artifact-return-verify.py`
+   refuses when the file is absent, the gate is not `strong`, the token count is below a floor, a
+   sha256 differs, or the attestation is older than the newest pass. It is an **attestation by the
+   host that wrote the artifact**, bounded by the runner — never called "passed" there.
+4. **Run-count floor**, twice: on the host against the mirror's last copy, in the Action against
+   the committed copy. Published history never shrinks on the word of one host.
+5. **Schedule is best-effort** and GitHub disables it after 60 idle days: `workflow_dispatch`
+   exists and a keepalive step re-enables the workflow on every run.
+6. **A PR, not a push.** Rule 3 — nothing outward without Karl's hand — is intact because the
+   merge is the publication. Karl merges from the phone. `auto` (push to main) would need a rule
+   amendment and only Karl's word can open that.
+7. **Docs and canvas**: this section, CLAUDE.md, AGENT-OS §1/§7 in the vault, and a derived canvas
+   node whose two cadences are READ from `deploy/artifact-return.timer` and the workflow's cron.
+8. **Keys via `gh` from the Mac**, both generated 2026-09-10; the Action's private half never
+   touched disk outside the secret store for longer than the command that stored it.
+
+Also from the risk review: the host's trigger is a **content hash on a timer**, not inotify
+(`out/loop-runs.json` was once touched with no pass behind it); actions are **pinned by commit
+SHA**; a refused host run is a unit **failure** on purpose, so `lucky-loop-failed@.service` writes
+the dead-man's failure log and `loop-status.json` carries it to /war as `lastFailureAt`. Two
+heartbeats cover the two halves in the vault's registry: `artifact-return` (the host beats every
+run) and `artifact-return-action` (the host mirrors the Action's last successful run from the
+public API into a beat file, so a silent Action shows up in KR-0 the same way a silent host does).
+
+What the host does, in order: beat; probe the Action; read `out/`; refresh the mirror; refuse a
+shrinking pass count; stop if nothing is new and the mirror's snapshot is under 12 h old; run the
+gates in the gate checkout; refuse anything but `strong`; write exactly four files into the
+mirror and refuse if any other path is dirty; commit; push `HEAD:main` only; verify the push landed.
+One line per run in `~/.local/state/lucky-loop/artifact-return.log`. `--dry-run` does everything
+but commit and push.
+
+What the Action does, in order: clone the mirror with the read key and GitHub's pinned host key;
+verify; copy the three files; regenerate the canvas; redaction (pattern half) and its tests; drift
+gate; `npm ci && npm run build` (prebuild re-runs every gate the deploy runs); commit on
+`loop/artifact-return`; force-push that branch; open or update the PR; keepalive; an honest step
+summary. **A branch pushed with the job token triggers no other workflow**, so `gates.yml` does not
+run on the PR — the same gates ran inside the job, and `gates.yml` runs on `main` after the merge.
+
+State on 2026-09-10: **Beta until the first PR opened by the Action is merged.** Reload the Mac's
+retired job only as a fallback, and only while the Action is broken:
+`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.kww.loop-publish.plist`.
+
+### Until 2026-09-10: the Mac launchd job
+
+The first automation of this hop was a launchd agent on the Mac (`deploy/loop-publish.sh`,
 installed as `~/.local/bin/loop-publish`, scheduled by `deploy/com.kww.loop-publish.plist`,
-label `com.kww.loop-publish`, every 6 h).
-
-- **The gate's strong half lives where the push happens.** The Mac holds the gitignored
-  name deny-list, so `loop-publish` runs redaction (patterns AND names), the redaction test
-  suite, and the drift gate before a single byte leaves the machine. Vercel and CI can
-  only run the pattern half.
-- **The alternative adds a copy and removes nothing.** Having the loop host write the
-  artifact into the vault and a Mac job publish from there still needs the Mac (the host
-  never holds a GitHub credential and never sends, by rule), still needs the same gates,
-  and leaves a second copy of a mail-derived artifact in the vault that nothing consumes.
-- **Cost accepted:** the Mac is a laptop. launchd does not fire while the lid is closed; a
-  missed interval fires on wake. While the Mac travels, /war's panel crosses its 24 h line
-  and reads "Snapshot stale" — that is the designed state, not a fault. The loop host
-  keeps running and nothing is lost; the next run publishes everything at once.
-
-What `loop-publish` does, in order: refuse unless on a clean `main` that has no unpushed
-human commits (fast-forwards if behind); `npm run sync:loop`; discard the fresh snapshot
-and stop if no pass is new and the committed snapshot is under 12 h old (idempotence);
-regenerate the canvas (node titles derive the pass count, so a new pass would otherwise
-fail the drift gate); run the three gates; commit exactly the three data files plus the
-canvas; push; verify the push landed. **A red gate restores the committed bytes and
-pushes nothing, not even a branch** — the brief said "otherwise push a branch", but on a
-public repo a branch push is a publication, so the bytes stay on the Mac and the log
-line names the gate. One line per run in `~/.config/loop-publish.log`. `--dry-run`
-does everything but commit and push, and logs what would have shipped. First line ever
-written, 2026-09-05, from a dry run:
-
-```
-2026-09-05T15:02:17Z fetched=3 new=0 gates=green pushed=no reason=dry-run(would-publish:status snapshot)
-```
+label `com.kww.loop-publish`, every 6 h), chosen on 2026-09-05 because the Mac held the name
+deny-list and the only GitHub credential. It published twice unattended (a status snapshot on
+2026-09-08 and passes 4–5 on 2026-09-09, canvas regenerated) and was unloaded on 2026-09-10
+when Karl's word moved the hop off the Mac. Its accepted cost — launchd does not fire while the
+lid is closed — was the reason. The script and the plist stay versioned as the fallback above.
 
 ## The control this removes — read before enabling hop 1
 
@@ -77,6 +112,7 @@ render it. That changes the artifact shape, so the redaction tests grow a case f
 
 1. **Re-authorising a mail credential** — a browser and a person, by the vendor's design.
 2. **Anything a gate refuses** — the bytes stay on the Mac; the log names the gate.
-3. **Waking the Mac** — hop 4 needs it awake and on the network. Not a bug; a laptop.
+3. **Merging the PR** — one tap from the phone. This is the hand rule 3 requires; it replaced
+   "waking the Mac" on 2026-09-10.
 4. **The provenance field** above — a shape change with a test, not a page edit.
 5. **Closing needs-you items** — agents add, only Karl closes (O4/KR2).

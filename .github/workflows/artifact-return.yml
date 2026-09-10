@@ -1,0 +1,152 @@
+# The artifact-return hop, public half (Karl's word 2026-09-10: action, overriding the council's mac).
+#
+# The loop host cannot publish here: it holds no credential that can write to a public repo, by
+# rule. It stages its three REDACTED artifacts plus gate.json in a dedicated PRIVATE mirror over a
+# write key scoped to that repo (deploy/artifact-return/artifact-return.py). This job pulls the
+# mirror with a READ-ONLY deploy key held as the secret ARTIFACT_MIRROR_KEY, verifies the host's
+# attestation and the run-count floor (scripts/artifact-return-verify.py), regenerates the canvas,
+# re-runs every gate a runner can run, builds, and opens a PR. A human merges the PR. Rule 3 —
+# nothing outward without Karl's hand — is intact because the merge is the publication.
+#
+# HONESTY REQUIREMENT, inherited from gates.yml: this runner holds the PATTERN half of the redaction
+# gate and FICTIONAL name defaults. The by-name half ran on the loop host and is ATTESTED by
+# gate.json, which the same host wrote about itself; it is bounded here (strong, a token floor, a
+# sha256 per file, not older than the newest pass) and never called "passed". Gate 2 (source
+# tokens) runs at pass time on the host only. The step summary says all of this every run.
+#
+# Council conditions (captures/council/council-artifact-hop-off-the-mac.md in the vault), as code:
+#   * dedicated private artifact repo, never the vault mirror — the only key here reads that repo;
+#   * this log is PUBLIC: clone --quiet, no cat, no diff of content, counts only;
+#   * gate.json fail-closed (verify script); run-count floor (verify script);
+#   * schedule is best-effort and GitHub disables it after 60 idle days: workflow_dispatch exists and
+#     the keepalive step re-enables this workflow on every run;
+#   * actions pinned by commit SHA — a job that pushes must not trust a mutable tag;
+#   * a PR, not a push to main.
+name: artifact-return
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: artifact-return
+  cancel-in-progress: false
+
+jobs:
+  return:
+    name: artifact-return
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: loop/artifact-return
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # gen-ledger.mjs needs full history (see gates.yml)
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: fetch the mirror (quiet — this log is public)
+        env:
+          ARTIFACT_MIRROR_KEY: ${{ secrets.ARTIFACT_MIRROR_KEY }}
+        run: |
+          set -eu
+          [ -n "${ARTIFACT_MIRROR_KEY}" ] || { echo "::error::ARTIFACT_MIRROR_KEY is not set"; exit 1; }
+          d="$RUNNER_TEMP/mirror-ssh"; mkdir -p "$d"; chmod 700 "$d"
+          printf '%s\n' "$ARTIFACT_MIRROR_KEY" > "$d/key"; chmod 600 "$d/key"
+          # GitHub's published ed25519 host key, pinned: no keyscan, no trust-on-first-use on a fresh runner.
+          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$d/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $d/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$d/known_hosts -o StrictHostKeyChecking=yes"
+          if ! git clone --quiet --depth 1 --branch main git@github.com:Karl-W-W/lucky-loop-artifacts.git "$RUNNER_TEMP/mirror" 2>/dev/null; then
+            rm -rf "$d"; echo "::error::mirror clone failed (no main yet, key rejected, or host down) — nothing published"; exit 1
+          fi
+          rm -rf "$d"
+          echo "mirror: $(find "$RUNNER_TEMP/mirror" -maxdepth 1 -type f | wc -l) file(s)"
+
+      - name: verify the attestation and the run-count floor, copy the three files
+        id: verify
+        run: python3 scripts/artifact-return-verify.py "$RUNNER_TEMP/mirror"
+
+      - name: gates — canvas regenerated, then redaction (pattern half), its tests, drift
+        if: steps.verify.outputs.changed == 'yes'
+        run: |
+          set -e
+          python3 langflow/gen-flow.py
+          python3 loop/check_artifacts.py
+          python3 loop/test_redaction.py
+          python3 langflow/gen-flow.py --check-drift
+
+      - name: install + build (prebuild re-runs every gate the deploy runs)
+        if: steps.verify.outputs.changed == 'yes'
+        run: npm ci && npm run build
+
+      - name: branch, commit, push, PR
+        if: steps.verify.outputs.changed == 'yes'
+        env:
+          WHAT: ${{ steps.verify.outputs.what }}
+          PASSES: ${{ steps.verify.outputs.passes }}
+          TOKENS: ${{ steps.verify.outputs.tokens }}
+        run: |
+          set -eu
+          git config user.name "artifact-return"
+          git config user.email "artifact-return@users.noreply.github.com"
+          git checkout -q -B "$BRANCH"
+          git add -- data/loop-runs.json data/loop-def.json data/loop-status.json langflow/lucky-loop-architecture.json
+          if git diff --cached --quiet; then echo "nothing staged after the gates"; exit 0; fi
+          git commit -q -m "artifact-return: ${WHAT} — ${PASSES} pass(es) on the host" \
+            -m "Staged on the loop host by deploy/artifact-return/artifact-return.py; gate.json there says strong with ${TOKENS} name tokens (attested by the host, not re-run here). This job re-ran the pattern half of the redaction gate, its tests, the drift gate and the build, then opened this PR. The merge is the publication and stays a human hand."
+          git push -q --force origin "$BRANCH"
+          body="$(printf '%s\n' \
+            "Automated by .github/workflows/artifact-return.yml (run ${GITHUB_RUN_ID})." \
+            "" \
+            "- **what:** ${WHAT}; ${PASSES} pass(es) on the loop host" \
+            "- **redaction, by-name half:** ran on the loop host; \`gate.json\` says strong with ${TOKENS} tokens — **attested, not re-run here**" \
+            "- **redaction, pattern half + its tests, drift gate, build:** re-run in this job, green (or this PR would not exist)" \
+            "- **gate 2 (source tokens):** ran at pass time on the host only" \
+            "- **run-count floor:** the mirror holds at least as many passes as main" \
+            "- **checks on this PR:** none will appear — a branch pushed with the job token does not trigger gates.yml; the same gates ran inside this job, and gates.yml runs on main after the merge" \
+            "" \
+            "Merging publishes these bytes on /war and /loop. Read the diff; the merge is the human hand (AGENT-OS rule 3).")"
+          n="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$n" ]; then
+            gh pr create --base main --head "$BRANCH" --title "artifact-return: ${WHAT}" --body "$body"
+          else
+            gh pr edit "$n" --title "artifact-return: ${WHAT}" --body "$body"
+            echo "updated PR #$n"
+          fi
+
+      - name: keepalive (GitHub disables schedules after 60 idle days)
+        if: always()
+        run: gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/artifact-return.yml/enable" >/dev/null && echo "schedule kept alive"
+
+      - name: what this job did and did not check
+        if: always()
+        env:
+          CHANGED: ${{ steps.verify.outputs.changed }}
+          REASON: ${{ steps.verify.outputs.reason }}
+          TOKENS: ${{ steps.verify.outputs.tokens }}
+        run: |
+          {
+            echo "### artifact-return"
+            echo ""
+            echo "- outcome: changed=${CHANGED:-unknown} — ${REASON:-no verdict}"
+            echo "- redaction gate, by-name half: **attested by the loop host** (\`gate.json\`: strong, ${TOKENS:-?} tokens), bounded here, **not re-run** — the runner has fictional names only."
+            echo "- redaction gate, pattern half + tests: re-run here."
+            echo "- gate 2 (source tokens): host-side at pass time only."
+            echo "- drift gate: the regenerated canvas equals what is committed on the branch."
+            echo "- publication: a PR, merged by a human. Nothing on main changed in this run."
+          } >> "$GITHUB_STEP_SUMMARY"

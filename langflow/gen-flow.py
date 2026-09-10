@@ -83,6 +83,26 @@ def _tick_interval() -> str:
     return f"every {m.group(1)} minutes" if m else "cadence unrecognised"
 
 
+def _hop_cadence() -> str:
+    """How often the loop host stages artifacts for the artifact-return hop, READ from the unit."""
+    try:
+        unit = (REPO / "deploy" / "artifact-return.timer").read_text(encoding="utf-8")
+    except OSError:
+        return "cadence unreadable"
+    m = re.search(r"^OnCalendar=\*:\d+/(\d+)\s*$", unit, re.M)
+    return f"every {m.group(1)} minutes" if m else "cadence unrecognised"
+
+
+def _action_cadence() -> str:
+    """How often the public repo's Action pulls the mirror, READ from the workflow's cron."""
+    try:
+        wf = (REPO / ".github" / "workflows" / "artifact-return.yml").read_text(encoding="utf-8")
+    except OSError:
+        return "cadence unreadable"
+    m = re.search(r'cron:\s*"\d+ \*/(\d+) \* \* \*"', wf)
+    return f"every {m.group(1)} hours" if m else "cadence unrecognised"
+
+
 def _link_count() -> int:
     """Rows in the Assets rail, READ rather than typed.
 
@@ -595,6 +615,24 @@ NODES: list[dict] = [
         src=("loop/run.py", r"# THE GATE — two independent checks", 20),
     ),
     dict(
+        key="hop", col="exit", row=1, icon="git-pull-request", status="unverified",
+        title=f"artifact-return — host {_hop_cadence()}, Action {_action_cadence()}",
+        blurb="Host stages the redacted artifacts + gate.json in a PRIVATE mirror over a write key; the public repo's Action verifies, regenerates, gates, opens a PR. The MERGE stays human.",
+        role=(
+            "Karl's word 2026-09-10: action, overriding the council's mac (reason: lid dependence). Replaces "
+            "the Mac launchd publisher deploy/loop-publish.sh, retired the same day. Beta until the first PR "
+            "opened by the Action is merged — no pass has crossed this hop yet. The by-name half of the "
+            "redaction gate runs on the host with the real deny-list and is ATTESTED in gate.json; the Action "
+            "bounds the attestation (strong, a token floor, a sha256 per file, not older than the newest pass), "
+            "re-runs the pattern half, its tests, the drift gate and the build, then opens the PR. A branch "
+            "pushed by the job token triggers no other workflow, so gates.yml runs on main after the merge, "
+            "not on the PR; the same gates ran inside the job. Both cadences in the title are READ from the "
+            "timer and the workflow, never typed."
+        ),
+        origin="deploy/artifact-return/artifact-return.py + scripts/artifact-return-verify.py + .github/workflows/artifact-return.yml",
+        src=("deploy/artifact-return/artifact-return.py", r"^def main\(", 30),
+    ),
+    dict(
         key="redtest", col="route", row=2, icon="bug", status="live",
         title="test_redaction.py — adversarial",
         blurb="Seven leak classes thrown at both gates, plus a clean-check on the real artifact.",
@@ -616,7 +654,7 @@ NODES: list[dict] = [
         key="loopruns", col="data", row=0, icon="history", status="live",
         title=f"data/loop-runs.json — {PASSES}",
         blurb=f"{PASSES} recorded, newest first. Idempotency means a processed item can never run again.",
-        role="The evidence artifact. Written only after both gates return empty. Reaching this file from the DGX is still a MANUAL hop — nothing copies ~/ll-loop/out/ into data/.",
+        role="The evidence artifact. Written only after both gates return empty. Reaching this file from the loop host is the artifact-return hop since 2026-09-10: host → private mirror → Action → PR → human merge. Before that it was `npm run sync:loop` by hand, and before 2026-08-21 nothing at all.",
         origin="loop/run.py :: record",
         src=("loop/run.py", r"^    record = \{", 26),
     ),
@@ -718,7 +756,7 @@ NODES: list[dict] = [
     dict(
         key="sched", col="inbox", row=1, icon="clock", status="live",
         title=f"systemd --user timer — {_tick_interval()}",
-        blurb="The timer fires unattended; `npm run sync:loop` carries the artifact back. The COMMIT stays human, by design.",
+        blurb="The timer fires unattended; the artifact-return hop stages the artifact in a private mirror and an Action opens the PR. The MERGE stays human, by design.",
         role=(
             "This node said 'GAP - nothing schedules the loop' for the ten days AFTER the timer "
             "went live on 2026-08-11, and the drift gate was green throughout: --check-drift compares "
@@ -728,7 +766,10 @@ NODES: list[dict] = [
             "file above, and scripts/sync-loop.mjs closes the hop from the host's out/ to data/ that "
             "no code had ever crossed. Most ticks are IDLE and that is healthy - the unit lists 0, 2 "
             "and 4 as success, and 4 means the queue was empty. The commit is NOT automated and is not "
-            "a gap: on a public repo the commit is the publication, so a human reads the diff first."
+            "a gap: on a public repo the commit is the publication, so a human reads the diff first. "
+            "Since 2026-09-10 the unattended path is deploy/artifact-return on the host plus the "
+            "artifact-return Action, which opens a PR; sync-loop.mjs stays as the hand-run path. The "
+            "merge is the publication, so a human still reads the diff first."
         ),
         origin="deploy/lucky-loop.timer :: OnCalendar + scripts/sync-loop.mjs",
         src=("deploy/lucky-loop.timer", r"^OnCalendar=", 6),
@@ -812,6 +853,8 @@ EDGES: list[tuple] = [
     ("redtest", "gate1", "attacks"),
     ("redtest", "gate2", "attacks"),
     # gates/build -> data
+    ("exit", "hop", "out/ -> mirror"),
+    ("hop", "loopruns", "PR, human merge"),
     ("exit", "loopruns", "only if clean"),
     ("build", "loopdef", "get_graph()"),
     ("genledger", "ledger", ""),
@@ -840,7 +883,7 @@ EDGES: list[tuple] = [
     ("drift", "build", "framing vs runtime"),
 ]
 
-DASHED = {"vault", "sched", "obs", "nodb", "silent", "syncdeploys", "rubric", "drift",
+DASHED = {"vault", "sched", "obs", "nodb", "silent", "syncdeploys", "rubric", "drift", "hop",
           "repopublic", "generalise"}
 
 

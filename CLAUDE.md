@@ -214,10 +214,12 @@ of the control, said as code rather than as intent:
   is the same finding as the realm section above. Pointing it at `car-export` or
   `phyto-farm` reintroduces the exact bug that section describes.
 - **Feeding is not publishing.** Nothing in the script touches the repo, git or
-  the site. The loop writes to `~/ll-loop/out`; `npm run sync:loop` still does
-  not commit, so a human still reads the diff. That is now the ONLY human step
-  left in the chain — anyone making `sync:loop` commit by itself removes the
-  last gate.
+  the site. The loop writes to `~/ll-loop/out`; since 2026-09-10 the
+  artifact-return hop (`deploy/artifact-return/`, `.github/workflows/artifact-return.yml`)
+  stages, verifies and opens a PR, and `npm run sync:loop` still does not
+  commit. A human still reads the diff — in the PR — and the merge is now the
+  ONLY human step left in the chain: anyone making the Action push to `main`
+  removes the last gate.
 - **The default still does nothing.** Without `--feed` it is a dry run. The
   nightly passes `--feed`; like `feed-loop.mjs`'s `--yes` that is a declared
   step, not an enforced one.
@@ -229,6 +231,22 @@ of the control, said as code rather than as intent:
 - Output is SHAPE, never text and never a filename — `<date>/#<8 hex>`, because
   a bill's filename is the issuer and the invoice number, and this output lands
   on a vault page. The full paths stay in the state file on the box.
+
+## The artifact hop left the Mac (2026-09-10)
+
+Karl's word: **action**, overriding the council's **mac**, reason lid dependence. The loop host
+stages its three redacted artifacts plus `gate.json` in the PRIVATE `lucky-loop-artifacts` mirror
+over a write key scoped to that repo (the council verdict the 2026-09-08 rule requires is this
+override, logged as `hop:artifact-return-action-2026-09-10`); `.github/workflows/artifact-return.yml`
+pulls the mirror with a read-only key held as `ARTIFACT_MIRROR_KEY`, bounds the attestation
+(`scripts/artifact-return-verify.py`: strong, a name-token floor, a sha256 per file, not older than
+the newest pass, never fewer passes than `main`), regenerates the canvas, re-runs the pattern half
+of the redaction gate, its tests, the drift gate and the build, and opens a **PR**. Karl merges.
+`deploy/loop-publish.sh` is retired and stays as the fallback. Read `docs/AUTONOMY.md`, "Hop 4",
+before touching any of it. **Traps:** the by-name half of the gate is ATTESTED by the host, not run
+on the runner — the Action's summary says so every run; a branch pushed by the job token triggers
+no other workflow, so `gates.yml` runs on `main` after the merge, not on the PR; both cadences in the
+canvas node are derived from the timer and the cron, so change those files, never the label.
 
 ## The Today page and the needs-you queue (2026-09-03)
 
@@ -385,6 +403,9 @@ to be running for anything.
   when the host returns fewer passes than are already committed (the
   `gen-ledger.mjs` guard, copied not reinvented), and **does not commit** — on a
   public repo the commit is the publication, so a human still reads the diff.
+  Since 2026-09-10 the same hop also runs unattended as **artifact-return**
+  (host → private mirror → Action → PR) with that floor guard in both halves;
+  the merge is the publication. See `docs/AUTONOMY.md`, "Hop 4".
 - **`data/loop-status.json` is the loop's only telemetry off the DGX.** Written
   by the same command: queue depth, scheduler last/next tick, last tick exit
   code and meaning, last failure — each sampled at `syncedAt`. It exists because
