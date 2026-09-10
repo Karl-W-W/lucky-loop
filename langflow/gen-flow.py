@@ -624,9 +624,9 @@ NODES: list[dict] = [
             "opened by the Action is merged — no pass has crossed this hop yet. The by-name half of the "
             "redaction gate runs on the host with the real deny-list and is ATTESTED in gate.json; the Action "
             "bounds the attestation (strong, a token floor, a sha256 per file, not older than the newest pass), "
-            "re-runs the pattern half, its tests, the drift gate and the build, then opens the PR. A branch "
-            "pushed by the job token triggers no other workflow, so gates.yml runs on main after the merge, "
-            "not on the PR; the same gates ran inside the job. Both cadences in the title are READ from the "
+            "re-runs the pattern half, its tests, the drift gate and the build, then opens the PR. gates.yml "
+            "runs on that PR too (observed 2026-09-10 on PR #2, opened by the Action itself) and again on main "
+            "after the merge; the same gates ran inside the job first. Both cadences in the title are READ from the "
             "timer and the workflow, never typed."
         ),
         origin="deploy/artifact-return/artifact-return.py + scripts/artifact-return-verify.py + .github/workflows/artifact-return.yml",

@@ -139,7 +139,7 @@ jobs:
             "- **redaction, pattern half + its tests, drift gate, build:** re-run in this job, green (or this PR would not exist)" \
             "- **gate 2 (source tokens):** ran at pass time on the host only" \
             "- **run-count floor:** the mirror holds at least as many passes as main" \
-            "- **checks on this PR:** none will appear — a branch pushed with the job token does not trigger gates.yml; the same gates ran inside this job, and gates.yml runs on main after the merge" \
+            "- **checks on this PR:** gates.yml runs here too (observed 2026-09-10 on the Action-opened PR #2) after running inside this job; it runs again on main after the merge" \
             "" \
             "- **mirror ref:** ${MIRROR_REF}; **branch:** ${BRANCH}" \
             "" \

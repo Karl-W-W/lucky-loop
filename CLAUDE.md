@@ -244,8 +244,8 @@ the newest pass, never fewer passes than `main`), regenerates the canvas, re-run
 of the redaction gate, its tests, the drift gate and the build, and opens a **PR**. Karl merges.
 `deploy/loop-publish.sh` is retired and stays as the fallback. Read `docs/AUTONOMY.md`, "Hop 4",
 before touching any of it. **Traps:** the by-name half of the gate is ATTESTED by the host, not run
-on the runner — the Action's summary says so every run; a branch pushed by the job token triggers
-no other workflow, so `gates.yml` runs on `main` after the merge, not on the PR; both cadences in the
+on the runner — the Action's summary says so every run; `gates.yml` runs on the Action's PR as well
+(observed 2026-09-10 on PR #2) and again on `main` after the merge; both cadences in the
 canvas node are derived from the timer and the cron, so change those files, never the label.
 
 ## The Today page and the needs-you queue (2026-09-03)
