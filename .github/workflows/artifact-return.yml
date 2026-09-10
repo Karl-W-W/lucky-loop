@@ -123,7 +123,10 @@ jobs:
             "Merging publishes these bytes on /war and /loop. Read the diff; the merge is the human hand (AGENT-OS rule 3).")"
           n="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
           if [ -z "$n" ]; then
-            gh pr create --base main --head "$BRANCH" --title "artifact-return: ${WHAT}" --body "$body"
+            gh pr create --base main --head "$BRANCH" --title "artifact-return: ${WHAT}" --body "$body" || {
+              echo "::error::PR creation refused. The branch IS pushed; open it by hand at https://github.com/${GITHUB_REPOSITORY}/compare/main...${BRANCH} — and turn on 'Allow GitHub Actions to create and approve pull requests' (Settings > Actions > General > Workflow permissions) so the next run opens it itself."
+              exit 1
+            }
           else
             gh pr edit "$n" --title "artifact-return: ${WHAT}" --body "$body"
             echo "updated PR #$n"
