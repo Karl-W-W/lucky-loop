@@ -28,6 +28,15 @@ on:
   schedule:
     - cron: "23 */6 * * *"
   workflow_dispatch:
+    inputs:
+      mirror_ref:
+        description: "mirror branch to read; main, or a test branch staged with artifact-return.py --test <name>"
+        required: false
+        default: "main"
+      pr_branch:
+        description: "branch to push and open the PR from; anything but loop/artifact-return is a TEST PR to close, not merge"
+        required: false
+        default: "loop/artifact-return"
 
 permissions:
   contents: write
@@ -45,7 +54,8 @@ jobs:
     timeout-minutes: 25
     env:
       GH_TOKEN: ${{ github.token }}
-      BRANCH: loop/artifact-return
+      BRANCH: ${{ github.event.inputs.pr_branch || 'loop/artifact-return' }}
+      MIRROR_REF: ${{ github.event.inputs.mirror_ref || 'main' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -71,15 +81,24 @@ jobs:
           # GitHub's published ed25519 host key, pinned: no keyscan, no trust-on-first-use on a fresh runner.
           echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$d/known_hosts"
           export GIT_SSH_COMMAND="ssh -i $d/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$d/known_hosts -o StrictHostKeyChecking=yes"
-          if ! git clone --quiet --depth 1 --branch main git@github.com:Karl-W-W/lucky-loop-artifacts.git "$RUNNER_TEMP/mirror" 2>/dev/null; then
+          if ! git clone --quiet --depth 1 --branch "$MIRROR_REF" git@github.com:Karl-W-W/lucky-loop-artifacts.git "$RUNNER_TEMP/mirror" 2>/dev/null; then
             rm -rf "$d"; echo "::error::mirror clone failed (no main yet, key rejected, or host down) — nothing published"; exit 1
           fi
           rm -rf "$d"
-          echo "mirror: $(find "$RUNNER_TEMP/mirror" -maxdepth 1 -type f | wc -l) file(s)"
+          echo "mirror ($MIRROR_REF): $(find "$RUNNER_TEMP/mirror" -maxdepth 1 -type f | wc -l) file(s)"
 
       - name: verify the attestation and the run-count floor, copy the three files
         id: verify
         run: python3 scripts/artifact-return-verify.py "$RUNNER_TEMP/mirror"
+
+      - name: drift gate BEFORE regeneration (red on a new pass, by design — the canvas derives the pass count)
+        if: steps.verify.outputs.changed == 'yes'
+        run: |
+          if python3 langflow/gen-flow.py --check-drift; then
+            echo "no drift before regeneration (a status-only change)"
+          else
+            echo "drift before regeneration, as designed for a new pass — regenerating next"
+          fi
 
       - name: gates — canvas regenerated, then redaction (pattern half), its tests, drift
         if: steps.verify.outputs.changed == 'yes'
@@ -107,7 +126,9 @@ jobs:
           git checkout -q -B "$BRANCH"
           git add -- data/loop-runs.json data/loop-def.json data/loop-status.json langflow/lucky-loop-architecture.json
           if git diff --cached --quiet; then echo "nothing staged after the gates"; exit 0; fi
-          git commit -q -m "artifact-return: ${WHAT} — ${PASSES} pass(es) on the host" \
+          title="artifact-return: ${WHAT}"
+          if [ "$BRANCH" != "loop/artifact-return" ]; then title="[TEST — close, do not merge] ${title} (mirror ref ${MIRROR_REF})"; fi
+          git commit -q -m "${title} — ${PASSES} pass(es) on the host" \
             -m "Staged on the loop host by deploy/artifact-return/artifact-return.py; gate.json there says strong with ${TOKENS} name tokens (attested by the host, not re-run here). This job re-ran the pattern half of the redaction gate, its tests, the drift gate and the build, then opened this PR. The merge is the publication and stays a human hand."
           git push -q --force origin "$BRANCH"
           body="$(printf '%s\n' \
@@ -120,15 +141,17 @@ jobs:
             "- **run-count floor:** the mirror holds at least as many passes as main" \
             "- **checks on this PR:** none will appear — a branch pushed with the job token does not trigger gates.yml; the same gates ran inside this job, and gates.yml runs on main after the merge" \
             "" \
+            "- **mirror ref:** ${MIRROR_REF}; **branch:** ${BRANCH}" \
+            "" \
             "Merging publishes these bytes on /war and /loop. Read the diff; the merge is the human hand (AGENT-OS rule 3).")"
           n="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
           if [ -z "$n" ]; then
-            gh pr create --base main --head "$BRANCH" --title "artifact-return: ${WHAT}" --body "$body" || {
+            gh pr create --base main --head "$BRANCH" --title "$title" --body "$body" || {
               echo "::error::PR creation refused. The branch IS pushed; open it by hand at https://github.com/${GITHUB_REPOSITORY}/compare/main...${BRANCH} — and turn on 'Allow GitHub Actions to create and approve pull requests' (Settings > Actions > General > Workflow permissions) so the next run opens it itself."
               exit 1
             }
           else
-            gh pr edit "$n" --title "artifact-return: ${WHAT}" --body "$body"
+            gh pr edit "$n" --title "$title" --body "$body"
             echo "updated PR #$n"
           fi
 

@@ -71,6 +71,12 @@ STATUS_MAX_AGE_H = 12
 ARTIFACTS = ("loop-runs.json", "loop-def.json", "loop-status.json")
 STAGED = ARTIFACTS + ("gate.json",)
 DRY = "--dry-run" in sys.argv
+# --test <name>: the council builder's test. Appends ONE synthetic run (a copy of the newest pass with
+# synthetic ids, flagged "synthetic": true) and stages the result on the mirror branch <name>, never on
+# main. The Action, dispatched with mirror_ref=<name> and a test pr_branch, must then show the whole
+# chain on a genuinely new pass — drift red, regenerate, gate.json bounded, PR opened by the Action —
+# without publishing anything a human did not close. Nothing here touches the mirror's main.
+TEST = sys.argv[sys.argv.index("--test") + 1] if "--test" in sys.argv else ""
 
 # run.py's exit contract, copied from scripts/sync-loop.mjs so the status file never needs a guess.
 EXIT_MEANING = {
@@ -306,6 +312,21 @@ def main() -> None:
     except (OSError, ValueError):
         finish("no-readable-artifact-on-host", 1)
     runs = runs_doc.get("runs", []) if isinstance(runs_doc, dict) else runs_doc
+    if TEST:
+        if not runs:
+            finish("test-needs-one-real-pass-to-copy", 1)
+        now = utc_now()
+        fake = json.loads(json.dumps(runs[0]))
+        stamp = now.replace("-", "").replace(":", "").replace("T", "-")[:15]
+        fake.update({"runId": f"synthetic-{stamp}", "idempotencyKey": "synthetic-" + sha256(now.encode())[:16],
+                     "startedAt": now, "finishedAt": now, "trigger": "synthetic-test", "synthetic": True})
+        fake.pop("vault", None)
+        runs = [fake, *runs]
+        if isinstance(runs_doc, dict):
+            runs_doc["runs"] = runs
+        else:
+            runs_doc = runs
+        runs_bytes = (json.dumps(runs_doc, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
     passes = str(len(runs))
     status = status_snapshot(runs)
     payload = {
@@ -341,7 +362,7 @@ def main() -> None:
         age_h = int((time.time() - prev_epoch) // 3600)
     except (OSError, ValueError, KeyError):
         pass
-    if not runs_changed and age_h < STATUS_MAX_AGE_H:
+    if not runs_changed and age_h < STATUS_MAX_AGE_H and not TEST:
         finish(f"unchanged(snapshot-age={age_h}h)", 0)
 
     # --- the gate -----------------------------------------------------------------------------------
@@ -368,11 +389,17 @@ def main() -> None:
         "checks": {"check_artifacts": detail["check_artifacts"], "test_redaction": detail["test_redaction"]},
         "gateCode": detail["gateCode"],
     }
+    if TEST:
+        attestation["synthetic"] = True
+        attestation["testBranch"] = TEST
     what = f"{new} new pass(es)" if runs_changed else "status snapshot"
     if DRY:
         finish(f"dry-run(would-stage:{what})", 0)
 
     # --- stage: exactly these four files, nothing else, one ref -------------------------------------
+    target_ref = f"refs/heads/{TEST}" if TEST else "main"
+    if TEST:
+        git(MIRROR, "checkout", "-q", "-B", f"test/{TEST}", "origin/main" if has_main else "main")
     for name in ARTIFACTS:
         (MIRROR / name).write_bytes(payload[name])
     (MIRROR / "gate.json").write_text(json.dumps(attestation, indent=2) + "\n", encoding="utf-8")
@@ -386,12 +413,18 @@ def main() -> None:
         finish("nothing-staged", 0)
     msg = f"artifact-return: {what} — {passes} pass(es) on the host; gate {gate} ({tokens} name tokens); sampled {status['syncedAt']}"
     git(MIRROR, "-c", "user.name=loop host (artifact-return)", "-c", "user.email=artifact-return@lucky-loop.invalid", "commit", "-q", "-m", msg)
-    r = git(MIRROR, "push", "-q", "origin", "HEAD:main", env=env, check=False)
+    r = git(MIRROR, "push", "-q", "--force", "origin", f"HEAD:{target_ref}", env=env, check=False) if TEST else \
+        git(MIRROR, "push", "-q", "origin", "HEAD:main", env=env, check=False)
     if r.returncode != 0:
         finish("push-failed(commit-kept-local)", 1)
     git(MIRROR, "fetch", "-q", "origin", env=env, check=False)
-    if git(MIRROR, "rev-parse", "origin/main").stdout.strip() == git(MIRROR, "rev-parse", "HEAD").stdout.strip():
+    remote = f"origin/{TEST}" if TEST else "origin/main"
+    if git(MIRROR, "rev-parse", remote).stdout.strip() == git(MIRROR, "rev-parse", "HEAD").stdout.strip():
         pushed = "yes"
+    if TEST:  # leave the working tree on main; the test branch lives on the remote only
+        git(MIRROR, "checkout", "-q", "main", check=False)
+        git(MIRROR, "branch", "-q", "-D", f"test/{TEST}", check=False)
+        finish(f"test-branch({TEST}:{what})", 0)
     finish(f"staged({what})", 0)
 
 
