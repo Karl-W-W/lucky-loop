@@ -69,9 +69,11 @@ What the Action does, in order: clone the mirror with the read key and GitHub's 
 verify; copy the three files; regenerate the canvas; redaction (pattern half) and its tests; drift
 gate; `npm ci && npm run build` (prebuild re-runs every gate the deploy runs); commit on
 `loop/artifact-return`; force-push that branch; open or update the PR; keepalive; an honest step
-summary. `gates.yml` runs on the PR as well — observed 2026-09-10 on PR #2, which the Action opened
-itself — so the PR carries its own check besides the gates the job ran; it runs again on `main` after
-the merge. (The first draft of this paragraph claimed the opposite from GitHub's token rule; the run log won.)
+summary. `gates.yml` is queued on the PR but **waits for a maintainer's approval** (`action_required`)
+because the pusher is the Actions bot — observed on every bot push to PR #1 from 2026-09-11 to 09-15.
+So the PR's own check is the job's step summary, not a green tick; `gates.yml` runs unattended on `main`
+after the merge. (Two earlier drafts of this paragraph said "does not run" and then "runs"; the run
+list won both times.)
 
 State on 2026-09-10: **Beta until the first PR opened by the Action is merged.** Reload the Mac's
 retired job only as a fallback, and only while the Action is broken:
