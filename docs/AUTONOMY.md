@@ -75,9 +75,11 @@ So the PR's own check is the job's step summary, not a green tick; `gates.yml` r
 after the merge. (Two earlier drafts of this paragraph said "does not run" and then "runs"; the run
 list won both times.)
 
-State on 2026-09-10: **Beta until the first PR opened by the Action is merged.** Reload the Mac's
-retired job only as a fallback, and only while the Action is broken:
-`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.kww.loop-publish.plist`.
+State on 2026-09-10: **Beta until the first PR opened by the Action is merged.** (PR #1, opened by
+the Action's flow, was merged by Karl on 2026-09-15 19:52Z — the Beta condition is met.) Reload the
+Mac's retired job only as a fallback, and only while the Action is broken:
+`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.kww.loop-publish.plist.retired-2026-09-15`
+(the plist is renamed, see below; bootstrap accepts the renamed path).
 
 ### Until 2026-09-10: the Mac launchd job
 
@@ -88,6 +90,14 @@ deny-list and the only GitHub credential. It published twice unattended (a statu
 2026-09-08 and passes 4–5 on 2026-09-09, canvas regenerated) and was unloaded on 2026-09-10
 when Karl's word moved the hop off the Mac. Its accepted cost — launchd does not fire while the
 lid is closed — was the reason. The script and the plist stay versioned as the fallback above.
+
+**A bootout is undone by the next login (learned 2026-09-15).** The plist stayed in
+`~/Library/LaunchAgents`, so the Mac's restart at 16:53Z re-loaded the job (`runs=0`, first fire
+six hours after login) — an unattended publisher to public `main`, with no merge, re-armed by a
+reboot five days after Karl's word retired it. "Retired" therefore means TWO things: booted out
+AND the plist renamed to `com.kww.loop-publish.plist.retired-<date>`, so no login can re-arm it.
+The commander's bootout on 2026-09-15 20:52Z was refused by the auto-mode classifier; by the rule
+card a refusal is a stop, so the de-arm is card `loop-publish-dearm-2026-09-15` until it runs.
 
 ## The control this removes — read before enabling hop 1
 
