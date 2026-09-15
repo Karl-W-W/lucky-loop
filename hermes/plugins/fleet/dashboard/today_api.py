@@ -1,4 +1,4 @@
-"""Today — the one page. What needs a human, what the agents did, the goals, the box.
+"""Today — the one page. What needs a human, what the agents did, the goals, the box, the board.
 
 Mounted under ``/api/plugins/fleet/`` by ``plugin_api.py`` (which includes this
 router), so the Desktop reaches it through the same namespace-scoped ``ctx.rest``.
@@ -52,6 +52,7 @@ LL_INBOX = HOME / "ll-loop" / "inbox"
 CRON_JOBS = HOME / ".hermes" / "cron" / "jobs.json"
 CRON_OUT = HOME / ".hermes" / "cron" / "output"
 FAIL_LOG = HOME / "logs" / "lucky-loop-failures.log"
+TASKS_FILE = BRAIN / "queue" / "tasks.json"
 
 # Exit codes of lucky-loop.service, as the unit declares them (SuccessExitStatus=0 2 4).
 EXIT_MEANING = {
@@ -674,6 +675,61 @@ def box(checks: Dict[str, Any]) -> Dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # the digest — one string for an agent's context window
 # --------------------------------------------------------------------------- #
+def board() -> Dict[str, Any]:
+    """The task board: ``queue/tasks.json`` in the vault on this box, rendered as it is.
+
+    Agents claim and build here; a verifier that is not the builder writes the
+    verdict; Karl reads it (added 2026-09-15 on his word: "put the board on the
+    Today page"). Nothing is derived — every field is the file's own — except
+    the sort: work in flight first (claimed, open, blocked), then the verified
+    rows folded away. The vault branch this box has checked out is shown beside
+    the source, because a board read off a task branch is not the board on
+    ``master`` (the 09-11..09-15 stranding).
+    """
+    out: Dict[str, Any] = {"sampled_at": _now(), "source": _rel(TASKS_FILE), "items": [], "counts": {}}
+    try:
+        data = _read_json(TASKS_FILE)
+    except Exception as e:
+        return {**out, "error": f"queue/tasks.json unreadable on this box: {e}"}
+    branch = _sh(f"git -C {BRAIN} branch --show-current")
+    out["vault_branch"] = branch or None
+    tasks = data.get("tasks", []) if isinstance(data, dict) else []
+    order = {"claimed": 0, "open": 1, "blocked": 2, "rejected": 3, "verified": 4, "converged": 4, "done": 5}
+    rows: List[Dict[str, Any]] = []
+    for t in tasks:
+        if not isinstance(t, dict):
+            continue
+        st = str(t.get("status") or "?")
+        pr = t.get("priority")
+        rows.append({
+            "id": t.get("id"),
+            "project": t.get("project"),
+            "host": t.get("host"),
+            "priority": pr,
+            "status": st,
+            "owner": t.get("owner") or None,
+            "claimed_at": t.get("claimedAt") or None,
+            "since": t.get("since"),
+            "attempts": t.get("attempts"),
+            "title": _first_line(str(t.get("title") or ""), 120),
+            "verdict": _first_line(str(t.get("verdict") or ""), 160) or None,
+            "not_before": t.get("not_before") or t.get("notBefore") or None,
+        })
+    rows.sort(key=lambda r: (order.get(r["status"], 9),
+                             r["priority"] if isinstance(r["priority"], int) else 9,
+                             str(r["since"] or "")))
+    counts: Dict[str, int] = {}
+    for r in rows:
+        counts[r["status"]] = counts.get(r["status"], 0) + 1
+    out["items"] = rows
+    out["counts"] = counts
+    out["in_flight"] = sum(v for k, v in counts.items() if k in ("claimed", "open", "blocked"))
+    out["note"] = ("Read-only. Agents claim and build; a verifier that is not the builder writes the verdict; "
+                   "only the file changes the board. Source: queue/tasks.json in the vault on this box"
+                   + (f", branch {branch}" if branch else "") + ".")
+    return out
+
+
 def _digest(d: Dict[str, Any]) -> str:
     L: List[str] = []
     ny, ag, go, bx = d["needs_you"], d["agents"], d["goals"], d["box"]
@@ -718,6 +774,15 @@ def _digest(d: Dict[str, Any]) -> str:
              f"{(ck.get('total') or 0) - len(ck.get('failing') or [])}/{ck.get('total')} ({ck.get('state')}, {ck.get('checked_at')}) "
              f"· load {bx.get('load1')} · hottest {bx.get('hottest_c')} °C · GPU {bx.get('gpu_util_pct')} % "
              f"· failed units {len(bx.get('failed_units') or [])} {bx.get('failed_units')} · timers {bx.get('timers')}")
+    bd = d.get("board") or {}
+    L.append(f"BOARD: {len(bd.get('items', []))} task(s) · "
+             + (" · ".join(f"{k} {v}" for k, v in sorted((bd.get("counts") or {}).items())) or "none")
+             + (f" · vault branch {bd['vault_branch']}" if bd.get("vault_branch") else "")
+             + (f" · {bd['error']}" if bd.get("error") else ""))
+    for r in bd.get("items", []):
+        who = (f" {r['owner']}" if r.get("owner") else "") + (f" since {str(r['claimed_at'])[:16]}" if r.get("claimed_at") else "")
+        L.append(f"  {r.get('status'):<9} P{r.get('priority', '?')} {str(r.get('host') or '?'):<4} {str(r.get('id'))[:52]:<52}{who}")
+        L.append(f"     — {r.get('verdict') or r.get('title')}")
     return "\n".join(L)
 
 
@@ -738,6 +803,7 @@ def _today() -> Dict[str, Any]:
         ("agents", lambda: agents(nightly_results, nightly_latest, out["loop"])),
         ("goals", lambda: goals(out["loop"], out["needs_you"].get("all_items", []))),
         ("box", lambda: box(checks)),
+        ("board", lambda: board()),
     ):
         try:
             out[name] = fn()

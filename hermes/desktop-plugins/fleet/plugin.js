@@ -5,6 +5,7 @@
  *   2. WHAT THE AGENTS DID   newest first, one row each, expand for the text
  *   3. GOALS            the OKRs from the repo, derived where a file allows it
  *   4. THE BOX          one line; details fold out (the former Fleet page)
+ *   5. THE BOARD        queue/tasks.json as it is: what the agents are on, who holds it, the verdict
  *
  * Built for two readers: Karl at a glance, and an agent that wants the whole
  * state in one call — the "Copy for an agent" button copies the same digest the
@@ -349,6 +350,38 @@ function Goals({ data: d }) {
 }
 
 /* ------------------------------------------------------------------------ */
+/* 5. the board — queue/tasks.json: what the agents are on (Karl, 2026-09-15) */
+/* ------------------------------------------------------------------------ */
+const BOARD_DONE = ['verified', 'done', 'converged']
+function BoardRow({ r }) {
+  return h('div', { className: cls('tdy-row', r.status === 'blocked' && 'tdy-bad') },
+    h('span', { className: 'tdy-lbl' }, r.status),
+    h('span', { className: 'tdy-mono' }, 'P' + (r.priority ?? '?') + ' · ' + (r.host || '?')),
+    h('span', null,
+      h('span', { className: 'tdy-mono' }, r.id),
+      h('div', { className: 'tdy-krlive' }, r.verdict || r.title)),
+    h('span', { className: 'tdy-when' },
+      r.owner ? r.owner + (r.claimed_at ? ' · ' + ago(r.claimed_at) : '') : (r.since ? 'since ' + r.since : '')))
+}
+
+function Board({ data: d }) {
+  const [showDone, setShowDone] = useState(false)
+  if (!d || d.error) return h(Err, { msg: (d && d.error) || 'no data' })
+  const items = d.items || []
+  const live = items.filter(r => !BOARD_DONE.includes(r.status))
+  const done = items.filter(r => BOARD_DONE.includes(r.status))
+  return h('div', null,
+    !items.length ? h('p', { className: 'tdy-empty' }, 'The board is empty.') : null,
+    live.length ? h('div', { className: 'tdy-rows' }, live.map(r => h(BoardRow, { key: r.id, r }))) : null,
+    !live.length && items.length ? h('p', { className: 'tdy-empty' }, 'Nothing in flight; every task on the board is verified.') : null,
+    done.length ? h('div', { style: { marginTop: 8 } },
+      h('button', { className: 'tdy-btn tdy-small', onClick: () => setShowDone(v => !v) },
+        (showDone ? 'Hide ' : 'Show ') + done.length + ' verified'),
+      showDone ? h('div', { className: 'tdy-rows', style: { marginTop: 6 } }, done.map(r => h(BoardRow, { key: r.id, r }))) : null) : null,
+    h('p', { className: 'tdy-note' }, d.note))
+}
+
+/* ------------------------------------------------------------------------ */
 /* 4. the box (+ the former Fleet sections as details)                       */
 /* ------------------------------------------------------------------------ */
 const Stat = p =>
@@ -620,7 +653,11 @@ function makeTodayPage(rest) {
           children: h(Goals, { data: data.goals }) }),
         h(Section, { title: 'The box',
           meta: data.box ? 'sampled ' + clock(data.box.sampled_at) : null,
-          children: h(Box, { data: data.box, rest, tickKey }) })))
+          children: h(Box, { data: data.box, rest, tickKey }) }),
+        h(Section, { title: 'The board', count: data.board ? (data.board.in_flight ?? 0) : undefined,
+          hot: Boolean(data.board && (data.board.counts || {}).blocked),
+          meta: data.board && data.board.source ? data.board.source + (data.board.vault_branch ? ' @ ' + data.board.vault_branch : '') : null,
+          children: h(Board, { data: data.board }) })))
   }
 }
 
