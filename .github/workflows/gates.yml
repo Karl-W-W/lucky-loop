@@ -73,6 +73,20 @@ jobs:
       - name: drift gate (the canvas matches the repo)
         run: python3 langflow/gen-flow.py --check-drift
 
+      # The OKR gate (2026-09-16). O3/KR4 and O3/KR1 in data/okrs.json are
+      # DERIVED at build time from the committed data/loop-runs.json snapshot
+      # by scripts/gen-okr-derived.mjs. `--check` recomputes them and fails if
+      # the committed values differ — so a hand edit to a derived KR, or a new
+      # snapshot committed without re-running the generator, is red here
+      # instead of shipping. The port test runs the Python definition
+      # (today_api.py::_converged_nights, stdlib + a stubbed fastapi) on shared
+      # fixtures and asserts the JS agrees. No network, no dependencies.
+      - name: okr gate (derived KRs match their snapshot)
+        run: node scripts/gen-okr-derived.mjs --check
+
+      - name: okr gate — the port matches the Today page's definition
+        run: node --test scripts/gen-okr-derived.test.mjs
+
       # The ledger step is NOT `node scripts/gen-ledger.mjs` on its own.
       # That command WRITES data/ledger.json and exits 0 whatever it finds, so
       # as a CI step it mutates a tracked file and proves nothing — a green
@@ -118,4 +132,8 @@ jobs:
             echo "  It does **not** prove a hand-authored label is true — only that nobody"
             echo "  edited the canvas by hand."
             echo "- ledger: floor check only (derived >= committed)."
+            echo "- okr gate: O3/KR4 and O3/KR1 recomputed from the committed"
+            echo "  data/loop-runs.json snapshot and compared to data/okrs.json;"
+            echo "  the JS port is tested against the Python definition. A KR that"
+            echo "  is \`derived: false\` is **declared** and is not checked here."
           } >> "$GITHUB_STEP_SUMMARY"
