@@ -53,6 +53,9 @@ CRON_JOBS = HOME / ".hermes" / "cron" / "jobs.json"
 CRON_OUT = HOME / ".hermes" / "cron" / "output"
 FAIL_LOG = HOME / "logs" / "lucky-loop-failures.log"
 TASKS_FILE = BRAIN / "queue" / "tasks.json"
+HERDR_SNAP = HOME / ".local" / "state" / "lucky-loop" / "herdr-agents.json"   # written by the Mac every 60 s
+USER_UNIT_DIR = HOME / ".config" / "systemd" / "user"
+MAC_SNAPSHOT_STALE_S = 180
 
 # Exit codes of lucky-loop.service, as the unit declares them (SuccessExitStatus=0 2 4).
 EXIT_MEANING = {
@@ -730,6 +733,151 @@ def board() -> Dict[str, Any]:
     return out
 
 
+def _age_str(s: Optional[int]) -> str:
+    if s is None:
+        return "never"
+    if s < 90:
+        return f"{s}s ago"
+    if s < 5400:
+        return f"{round(s / 60)}m ago"
+    if s < 172800:
+        return f"{round(s / 3600)}h ago"
+    return f"{round(s / 86400)}d ago"
+
+
+def _sysd_ts(s: Optional[str]) -> Optional[str]:
+    """``systemctl show --timestamp=utc`` prints ``Wed 2026-09-16 15:40:01 UTC`` for service
+    stamps — but a timer's ``LastTriggerUSec``/``NextElapseUSecRealtime`` ignore the flag and
+    print the box's LOCAL zone (``... 17:50:01 CEST``, observed on systemd 255). Both are
+    accepted; the local form is converted through the box's own zone. Empty when unset."""
+    if not s or s.strip() in ("", "n/a", "0"):
+        return None
+    s = s.strip()
+    try:
+        return (datetime.strptime(s, "%a %Y-%m-%d %H:%M:%S UTC")
+                .replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"))
+    except Exception:
+        pass
+    try:
+        naive = datetime.strptime(" ".join(s.split()[:3]), "%a %Y-%m-%d %H:%M:%S")
+        return naive.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")   # naive = local
+    except Exception:
+        return None
+
+
+def agents_now() -> Dict[str, Any]:
+    """AGENTS NOW — one roster (Karl's plan 2026-09-16, L3; council Q2 move 2).
+
+    Two populations, merged into one list because the question is one question
+    ("who is working right now?"):
+
+    (a) the Mac's interactive agents — herdr panes — as the Mac itself reports
+        them every 60 s into ``~/.local/state/lucky-loop/herdr-agents.json`` on
+        this box (``scripts/herdr-snapshot.sh`` in the repo). SHAPE ONLY crosses:
+        name, pane, workspace, state, cwd basename, since. The snapshot carries
+        its own ``syncedAt`` and is flagged STALE past 3 minutes; an empty list
+        with ``note: herdr not running`` is a state, not an error.
+    (b) this box's own agents — the user units whose unit file lives under
+        ``~/.config/systemd/user`` (the project's, not the distro's), with the
+        timer that drives each, sampled at request time from systemd. State is
+        systemd's word; "last output" is the last time the main process exited
+        (or, for a long-running unit, when it entered active).
+
+    Nothing here starts, stops or attaches. For a Mac row the copy text is
+    ``herdr agent attach <name>``; a box row carries the unit's status command.
+    """
+    out: Dict[str, Any] = {"sampled_at": _now(), "rows": [], "count_mac": 0, "count_box": 0}
+    rows: List[Dict[str, Any]] = []
+
+    # (a) the Mac snapshot
+    mac: Dict[str, Any] = {"source": _rel(HERDR_SNAP), "synced_at": None, "age_s": None,
+                           "stale": True, "stale_after_s": MAC_SNAPSHOT_STALE_S, "note": None}
+    try:
+        snap = _read_json(HERDR_SNAP)
+        mac["synced_at"] = snap.get("syncedAt")
+        mac["age_s"] = _age_s(snap.get("syncedAt"))
+        mac["stale"] = mac["age_s"] is None or mac["age_s"] > MAC_SNAPSHOT_STALE_S
+        mac["note"] = snap.get("note")
+        for a in snap.get("agents", []) or []:
+            name = str(a.get("name") or a.get("pane") or "?")
+            rows.append({
+                "name": name, "host": "mac", "state": a.get("state") or "unknown",
+                "where": a.get("pane"), "detail": a.get("cwd_base"),
+                "since": a.get("since"), "last_output": None, "next": None,
+                "attach": f"herdr agent attach {name}",
+            })
+    except FileNotFoundError:
+        mac["error"] = "no Mac snapshot on this box yet (the Mac writes it every 60 s while it is awake)"
+    except Exception as e:
+        mac["error"] = f"Mac snapshot unreadable: {type(e).__name__}"
+    out["mac"] = mac
+    out["count_mac"] = len(rows)
+
+    # (b) this box's units
+    box: Dict[str, Any] = {"source": _rel(USER_UNIT_DIR), "sampled_at": _now()}
+    try:
+        def _listed(kind: str) -> List[str]:
+            return [l.split()[0] for l in
+                    _sh(f"systemctl --user list-units --type={kind} --all --no-legend --plain").splitlines()
+                    if l.split() and l.split()[0].endswith("." + kind) and "@." not in l.split()[0]]
+        services, timers = _listed("service"), _listed("timer")
+        props = ("Id ActiveState SubState UnitFileState FragmentPath Description "
+                 "ExecMainExitTimestamp ActiveEnterTimestamp")
+        recs: Dict[str, Dict[str, str]] = {}
+        raw = _sh("systemctl --user show --timestamp=utc "
+                  f"{' '.join('-p ' + p for p in props.split())} {' '.join(services)}", timeout=25)
+        for block in raw.split("\n\n"):
+            rec = dict(l.split("=", 1) for l in block.splitlines() if "=" in l)
+            if rec.get("Id"):
+                recs[rec["Id"]] = rec
+        tmap: Dict[str, Dict[str, Optional[str]]] = {}
+        if timers:
+            traw = _sh("systemctl --user show --timestamp=utc -p Id -p Unit -p LastTriggerUSec "
+                       f"-p NextElapseUSecRealtime {' '.join(timers)}", timeout=25)
+            for block in traw.split("\n\n"):
+                rec = dict(l.split("=", 1) for l in block.splitlines() if "=" in l)
+                if rec.get("Unit"):
+                    tmap[rec["Unit"]] = {"last": _sysd_ts(rec.get("LastTriggerUSec")),
+                                         "next": _sysd_ts(rec.get("NextElapseUSecRealtime")),
+                                         "timer": rec.get("Id")}
+        for uid, rec in recs.items():
+            if not str(rec.get("FragmentPath", "")).startswith(str(USER_UNIT_DIR)):
+                continue   # the distro's user units are not this project's agents
+            active, sub = rec.get("ActiveState"), rec.get("SubState")
+            timer = tmap.get(uid)
+            if rec.get("UnitFileState") == "masked":
+                state = "masked"
+            elif active in ("active", "activating", "reloading"):
+                state = "active"
+            elif active == "failed":
+                state = "failed"
+            else:
+                state = "idle" if timer else "inactive"
+            exited = _sysd_ts(rec.get("ExecMainExitTimestamp"))
+            entered = _sysd_ts(rec.get("ActiveEnterTimestamp"))
+            rows.append({
+                "name": uid[:-len(".service")], "host": "box", "state": state,
+                "where": (timer or {}).get("timer") or None,
+                "detail": (rec.get("Description") or "")[:90] + (f" · {sub}" if sub and sub != "dead" else ""),
+                "since": entered if state == "active" else None,
+                "last_output": exited or entered, "next": (timer or {}).get("next"),
+                "attach": None, "status": f"systemctl --user status {uid}",
+            })
+    except Exception as e:
+        box["error"] = f"units unreadable: {type(e).__name__}: {e}"
+    out["box"] = box
+    out["count_box"] = sum(1 for r in rows if r["host"] == "box")
+
+    order = {"blocked": 0, "failed": 0, "working": 1, "active": 1, "idle": 2, "done": 3,
+             "inactive": 4, "masked": 4, "unknown": 5}
+    rows.sort(key=lambda r: (0 if r["host"] == "mac" else 1, order.get(r["state"], 9), r["name"]))
+    out["rows"] = rows
+    out["note"] = ("Read-only. Mac rows are what the Mac reported at syncedAt (shape only, no titles, "
+                   "no paths); box rows are systemd's word at sample time. Attach and status are copy "
+                   "text for a human, never run here.")
+    return out
+
+
 def _digest(d: Dict[str, Any]) -> str:
     L: List[str] = []
     ny, ag, go, bx = d["needs_you"], d["agents"], d["goals"], d["box"]
@@ -783,6 +931,18 @@ def _digest(d: Dict[str, Any]) -> str:
         who = (f" {r['owner']}" if r.get("owner") else "") + (f" since {str(r['claimed_at'])[:16]}" if r.get("claimed_at") else "")
         L.append(f"  {r.get('status'):<9} P{r.get('priority', '?')} {str(r.get('host') or '?'):<4} {str(r.get('id'))[:52]:<52}{who}")
         L.append(f"     — {r.get('verdict') or r.get('title')}")
+    an = d.get("agents_now") or {}
+    mac = an.get("mac") or {}
+    L.append(f"AGENTS NOW: {an.get('count_mac', 0)} mac (synced {_age_str(mac.get('age_s'))}"
+             + (", STALE" if mac.get("stale") else "") + f") · {an.get('count_box', 0)} box"
+             + (f" · {mac['note']}" if mac.get("note") else "")
+             + (f" · {mac['error']}" if mac.get("error") else "")
+             + (f" · {an['error']}" if an.get("error") else ""))
+    for r in an.get("rows", []):
+        stamp = (f"output {_age_str(_age_s(r['last_output']))}" if r.get("last_output")
+                 else f"since {_age_str(_age_s(r['since']))}" if r.get("since") else "—")
+        L.append(f"  {r.get('host'):<4} {str(r.get('state')):<8} {str(r.get('name'))[:30]:<30} {stamp:<16}"
+                 + (f"  {r['attach']}" if r.get("attach") else ""))
     return "\n".join(L)
 
 
@@ -804,6 +964,7 @@ def _today() -> Dict[str, Any]:
         ("goals", lambda: goals(out["loop"], out["needs_you"].get("all_items", []))),
         ("box", lambda: box(checks)),
         ("board", lambda: board()),
+        ("agents_now", lambda: agents_now()),
     ):
         try:
             out[name] = fn()

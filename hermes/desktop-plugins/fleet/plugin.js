@@ -6,6 +6,7 @@
  *   3. GOALS            the OKRs from the repo, derived where a file allows it
  *   4. THE BOX          one line; details fold out (the former Fleet page)
  *   5. THE BOARD        queue/tasks.json as it is: what the agents are on, who holds it, the verdict
+ *   6. AGENTS NOW       one roster: the Mac's herdr panes (60 s snapshot) + this box's units
  *
  * Built for two readers: Karl at a glance, and an agent that wants the whole
  * state in one call — the "Copy for an agent" button copies the same digest the
@@ -382,6 +383,47 @@ function Board({ data: d }) {
 }
 
 /* ------------------------------------------------------------------------ */
+/* 6. agents now — one roster: Mac herdr panes + this box's units            */
+/*    (Karl's plan 2026-09-16, L3). Mac rows come from a 60 s snapshot the   */
+/*    Mac writes onto the box, shape only; stale past 3 min is said loudly.  */
+/* ------------------------------------------------------------------------ */
+const NOW_TONE = { working: 'ok', active: 'ok', blocked: 'blocked', failed: 'failed', masked: 'blocked',
+  idle: 'idle', done: 'idle', inactive: 'idle', unknown: 'unknown' }
+const NOW_BAD = ['blocked', 'failed', 'masked']
+function NowRow({ r }) {
+  const copyText = r.attach || r.status
+  return h('div', { className: cls('tdy-row', NOW_BAD.includes(r.state) && 'tdy-bad') },
+    h('span', { className: cls('tdy-pill', 'tdy-p-' + (NOW_TONE[r.state] || 'unknown')) }, r.state),
+    h('span', { className: 'tdy-mono' }, r.host + (r.where ? ' · ' + r.where : '')),
+    h('span', { className: 'tdy-job' },
+      h('span', { className: 'tdy-jobname' }, r.name),
+      r.detail ? h('div', { className: 'tdy-krlive' }, r.detail) : null,
+      copyText ? h('div', { className: 'tdy-cmdrow' },
+        h('code', { className: 'tdy-cmd' }, copyText),
+        h('button', { className: 'tdy-btn tdy-small', onClick: () => copy(copyText) }, 'copy')) : null),
+    h('span', { className: 'tdy-when' },
+      r.last_output ? 'output ' + ago(r.last_output)
+        : r.since ? 'since ' + ago(r.since)
+          : r.next ? 'next ' + when(r.next) : '—'))
+}
+
+function AgentsNow({ data: d }) {
+  if (!d || d.error) return h(Err, { msg: (d && d.error) || 'no data' })
+  const mac = d.mac || {}
+  const rows = d.rows || []
+  return h('div', null,
+    mac.stale ? h('div', { className: 'flt-warnbar' },
+      mac.error ? mac.error
+        : 'The Mac snapshot is ' + ago(mac.synced_at) + ' old — past ' + Math.round((mac.stale_after_s || 180) / 60) +
+          ' min, so the Mac rows below are NOT current (the Mac may be asleep).') : null,
+    mac.note ? h('p', { className: 'tdy-empty' }, 'Mac: ' + mac.note + (mac.synced_at ? ' (as of ' + ago(mac.synced_at) + ')' : '')) : null,
+    d.box && d.box.error ? h(Err, { msg: d.box.error }) : null,
+    !rows.length ? h('p', { className: 'tdy-empty' }, 'No agent is running anywhere this page can see.')
+      : h('div', { className: 'tdy-rows' }, rows.map(r => h(NowRow, { key: r.host + ':' + r.name, r }))),
+    h('p', { className: 'tdy-note' }, d.note))
+}
+
+/* ------------------------------------------------------------------------ */
 /* 4. the box (+ the former Fleet sections as details)                       */
 /* ------------------------------------------------------------------------ */
 const Stat = p =>
@@ -622,6 +664,7 @@ function makeTodayPage(rest) {
     const needs = v.needs_you || 0
     const ny = data.needs_you || {}
     const ag = data.agents || {}
+    const an = data.agents_now || {}
     return h('div', { className: stale ? 'tdy-root tdy-stale' : 'tdy-root' },
       stale ? h('div', { className: 'tdy-stalebar', role: 'alert' },
         'STALE — the last refresh failed ' + ago(iso(errAt)) +
@@ -657,7 +700,14 @@ function makeTodayPage(rest) {
         h(Section, { title: 'The board', count: data.board ? (data.board.in_flight ?? 0) : undefined,
           hot: Boolean(data.board && (data.board.counts || {}).blocked),
           meta: data.board && data.board.source ? data.board.source + (data.board.vault_branch ? ' @ ' + data.board.vault_branch : '') : null,
-          children: h(Board, { data: data.board }) })))
+          children: h(Board, { data: data.board }) }),
+        h(Section, { title: 'Agents now', count: an.rows ? an.rows.length : undefined,
+          hot: Boolean((an.mac || {}).stale) || (an.rows || []).some(r => NOW_BAD.includes(r.state)),
+          meta: an.sampled_at
+            ? ((an.mac || {}).synced_at ? 'mac synced ' + ago(an.mac.synced_at) + ' · ' : 'no mac snapshot · ') +
+              'box sampled ' + clock(an.sampled_at)
+            : null,
+          children: h(AgentsNow, { data: an }) })))
   }
 }
 
