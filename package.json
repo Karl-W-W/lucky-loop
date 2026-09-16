@@ -14,6 +14,7 @@
     "test:redaction": "python3 loop/test_redaction.py",
     "test:okr": "node --test scripts/gen-okr-derived.test.mjs",
     "check:okr": "node scripts/gen-okr-derived.mjs --check",
+    "sync:ci": "node scripts/sync-ci.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

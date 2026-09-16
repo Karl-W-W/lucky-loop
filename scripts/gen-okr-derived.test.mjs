@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  applyDerived, convergedNights, derive, fixtureSignature, idempotencyKey, isFixtureRun, parseDt, realDocuments,
+  applyDerived, ciCleanStreak, convergedNights, derive, fixtureSignature, idempotencyKey, isFixtureRun, parseDt, realDocuments,
 } from "./gen-okr-derived.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -112,7 +112,7 @@ test("the fixture is recognised by loop/run.py's idempotency key, else by its si
 
 test("applyDerived stamps the two KRs, marks the rest declared, keeps key order and other fields", () => {
   const okrs = { objectives: [
-    { id: "O3", keyResults: [ { id: "KR1", title: "t", progress: 0.2, note: "n" }, { id: "KR3", title: "u", progress: 0, note: "m", rubric: ["a"] } ] },
+    { id: "O3", keyResults: [ { id: "KR1", title: "t", progress: 0.2, note: "n" }, { id: "KR2", title: "u", progress: 0, note: "m", rubric: ["a"] } ] },
     { id: "O1", keyResults: [ { id: "KR1", title: "v", progress: 1 } ] },
   ] };
   const v = derive({ runs: FIXTURES.oneNightThenIdle, generatedAt: "2026-09-09T01:50:04Z", fixtureText: "", now: parseDt(NOW) });
@@ -128,4 +128,50 @@ test("applyDerived stamps the two KRs, marks the rest declared, keeps key order 
   // the static note carries no number: it cannot go stale
   assert.doesNotMatch(o3.keyResults[0].note, /\d+\/\d+/);
   assert.match(o3.keyResults[0].note, /gen-okr-derived\.mjs/);
+});
+
+const ci = (at, conclusion = "success", repo = "Karl-W-W/lucky-loop", workflow = "gates", run = 1) =>
+  ({ repo, workflow, run, sha7: "abcdef0", at, conclusion });
+
+test("KR3: all green since 2026-09-10 -> clean days count from the window start, capped by the snapshot date", () => {
+  const s = ciCleanStreak([ci("2026-09-10T10:00:00Z"), ci("2026-09-15T10:00:00Z", "success", "Karl-W-W/polysignal-engine", "Tests", 7)],
+                          parseDt("2026-09-16T16:00:00Z"));
+  assert.equal(s.windowDays, 51);
+  assert.equal(s.cleanFrom, "2026-09-10");
+  assert.equal(s.cleanDays, 6);          // 09-10 .. 09-16 00:00Z
+  assert.equal(s.failures, 0);
+  assert.equal(s.lastReset, null);
+});
+
+test("KR3: a failure resets the streak to the day after it and names the run", () => {
+  const s = ciCleanStreak([ci("2026-09-10T10:00:00Z"), ci("2026-09-12T09:00:00Z", "failure", "Karl-W-W/lucky-loop", "gates", 42), ci("2026-09-13T10:00:00Z")],
+                          parseDt("2026-09-16T16:00:00Z"));
+  assert.equal(s.cleanFrom, "2026-09-13");
+  assert.equal(s.cleanDays, 3);
+  assert.deepEqual(s.lastReset, { day: "2026-09-12", repo: "Karl-W-W/lucky-loop", workflow: "gates", run: 42, conclusion: "failure" });
+  const v = derive({ runs: [], fixtureText: "", now: parseDt("2026-09-16T16:00:00Z"),
+                     ci: { syncedAt: "2026-09-16T16:00:00Z", runs: [ci("2026-09-12T09:00:00Z", "failure", "Karl-W-W/lucky-loop", "gates", 42)] } });
+  assert.equal(v["O3/KR3"].progress, 0.06);   // 3/51: 09-13, 09-14, 09-15
+  assert.match(v["O3/KR3"].derived.note, /streak reset by lucky-loop gates #42 on 2026-09-12/);
+  assert.match(v["O3/KR3"].derived.note, /pre-commit refusals are local and unobservable/);
+});
+
+test("KR3: empty snapshot -> 0 with 'no gate runs in snapshot'; after the window the value is capped and says so", () => {
+  const v = derive({ runs: [], fixtureText: "", now: parseDt("2026-09-16T16:00:00Z"), ci: { runs: [] } });
+  assert.equal(v["O3/KR3"].progress, 0);
+  assert.equal(v["O3/KR3"].derived.note, "no gate runs in snapshot");
+  const s = ciCleanStreak([ci("2026-09-10T10:00:00Z")], parseDt("2026-12-01T00:00:00Z"));
+  assert.equal(s.cleanDays, 51);
+  assert.equal(s.afterWindow, true);
+  const late = derive({ runs: [], fixtureText: "", now: parseDt("2026-12-01T00:00:00Z"),
+                        ci: { syncedAt: "2026-12-01T00:00:00Z", runs: [ci("2026-09-10T10:00:00Z")] } });
+  assert.equal(late["O3/KR3"].progress, 1);
+  assert.match(late["O3/KR3"].derived.note, /window ended 2026-10-31/);
+});
+
+test("KR3 is measured at the snapshot's syncedAt, not at build time (stable between syncs)", () => {
+  const snap = { syncedAt: "2026-09-16T16:00:00Z", runs: [ci("2026-09-10T10:00:00Z")] };
+  const a = derive({ runs: [], fixtureText: "", now: parseDt("2026-09-16T16:00:00Z"), ci: snap });
+  const b = derive({ runs: [], fixtureText: "", now: parseDt("2026-10-01T16:00:00Z"), ci: snap });
+  assert.equal(a["O3/KR3"].progress, b["O3/KR3"].progress);
 });

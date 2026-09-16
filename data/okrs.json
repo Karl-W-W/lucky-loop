@@ -63,7 +63,7 @@
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/loop-runs.json",
-            "computedAt": "2026-09-16T15:51:41.770Z",
+            "computedAt": "2026-09-16T16:02:33.924Z",
             "passes": 4,
             "fixturesExcluded": 1,
             "docTypes": [
@@ -86,9 +86,21 @@
         {
           "id": "KR3",
           "title": "Zero gate failures in CI and pre-commit for the whole window",
-          "progress": 0,
-          "note": "streak counted from 2026-09-10",
-          "derived": false
+          "progress": 0.12,
+          "note": "derived at build time by scripts/gen-okr-derived.mjs from data/ci-runs.json (scripts/sync-ci.mjs snapshot of the gate workflows' completed runs on main): clean days since the last failure over the window 2026-09-10→2026-10-31, min(1, cleanDays / windowDays). The numbers live in `derived`, never here.",
+          "derived": {
+            "by": "scripts/gen-okr-derived.mjs",
+            "from": "data/ci-runs.json",
+            "computedAt": "2026-09-16T16:02:33.924Z",
+            "cleanDays": 6,
+            "windowDays": 51,
+            "cleanFrom": "2026-09-10",
+            "runs": 20,
+            "failures": 0,
+            "lastReset": null,
+            "snapshotGeneratedAt": "2026-09-16T16:02:33.847Z",
+            "note": "6/51 clean days since 2026-09-10 · 20 gate run(s) on main since 2026-09-10, 0 failed · CI half only; pre-commit refusals are local and unobservable · snapshot 2026-09-16T16:02:33.847Z"
+          }
         },
         {
           "id": "KR4",
@@ -98,7 +110,7 @@
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/loop-runs.json",
-            "computedAt": "2026-09-16T15:51:41.770Z",
+            "computedAt": "2026-09-16T16:02:33.924Z",
             "streak": 1,
             "idle": 7,
             "nights": 8,

@@ -18,6 +18,14 @@
  *             every pass in it ended "converged"   -> streak + 1
  *             any other termination                -> streak resets to 0
  *           counted over every COMPLETED night (window end <= now).
+ *   O3/KR3  zero gate failures for the window 2026-09-10 -> 2026-10-31 (O3 due),
+ *           from data/ci-runs.json (scripts/sync-ci.mjs: the gate workflows'
+ *           completed runs on main, snapshot committed; the build never talks
+ *           to the network). A failure resets the clean streak to the day after
+ *           it; progress = min(1, cleanDays / windowDays), measured at the
+ *           snapshot's syncedAt so the value is stable between syncs. CI half
+ *           only: a pre-commit refusal is local and unobservable, and the note
+ *           says so.
  *   O3/KR1  real documents processed, min(1, realPasses / 10). A real pass is
  *           one whose item is not the fixture: loop/fixtures/synthetic-bill.txt
  *           is recognised by its idempotency key, sha256(text + graphVersion +
@@ -42,6 +50,10 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const RUNS_PATH = join(ROOT, "data", "loop-runs.json");
+export const CI_PATH = join(ROOT, "data", "ci-runs.json");
+const CI_FROM = "data/ci-runs.json";
+export const CI_SINCE = "2026-09-10";
+export const CI_UNTIL = "2026-10-31";
 export const OKRS_PATH = join(ROOT, "data", "okrs.json");
 export const FIXTURE_PATH = join(ROOT, "loop", "fixtures", "synthetic-bill.txt");
 const SELF = "scripts/gen-okr-derived.mjs";
@@ -120,8 +132,42 @@ export function realDocuments(runs, fixtureText) {
 
 const r2 = (x) => Math.round(x * 100) / 100;
 
-export function derive({ runs, generatedAt, fixtureText, now }) {
+const DAY_MS = 86_400_000;
+const dayStart = (d) => new Date(Math.floor(d.getTime() / DAY_MS) * DAY_MS);
+
+/* O3/KR3: clean streak of gate runs on main. `runs` = snapshot rows; `asOf` =
+ * the snapshot's syncedAt (a Date). cancelled/skipped never reach the snapshot. */
+export function ciCleanStreak(runs, asOf, since = CI_SINCE, until = CI_UNTIL) {
+  const start = parseDt(`${since}T00:00:00+00:00`);
+  const end = parseDt(`${until}T00:00:00+00:00`);
+  const windowDays = Math.round((end - start) / DAY_MS);
+  const inWindow = runs.filter((r) => { const t = parseDt(r.at); return t && t >= start; });
+  const failures = inWindow.filter((r) => r.conclusion !== "success").sort((a, b) => a.at.localeCompare(b.at));
+  const last = failures.length ? failures[failures.length - 1] : null;
+  const cleanFrom = last ? new Date(dayStart(parseDt(last.at)).getTime() + DAY_MS) : start;
+  const measuredTo = asOf < end ? asOf : end;
+  const cleanDays = Math.max(0, Math.floor((dayStart(measuredTo) - cleanFrom) / DAY_MS));
+  return {
+    runs: inWindow.length, failures: failures.length, windowDays, cleanDays,
+    cleanFrom: cleanFrom.toISOString().slice(0, 10),
+    lastReset: last ? { day: last.at.slice(0, 10), repo: last.repo, workflow: last.workflow, run: last.run, conclusion: last.conclusion } : null,
+    afterWindow: asOf >= end,
+  };
+}
+
+export function derive({ runs, generatedAt, fixtureText, now, ci }) {
   const computedAt = now.toISOString();
+  const ciRuns = Array.isArray(ci?.runs) ? ci.runs : [];
+  const asOf = parseDt(ci?.syncedAt) ?? now;
+  const streak = ciCleanStreak(ciRuns, asOf);
+  const ciSnap = ci?.syncedAt ? ` · snapshot ${ci.syncedAt}` : "";
+  const kr3Note = ciRuns.length === 0
+    ? `no gate runs in snapshot${ciSnap}`
+    : `${streak.cleanDays}/${streak.windowDays} clean days since ${streak.cleanFrom}` +
+      ` · ${streak.runs} gate run(s) on main since ${CI_SINCE}, ${streak.failures} failed` +
+      (streak.lastReset ? ` · streak reset by ${streak.lastReset.repo.split("/")[1]} ${streak.lastReset.workflow} #${streak.lastReset.run} on ${streak.lastReset.day}` : "") +
+      (streak.afterWindow ? ` · window ended ${CI_UNTIL}` : "") +
+      " · CI half only; pre-commit refusals are local and unobservable" + ciSnap;
   const snap = generatedAt ? ` · snapshot ${generatedAt}` : "";
   const nights = convergedNights(runs, now);
   const kr4Note = runs.length === 0
@@ -145,6 +191,15 @@ export function derive({ runs, generatedAt, fixtureText, now }) {
       derived: { by: SELF, from: FROM, computedAt, streak: nights.streak, idle: nights.idle,
                  nights: nights.nights, lastCounted: nights.lastCounted, lastReset: nights.lastReset,
                  snapshotGeneratedAt: generatedAt ?? null, note: kr4Note },
+    },
+    "O3/KR3": {
+      progress: ciRuns.length === 0 ? 0 : r2(Math.min(1, streak.cleanDays / streak.windowDays)),
+      note: `derived at build time by ${SELF} from ${CI_FROM} (scripts/sync-ci.mjs snapshot of the gate ` +
+            `workflows' completed runs on main): clean days since the last failure over the window ` +
+            `${CI_SINCE}→${CI_UNTIL}, min(1, cleanDays / windowDays). The numbers live in \`derived\`, never here.`,
+      derived: { by: SELF, from: CI_FROM, computedAt, cleanDays: streak.cleanDays, windowDays: streak.windowDays,
+                 cleanFrom: streak.cleanFrom, runs: streak.runs, failures: streak.failures,
+                 lastReset: streak.lastReset, snapshotGeneratedAt: ci?.syncedAt ?? null, note: kr3Note },
     },
     "O3/KR1": {
       progress: r2(Math.min(1, docs.passes / TARGET_DOCS)),
@@ -182,6 +237,8 @@ export function checkable(values) {
                 lastCounted: values["O3/KR4"].derived.lastCounted, lastReset: values["O3/KR4"].derived.lastReset },
     "O3/KR1": { progress: values["O3/KR1"].progress, passes: values["O3/KR1"].derived.passes,
                 fixturesExcluded: values["O3/KR1"].derived.fixturesExcluded },
+    "O3/KR3": { progress: values["O3/KR3"].progress, cleanDays: values["O3/KR3"].derived.cleanDays,
+                cleanFrom: values["O3/KR3"].derived.cleanFrom, failures: values["O3/KR3"].derived.failures },
   };
 }
 
@@ -200,7 +257,8 @@ export function main(argv = process.argv.slice(2)) {
     console.error(`gen-okr-derived: ${relative(ROOT, OKRS_PATH)} unreadable`);
     return 1;
   }
-  const values = derive({ runs, generatedAt: runsDoc.generatedAt, fixtureText, now });
+  const ci = readJson(CI_PATH, { runs: [] });
+  const values = derive({ runs, generatedAt: runsDoc.generatedAt, fixtureText, now, ci });
   for (const [k, v] of Object.entries(values)) {
     console.log(`${k} progress=${v.progress} ${v.derived.note}`);
   }
