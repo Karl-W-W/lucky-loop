@@ -418,6 +418,7 @@ function AgentsNow({ data: d }) {
           ' min, so the Mac rows below are NOT current (the Mac may be asleep).') : null,
     mac.note ? h('p', { className: 'tdy-empty' }, 'Mac: ' + mac.note + (mac.synced_at ? ' (as of ' + ago(mac.synced_at) + ')' : '')) : null,
     d.box && d.box.error ? h(Err, { msg: d.box.error }) : null,
+    d.box && d.box.other_note ? h('p', { className: 'tdy-empty' }, d.box.other_note) : null,
     !rows.length ? h('p', { className: 'tdy-empty' }, 'No agent is running anywhere this page can see.')
       : h('div', { className: 'tdy-rows' }, rows.map(r => h(NowRow, { key: r.host + ':' + r.name, r }))),
     h('p', { className: 'tdy-note' }, d.note))
@@ -685,21 +686,28 @@ function makeTodayPage(rest) {
             h('span', { className: 'tdy-when', style: { alignSelf: 'center' } },
               '← the whole page as text, for an agent (also served at /today.txt)'))),
         h(Section, { title: 'Needs you', count: needs, hot: needs > 0,
-          meta: ny.updated_at ? 'queue updated ' + ago(ny.updated_at) : null,
+          meta: (ny.sampled_at ? 'sampled ' + clock(ny.sampled_at) : '') +
+            (ny.updated_at ? (ny.sampled_at ? ' · ' : '') + 'queue updated ' + ago(ny.updated_at) : '') || null,
           children: h(NeedsYou, { data: ny }) }),
         h(Section, { title: 'What the agents did', count: (ag.items || []).length,
           hot: (ag.failed_count || 0) > 0,
           meta: ag.sampled_at ? 'sampled ' + clock(ag.sampled_at) : null,
           children: h(Agents, { data: ag }) }),
         h(Section, { title: 'Goals',
-          meta: data.goals && data.goals.head ? 'okrs.json @ ' + data.goals.head : null,
+          meta: data.goals
+            ? (data.goals.sampled_at ? 'sampled ' + clock(data.goals.sampled_at) + ' · ' : '') +
+              (data.goals.head ? 'okrs.json @ ' + data.goals.head : 'okrs.json')
+            : null,
           children: h(Goals, { data: data.goals }) }),
         h(Section, { title: 'The box',
           meta: data.box ? 'sampled ' + clock(data.box.sampled_at) : null,
           children: h(Box, { data: data.box, rest, tickKey }) }),
         h(Section, { title: 'The board', count: data.board ? (data.board.in_flight ?? 0) : undefined,
           hot: Boolean(data.board && (data.board.counts || {}).blocked),
-          meta: data.board && data.board.source ? data.board.source + (data.board.vault_branch ? ' @ ' + data.board.vault_branch : '') : null,
+          meta: data.board
+            ? (data.board.sampled_at ? 'sampled ' + clock(data.board.sampled_at) + ' · ' : '') +
+              (data.board.source ? data.board.source + (data.board.vault_branch ? ' @ ' + data.board.vault_branch : '') : '')
+            : null,
           children: h(Board, { data: data.board }) }),
         h(Section, { title: 'Agents now', count: an.rows ? an.rows.length : undefined,
           hot: Boolean((an.mac || {}).stale) || (an.rows || []).some(r => NOW_BAD.includes(r.state)),

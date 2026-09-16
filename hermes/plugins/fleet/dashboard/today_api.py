@@ -56,6 +56,13 @@ TASKS_FILE = BRAIN / "queue" / "tasks.json"
 HERDR_SNAP = HOME / ".local" / "state" / "lucky-loop" / "herdr-agents.json"   # written by the Mac every 60 s
 USER_UNIT_DIR = HOME / ".config" / "systemd" / "user"
 MAC_SNAPSHOT_STALE_S = 180
+# The box's user units that ARE this project's agents (name prefix, before .service or @).
+# Everything else under ~/.config/systemd/user (other products, model routers, shims)
+# stays on the Fleet page's full unit list; here it is a count, not a row — a roster
+# that lists every unit on the box is a fleet list wearing a roster's title.
+PROJECT_UNITS = ("lucky-loop", "artifact-return", "nightly-queue", "foreman", "decide-listener",
+                 "propose", "infra-watch", "needs-you-notify", "hermes-serve", "hermes-gateway",
+                 "herdr-server")
 
 # Exit codes of lucky-loop.service, as the unit declares them (SuccessExitStatus=0 2 4).
 EXIT_MEANING = {
@@ -137,6 +144,7 @@ def _rel(p: Path) -> str:
 # --------------------------------------------------------------------------- #
 def needs_you(checks: Dict[str, Any], nightly_latest: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     out: Dict[str, Any] = {
+        "sampled_at": _now(),
         "source": _rel(QUEUE_FILE), "updated_at": None, "items": [], "derived": [],
         "done_count": 0, "error": None,
     }
@@ -840,9 +848,14 @@ def agents_now() -> Dict[str, Any]:
                     tmap[rec["Unit"]] = {"last": _sysd_ts(rec.get("LastTriggerUSec")),
                                          "next": _sysd_ts(rec.get("NextElapseUSecRealtime")),
                                          "timer": rec.get("Id")}
+        other_units: List[str] = []
         for uid, rec in recs.items():
             if not str(rec.get("FragmentPath", "")).startswith(str(USER_UNIT_DIR)):
                 continue   # the distro's user units are not this project's agents
+            base = uid[:-len(".service")].split("@", 1)[0]
+            if not any(base == p or base.startswith(p + "-") for p in PROJECT_UNITS):
+                other_units.append(uid)   # on the box, not of this project — counted, listed on Fleet
+                continue
             active, sub = rec.get("ActiveState"), rec.get("SubState")
             timer = tmap.get(uid)
             if rec.get("UnitFileState") == "masked":
@@ -863,6 +876,9 @@ def agents_now() -> Dict[str, Any]:
                 "last_output": exited or entered, "next": (timer or {}).get("next"),
                 "attach": None, "status": f"systemctl --user status {uid}",
             })
+        box["other_units"] = len(other_units)
+        box["other_note"] = (f"{len(other_units)} other user unit(s) on this box are not this project's agents; "
+                             "the Fleet page lists every unit." if other_units else "")
     except Exception as e:
         box["error"] = f"units unreadable: {type(e).__name__}: {e}"
     out["box"] = box
@@ -883,7 +899,8 @@ def _digest(d: Dict[str, Any]) -> str:
     ny, ag, go, bx = d["needs_you"], d["agents"], d["goals"], d["box"]
     L.append(f"TODAY · {d['sampled_at']} · {bx.get('host')}")
     n_open = len(ny.get("items", [])) + len(ny.get("derived", []))
-    L.append(f"NEEDS YOU: {n_open} item(s)" + (f" · queue updated {ny.get('updated_at')}" if ny.get("updated_at") else "")
+    L.append(f"NEEDS YOU: {n_open} item(s) · sampled {ny.get('sampled_at')}"
+             + (f" · queue updated {ny.get('updated_at')}" if ny.get("updated_at") else "")
              + (f" · {ny['error']}" if ny.get("error") else ""))
     for i in ny.get("items", []):
         L.append(f"  {i.get('priority', '?')}. {i.get('title')}  [since {i.get('since')}, {i.get('age_days')} d]")
@@ -896,7 +913,7 @@ def _digest(d: Dict[str, Any]) -> str:
             L.append(f"     check: {i['check']}")
     for i in ny.get("derived", []):
         L.append(f"  •  {i.get('title')}  [derived]")
-    L.append(f"AGENTS: {len(ag.get('items', []))} row(s), {ag.get('failed_count')} failed")
+    L.append(f"AGENTS: {len(ag.get('items', []))} row(s), {ag.get('failed_count')} failed · sampled {ag.get('sampled_at')}")
     for i in ag.get("items", [])[:12]:
         line = f"  {str(i.get('t') or '—')[:16]}  {i.get('kind'):<8} {str(i.get('agent') or ''):<10} {str(i.get('job'))[:48]:<48} {i.get('status')}"
         if i.get("duration_s") is not None:
@@ -907,7 +924,7 @@ def _digest(d: Dict[str, Any]) -> str:
             line += f"  — {i['reason'][:110]}"
         L.append(line)
     L.append(f"  ({ag.get('not_here')})")
-    L.append(f"GOALS ({go.get('source')} @ {go.get('head', '?')}):")
+    L.append(f"GOALS ({go.get('source')} @ {go.get('head', '?')}) · sampled {go.get('sampled_at')}:")
     for o in go.get("objectives", []):
         L.append(f"  {o['id']} {o['state']:<9} {int(round(o['progress'] * 100)):>3}%  due {o.get('due')}  {o['title']}")
         for k in o.get("keyResults", []):
@@ -918,12 +935,12 @@ def _digest(d: Dict[str, Any]) -> str:
     L.append(f"  live: {lv.get('passes')} passes · doc types {lv.get('doc_types')} · queue {lv.get('queue_depth')} "
              f"· last pass {lv.get('last_pass_at')} · herald gate met={lv.get('herald_gate', {}).get('met')}")
     ck = bx.get("checks", {})
-    L.append(f"BOX: {'OK' if bx.get('ok') else 'LOOK'} · checks {ck.get('status')} "
+    L.append(f"BOX: {'OK' if bx.get('ok') else 'LOOK'} · sampled {bx.get('sampled_at')} · checks {ck.get('status')} "
              f"{(ck.get('total') or 0) - len(ck.get('failing') or [])}/{ck.get('total')} ({ck.get('state')}, {ck.get('checked_at')}) "
              f"· load {bx.get('load1')} · hottest {bx.get('hottest_c')} °C · GPU {bx.get('gpu_util_pct')} % "
              f"· failed units {len(bx.get('failed_units') or [])} {bx.get('failed_units')} · timers {bx.get('timers')}")
     bd = d.get("board") or {}
-    L.append(f"BOARD: {len(bd.get('items', []))} task(s) · "
+    L.append(f"BOARD: {len(bd.get('items', []))} task(s) · sampled {bd.get('sampled_at')} · "
              + (" · ".join(f"{k} {v}" for k, v in sorted((bd.get("counts") or {}).items())) or "none")
              + (f" · vault branch {bd['vault_branch']}" if bd.get("vault_branch") else "")
              + (f" · {bd['error']}" if bd.get("error") else ""))
@@ -935,6 +952,9 @@ def _digest(d: Dict[str, Any]) -> str:
     mac = an.get("mac") or {}
     L.append(f"AGENTS NOW: {an.get('count_mac', 0)} mac (synced {_age_str(mac.get('age_s'))}"
              + (", STALE" if mac.get("stale") else "") + f") · {an.get('count_box', 0)} box"
+             + f" · sampled {an.get('sampled_at')}"
+             + (f" · {(an.get('box') or {}).get('other_units')} other units on Fleet"
+                if (an.get("box") or {}).get("other_units") else "")
              + (f" · {mac['note']}" if mac.get("note") else "")
              + (f" · {mac['error']}" if mac.get("error") else "")
              + (f" · {an['error']}" if an.get("error") else ""))
