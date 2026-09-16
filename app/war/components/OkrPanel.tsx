@@ -68,11 +68,37 @@ export default function OkrPanel({
                         <span className="ml-2 text-[11px] text-[var(--war-ink-3)]">{kr.note}</span>
                       ) : null}
                     </span>
-                    <span className="text-[13px] font-semibold">
+                    <span className="flex items-baseline gap-2 whitespace-nowrap text-[13px] font-semibold">
                       {Math.round(kr.progress * 100)}%
+                      {/* Provenance tag, the Today page's "[derived]" in this
+                        * page's tokens: derived = computed at build time from a
+                        * committed data file (hover names the file and the
+                        * snapshot); declared = a person typed the number. */}
+                      <span
+                        className="rounded bg-[var(--war-surface-2)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--war-ink-3)]"
+                        title={
+                          kr.derived
+                            ? `derived by ${kr.derived.by} from ${kr.derived.from}` +
+                              (kr.derived.snapshotGeneratedAt
+                                ? ` · snapshot ${kr.derived.snapshotGeneratedAt}`
+                                : "") +
+                              ` · computed ${kr.derived.computedAt}`
+                            : "declared: typed in data/okrs.json, not computed"
+                        }
+                      >
+                        {kr.derived ? "derived" : "declared"}
+                      </span>
                     </span>
                   </div>
                   <Meter value={kr.progress} label={`${kr.id}: ${kr.title}`} />
+                  {kr.derived ? (
+                    <span className="text-[11px] text-[var(--war-ink-3)]">
+                      {kr.derived.note}
+                      {kr.derived.snapshotGeneratedAt
+                        ? ` — snapshot of ${kr.derived.snapshotGeneratedAt.slice(0, 10)}; the Today page reads the live file`
+                        : null}
+                    </span>
+                  ) : null}
                   {/* The rubric is the whole reason a 100% here is worth reading.
                     * data/okrs.json has carried these criteria since launch day and
                     * the type comment claimed they rendered "so the bar is public" —

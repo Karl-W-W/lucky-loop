@@ -64,6 +64,28 @@ export type KeyResult = {
    * after the fact. Rendered by OkrPanel (collapsed) so the bar is public, not
    * private — this sentence asserted that for two weeks before it was true. */
   rubric?: string[];
+  /* Build-time provenance (scripts/gen-okr-derived.mjs, npm prebuild). `false`
+   * = declared: the number was typed by a person. An object = derived: the
+   * number was computed from `from` (the committed data/loop-runs.json
+   * snapshot) and `note` says what was counted and which snapshot. The Today
+   * page derives the same KRs from the box's LIVE file, so the two can differ
+   * by one snapshot — the tag beside the KR names the snapshot for that reason. */
+  derived?: false | KrDerived;
+};
+export type KrDerived = {
+  by: string;
+  from: string;
+  computedAt: string;
+  note: string;
+  snapshotGeneratedAt?: string | null;
+  streak?: number;
+  idle?: number;
+  nights?: number;
+  lastCounted?: string | null;
+  lastReset?: string | null;
+  passes?: number;
+  fixturesExcluded?: number;
+  docTypes?: string[];
 };
 export type Objective = {
   id: string;
@@ -124,7 +146,9 @@ export function getBuildTime(): number {
 }
 
 export function getObjectives(): Objective[] {
-  return okrsJson.objectives;
+  /* The JSON import widens `derived` to boolean | object; the file only ever
+   * holds `false` or a KrDerived (scripts/gen-okr-derived.mjs writes both). */
+  return okrsJson.objectives as unknown as Objective[];
 }
 
 /* Rows with an empty URL never ship — a link rail that renders "add URL here"

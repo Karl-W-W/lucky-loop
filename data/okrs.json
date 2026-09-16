@@ -10,7 +10,8 @@
           "id": "KR1",
           "title": "War Room live on Vercel",
           "progress": 1,
-          "note": "live — lucky-loop-one.vercel.app"
+          "note": "live — lucky-loop-one.vercel.app",
+          "derived": false
         },
         {
           "id": "KR2",
@@ -23,7 +24,8 @@
             "Evaluate runs the pass's own declared assertion; only terminationReason=converged counts",
             "The committed artifact is produced by the redaction step and passes the mechanical PII check",
             "/loop renders the pass on prod, and /war's Flow panel renders from the definition the runner executed"
-          ]
+          ],
+          "derived": false
         }
       ]
     },
@@ -36,13 +38,15 @@
           "id": "KR1",
           "title": "Rotation runbook items R-2 and R-3 closed — the old values answer 401",
           "progress": 0,
-          "note": "human-only; the runbook lives in the private vault, not here"
+          "note": "human-only; the runbook lives in the private vault, not here",
+          "derived": false
         },
         {
           "id": "KR2",
           "title": "Retired GitHub repos archived so the public profile shows only live work",
           "progress": 0,
-          "note": "17 repos on 2026-09-03, 5 with activity in the last 30 days"
+          "note": "17 repos on 2026-09-03, 5 with activity in the last 30 days",
+          "derived": false
         }
       ]
     },
@@ -54,26 +58,55 @@
         {
           "id": "KR1",
           "title": "10 real documents processed across at least 3 document types, zero fixtures",
-          "progress": 0.2,
-          "note": "3 passes on 2 real documents as of 2026-09-03 — counted from data/loop-runs.json, one fixture excluded"
+          "progress": 0.4,
+          "note": "derived at build time by scripts/gen-okr-derived.mjs from data/loop-runs.json: passes whose item is not loop/fixtures/synthetic-bill.txt (matched by loop/run.py's idempotency key), min(1, passes / 10). The numbers live in `derived`, never here.",
+          "derived": {
+            "by": "scripts/gen-okr-derived.mjs",
+            "from": "data/loop-runs.json",
+            "computedAt": "2026-09-16T15:51:41.770Z",
+            "passes": 4,
+            "fixturesExcluded": 1,
+            "docTypes": [
+              "invoice",
+              "other",
+              "receipt",
+              "vat-invoice"
+            ],
+            "snapshotGeneratedAt": "2026-09-09T01:50:04Z",
+            "note": "4/10 real-document passes · 4 doc type(s) (invoice, other, receipt, vat-invoice) · 1 fixture pass(es) excluded · snapshot 2026-09-09T01:50:04Z"
+          }
         },
         {
           "id": "KR2",
           "title": "HERALD's gate met: 5 passes and 3 document types, derived by the roster",
           "progress": 0,
-          "note": "the gate is in data/agents.json and the roster derives it; nothing here is hand-typed"
+          "note": "the gate is in data/agents.json and the roster derives it; nothing here is hand-typed",
+          "derived": false
         },
         {
           "id": "KR3",
           "title": "Zero gate failures in CI and pre-commit for the whole window",
           "progress": 0,
-          "note": "streak counted from 2026-09-10"
+          "note": "streak counted from 2026-09-10",
+          "derived": false
         },
         {
           "id": "KR4",
           "title": "7 consecutive unattended converged nights (night 1 = 2026-09-08→09; an idle night neither counts nor resets)",
           "progress": 0.14,
-          "note": "derived on the Today page from loop-runs.json (today_api.py, _converged_nights: a night is 20:00Z→08:00Z; every pass converged = +1; any other end = reset; no pass = skipped). This number is the 2026-09-10 snapshot, 1 of 7; /war shows the declared value until the OKR derivation moves to build time"
+          "note": "derived at build time by scripts/gen-okr-derived.mjs from data/loop-runs.json with the Today page's definition (today_api.py::_converged_nights: a night is 20:00Z→08:00Z; every pass converged = +1; any other end = reset; no pass = skipped). The numbers live in `derived`, never here.",
+          "derived": {
+            "by": "scripts/gen-okr-derived.mjs",
+            "from": "data/loop-runs.json",
+            "computedAt": "2026-09-16T15:51:41.770Z",
+            "streak": 1,
+            "idle": 7,
+            "nights": 8,
+            "lastCounted": "2026-09-08",
+            "lastReset": null,
+            "snapshotGeneratedAt": "2026-09-09T01:50:04Z",
+            "note": "1/7 consecutive converged nights since 2026-09-08→09 · 7 of 8 night(s) idle (skipped) · last counted 2026-09-08 · snapshot 2026-09-09T01:50:04Z"
+          }
         }
       ]
     },
@@ -86,19 +119,22 @@
           "id": "KR1",
           "title": "The Hermes Desktop Today page shows goals, what the agents did, what needs a human, and box health — every number derived, with its sample time",
           "progress": 0,
-          "note": "extends the read-only Fleet plugin; it reports, it does not control"
+          "note": "extends the read-only Fleet plugin; it reports, it does not control",
+          "derived": false
         },
         {
           "id": "KR2",
           "title": "Every item waiting on a human exists as a queue entry before it is mentioned in chat",
           "progress": 0,
-          "note": "queue file in the private vault; rendered on the Today page and read at clockin"
+          "note": "queue file in the private vault; rendered on the Today page and read at clockin",
+          "derived": false
         },
         {
           "id": "KR3",
           "title": "Median idea-to-action latency of 7 days or less, measured on the needs-you queue from an item's since to its doneOn",
           "progress": 0,
-          "note": "Karl's own self-KPI; computed from the queue file in the private vault, never typed. Nothing closed yet counts as 0."
+          "note": "Karl's own self-KPI; computed from the queue file in the private vault, never typed. Nothing closed yet counts as 0.",
+          "derived": false
         }
       ]
     },
@@ -111,19 +147,22 @@
           "id": "KR1",
           "title": "gbrain brain score 59 to 75: orphan pages 111 to under 40, a person page exists, entity state blocks refreshed at clockout",
           "progress": 0,
-          "note": "get_health on 2026-09-03: score 59, 111 of 150 linkable pages orphaned"
+          "note": "get_health on 2026-09-03: score 59, 111 of 150 linkable pages orphaned",
+          "derived": false
         },
         {
           "id": "KR2",
           "title": "Retrieval eval MRR@5 0.422 to 0.50 with the GPU reranker promoted",
           "progress": 0,
-          "note": "CUDA build measured 0.67 s vs 25.4 s on CPU; promotion dated after 2026-09-10"
+          "note": "CUDA build measured 0.67 s vs 25.4 s on CPU; promotion dated after 2026-09-10",
+          "derived": false
         },
         {
           "id": "KR3",
           "title": "Every work session ends with a handoff file and a vault entry — 4 of 4 weekly",
           "progress": 0,
-          "note": "2026-09-02 ended without a handoff; the ritual exists, compliance is the result"
+          "note": "2026-09-02 ended without a handoff; the ritual exists, compliance is the result",
+          "derived": false
         }
       ]
     }
