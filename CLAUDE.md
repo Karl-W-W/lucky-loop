@@ -269,6 +269,17 @@ that is a gate failure, which is the thing the KR measures, and a guard against 
 "zero gate failures" a number that cannot fall. **The merge is still Karl's**; nothing on the box
 publishes, and the KR advances by itself only as far as the PR.
 
+**Trap, and the reason `check_artifacts.py` now has an `EXEMPT` table.** Putting
+`data/ci-runs.json` under the redaction gate makes the BY-NAME half fire on `$.runs[*].repo`,
+because the owner half of a GitHub slug is an account name — 33 hits on the first snapshot. It
+fires only where the real deny-list is loaded, i.e. the loop host: **CI stays green on the
+pattern half and fictional names while `artifact-return`'s gate goes red on the box, refuses its
+push, and takes the loop's own three artifacts down with it.** Caught 2026-09-19 in a post-merge
+rehearsal against a local mirror, not by any gate. The waiver is one rule at one path pattern,
+counted in the gate's status line so it can never be silent; every other field stays under both
+halves. If you add an artifact whose content is legitimately public identifiers, rehearse it on
+the host before merging — the runner cannot tell you.
+
 ## The Today page and the needs-you queue (2026-09-03)
 
 Karl's ruling: he wants to **manage the output of agents**, nothing else, on one
