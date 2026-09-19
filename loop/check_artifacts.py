@@ -57,6 +57,7 @@ Exit: 0 clean · 1 violations found (blocks the build) · 2 nothing to check.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -93,9 +94,52 @@ ARTIFACTS = [
 # and timestamps only, by construction — but "by construction" is a claim about
 # today's writer, and the gate is what keeps it true of every future one.
 
+# A NAMED, VISIBLE EXEMPTION. Read the reason before adding a second one.
+#
+# data/ci-runs.json repeats a GitHub repo slug on every row, and the owner half of a slug
+# is an account name: `Karl-W-W/lucky-loop`. So the by-name half of gate 1 fires once per
+# row — 33 times on the 2026-09-19 snapshot — on a file whose every byte came from the
+# public API of a repository whose clone URL this very file's repo publishes.
+#
+# The part that makes it worth machinery instead of a shrug: this fires ONLY where the real
+# deny-list is loaded, which is the loop host. CI runs the pattern half against fictional
+# names and stays GREEN, while on the box artifact-return.py's run_gates() goes red, refuses
+# its push, and takes the loop's own three artifacts down with it into a failures log nobody
+# reads. Observed here 2026-09-19 in a post-merge rehearsal, before the branch landed —
+# CLAUDE.md's "the verdict is HOST-DEPENDENT" with the signs reversed.
+#
+# What is waived is one RULE at one exact PATH, never a file: every other field of
+# ci-runs.json, and every field a future schema adds, stays under both halves. Waivers are
+# counted in the status line, so an exemption can never be silent. Verified 2026-09-19 by
+# injecting a real deny-list token into $.runs[0].workflow — still DIRTY, still exit 1.
+#
+# ITS LIMIT, said plainly: the waiver covers the whole `repo` value, so a name smuggled INTO
+# a slug (`Karl-W-W/<name>-notes`) passes. That is accepted, not overlooked — a slug is chosen
+# by the account owner and is public the moment the repository is, and narrowing the waiver to
+# one literal string would hard-code an account name into a world-readable file, which is the
+# exact trade the gitignored deny-list exists to refuse.
+EXEMPT: dict[str, list[tuple[re.Pattern, str]]] = {
+    # $.gates[0].repo, $.runs[12].repo — the slug of a public repository, not a person.
+    "data/ci-runs.json": [(re.compile(r"^\$\.(gates|runs)\[\d+\]\.repo$"), "name")],
+}
+
+
+def apply_exemptions(rel: str, found: list[str]) -> tuple[list[str], list[str]]:
+    """Split `path: kind` violations into (kept, waived) for one artifact."""
+    rules = EXEMPT.get(rel)
+    if not rules:
+        return found, []
+    kept: list[str] = []
+    waived: list[str] = []
+    for v in found:
+        at, _, kind = v.rpartition(": ")
+        (waived if any(kind == k and pat.match(at) for pat, k in rules) else kept).append(v)
+    return kept, waived
+
 
 def main() -> int:
     checked = 0
+    waivers = 0
     violations: list[str] = []
 
     # Belt and braces: the inbox must never become tracked. A committed real
@@ -152,15 +196,19 @@ def main() -> int:
         found = verify_clean(payload)
         if forbidden:
             found += verify_no_source_tokens(payload, forbidden)
+        found, waived = apply_exemptions(rel, found)
+        waivers += len(waived)
+        note = f" ({len(waived)} exempt)" if waived else ""
         if found:
             violations.extend(f"{rel}: {f}" for f in found)
-            print(f"  DIRTY  {rel} — {len(found)} violation(s)")
+            print(f"  DIRTY  {rel} — {len(found)} violation(s){note}")
         else:
-            print(f"  clean  {rel}")
+            print(f"  clean  {rel}{note}")
 
     print(
         f"\nname gate: local deny-list {'LOADED' if LOCAL_TOKENS_LOADED else 'ABSENT (fictional defaults only)'}"
         f" · source deny-list: {len(forbidden)} token(s)"
+        f" · {waivers} named exemption(s) applied (EXEMPT, top of this file)"
     )
 
     if violations:
