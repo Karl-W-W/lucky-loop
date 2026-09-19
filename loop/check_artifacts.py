@@ -81,6 +81,13 @@ ARTIFACTS = [
     # session id — but it is committed and rendered publicly like the rest, so
     # it is gated like the rest rather than trusted to stay clean.
     "data/agent-liveness.json",
+    # The CI snapshot O3/KR3 is derived from (scripts/sync-ci.mjs). Public
+    # GitHub metadata by construction — repo, workflow, run number, short sha,
+    # time, conclusion — and since 2026-09-19 it is written UNATTENDED by the
+    # nightly-queue job `ci-snapshot` and carried here by the artifact-return
+    # hop. An artifact no hand touches between the API and the PR belongs in
+    # this list more than one a human copies, not less.
+    "data/ci-runs.json",
 ]
 # loop-status.json joined the list the same day it was created. It carries counts
 # and timestamps only, by construction — but "by construction" is a claim about
