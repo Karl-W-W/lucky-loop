@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/gen-ledger.mjs && node scripts/gen-okr-derived.mjs && python3 loop/check_artifacts.py && python3 langflow/gen-flow.py --check-drift && node scripts/gen-agents.mjs --check && node scripts/check-mcp-invariant.mjs",
+    "prebuild": "node scripts/gen-ledger.mjs && node scripts/gen-okr-derived.mjs && python3 loop/check_artifacts.py && python3 langflow/gen-flow.py --check-drift && node scripts/gen-agents.mjs --check && node scripts/check-mcp-invariant.mjs && node scripts/check-legal.mjs",
     "check:flow": "python3 langflow/gen-flow.py --check",
     "check:drift": "python3 langflow/gen-flow.py --check-drift",
     "check:redaction": "python3 loop/check_artifacts.py",
@@ -27,6 +27,7 @@
     "drop:realm": "node scripts/drop-realm.mjs",
     "sync:failures": "node scripts/sync-failures.mjs",
     "check:mcp": "node scripts/check-mcp-invariant.mjs",
+    "check:legal": "node scripts/check-legal.mjs",
     "sync:agents": "node scripts/sync-agent-liveness.mjs",
     "sync:ops": "node scripts/sync-ops.mjs"
   },

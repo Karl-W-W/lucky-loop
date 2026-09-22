@@ -107,6 +107,13 @@ jobs:
           fi
           git checkout -- data/ledger.json
 
+      # The legal gate (2026-09-22): data/impressum.json, data/pricing.json and
+      # content/legal/*.md are CONTENT Karl types. A placeholder, an empty field,
+      # a draft marker, or an AGB that disagrees with the price card is red here
+      # before it can become a legal page that lies. Shape and consistency only.
+      - name: legal gate (no placeholder reaches a legal page)
+        run: node scripts/check-legal.mjs
+
       - name: install
         run: npm ci
 

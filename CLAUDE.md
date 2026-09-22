@@ -14,6 +14,37 @@ dashboard we run the company on.
 > `archive/mac-scaffold-2026-07-22` must never reach origin, because a public
 > repo serves unreachable objects by SHA and that would be irreversible.
 
+## The Stripe-minimum pages (2026-09-22): price card, Impressum, Datenschutz, AGB, Kontakt
+
+Karl's word on 2026-09-22 was **finish-first**: the site carries what a payment
+reviewer and German law require — what is sold, to whom, at what price, how it
+is charged, the legal pages, contact — and the full product site waits until
+the 13 Aug rule ("not launched until I have one UI I can see and manage") is
+met. Business customers only (Unternehmer, § 14 BGB): no Widerruf page, no
+§ 312k button, said in the AGB.
+
+- **Content, not code.** `data/impressum.json` and `data/pricing.json` are
+  Karl's values; `content/legal/*.md` are the German texts (English summary in
+  the blockquote under the title), rendered by the tiny in-house
+  `app/components/site/Markdown.tsx` — no markdown dependency. Edit the JSON and
+  the markdown, never the components, to change a price or a sentence.
+- **The legal gate.** `scripts/check-legal.mjs` runs in `npm prebuild` and in
+  `gates.yml`: a placeholder, an empty field, a draft marker, an AGB that
+  disagrees with the price card, or a consumer clause in a B2B-only AGB is a
+  red build. It checks shape and consistency; whether a sentence is TRUE is a
+  human's job and the gate does not claim it.
+- **The Datenschutzerklärung is only true while this site sets no cookies,
+  loads no analytics, makes no third-party request and self-hosts its fonts.**
+  Adding Vercel Web Analytics, Stripe.js, a runtime font or any tracker makes
+  that page false the moment it deploys — rewrite the page in the same commit.
+- **`paymentLink` in `data/pricing.json` stays empty until Karl pastes a Stripe
+  Payment Link** (test mode until the account is verified). While it is empty
+  the price card's button is a mailto; no key, link or Stripe code exists in
+  this repo and none may be invented.
+- **`app/lib/site.ts` holds the canonical origin.** It moves to the custom
+  domain in the same change that makes that domain answer 200 — never before,
+  because share-card image URLs are absolute.
+
 ## /war — the War Room
 
 `/war` shows **real data only — no mock telemetry**:

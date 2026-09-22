@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "about": "The legal identity behind the site (§ 5 DDG, § 18 MStV). CONTENT, not code: Karl types these values; scripts/check-legal.mjs refuses a build when any is empty or a placeholder, and checks that content/legal/impressum.md carries the same name, street, city and e-mail. No phone, no register entry and no VAT id are printed until Karl supplies them.",
+  "name": "Karl Würfel",
+  "street": "Fuststrasse 4",
+  "city": "80469 München",
+  "country": "Deutschland",
+  "email": "karl.wuerfel@icloud.com",
+  "phone": "",
+  "vatId": "",
+  "responsible": "Karl Würfel",
+  "updatedAt": "2026-09-22"
+}
