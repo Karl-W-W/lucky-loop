@@ -562,3 +562,19 @@ body {
 .ll-footer-nav a:hover { text-decoration-color: var(--llf-ink); }
 .ll-footer-line { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .ll-footer-line a { color: inherit; text-decoration: underline; text-decoration-color: var(--llf-rule); text-underline-offset: 0.25em; }
+
+/* --- hero offer line + legal contents list (critic pass, 2026-09-22) ------ */
+.ll-home .ll-hero-offer {
+  margin: 1.25rem 0 0;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid var(--ll-hairline-soft);
+  font-size: 0.95rem;
+  color: var(--ll-ink-2);
+  max-width: 40rem;
+}
+.ll-home .ll-hero-offer a { color: var(--ll-pine); text-decoration: underline; text-decoration-color: var(--ll-hairline); text-underline-offset: 0.2em; }
+.ll-home .ll-toc { margin-top: 2rem; }
+.ll-home .ll-toc-title { font-family: var(--ll-mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ll-ink-2); margin: 0 0 0.4rem; }
+.ll-home .ll-toc ol { margin: 0 0 0 1.1rem; padding: 0; font-size: 0.875rem; columns: 1; }
+.ll-home .ll-toc li { margin: 0.15rem 0; }
+.ll-home .ll-toc a { color: var(--ll-pine); text-decoration: underline; text-decoration-color: var(--ll-hairline); text-underline-offset: 0.2em; }

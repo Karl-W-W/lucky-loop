@@ -38,7 +38,7 @@ Damit wir Ihnen eine brauchbare Antwort geben können, schreiben Sie bitte:
 - welche Entscheidungen Sie weiterhin selbst treffen wollen („NEEDS YOU“) und welche nicht.
 
 **Ehrlicher Stand am 22. September 2026.** Lucky Loop hat noch keinen zahlenden Kunden. Der gehostete Loop läuft unbeaufsichtigt auf unserem eigenen,
-dauerhaft laufenden Rechner in München und hat bisher fünf Dokumente verarbeitet (Verwaltung und Abrechnung: Rechnungen, Belege, Umsatzsteuerrechnungen),
+dauerhaft laufenden Rechner in München und hat bisher fünf Dokumente verarbeitet (Verwaltung und Abrechnung: Rechnungen, Belege, Umsatzsteuerrechnungen und sonstige Dokumente),
 davon eines ein synthetisches Testdokument. Unser eigener Mail-Triage-Agent hat eine bewertete Runde abgeschlossen. Jeder Kunden-Loop wird von einem Menschen
 eingerichtet und betreut. Der Quellcode ist öffentlich: [github.com/Karl-W-W/lucky-loop](https://github.com/Karl-W-W/lucky-loop).
 Wir sagen Ihnen offen, ob Lucky Loop für Ihren Fall heute schon taugt.
@@ -115,7 +115,7 @@ So that we can give you a useful answer, please tell us:
 - which decisions you want to keep making yourself ("NEEDS YOU") and which you do not.
 
 **Honest status on 22 September 2026.** Lucky Loop has no paying customer yet. The hosted loop runs unattended on our own always-on machine in Munich
-and has processed five documents so far (admin and billing: invoices, receipts, VAT invoices), one of them a synthetic test document.
+and has processed five documents so far (admin and billing: invoices, receipts, VAT invoices and other documents), one of them a synthetic test document.
 Our own mail-triage agent has completed one graded lap. Every customer loop is set up and tended by a human.
 The source code is public: [github.com/Karl-W-W/lucky-loop](https://github.com/Karl-W-W/lucky-loop). We will tell you plainly whether Lucky Loop is already a fit for your case.
 

@@ -26,5 +26,5 @@ export const impressum = impressumJson;
 export const pricing = pricingJson;
 
 export function eur(n: number): string {
-  return "€" + n.toLocaleString("de-DE");
+  return "€" + n.toLocaleString("en-GB");
 }

@@ -20,7 +20,7 @@ export default function PricingCard() {
         <span className="ll-price-rule" aria-hidden />
         <p className="ll-price-included">
           One loop for one business, set up and tended for you: the agents, your written playbook, the
-          decisions queue you answer from your phone, and a human who reads what the loop did.
+          decisions queue you answer with one word, and a human who reads what the loop did.
         </p>
         <p className="ll-price-setup">
           <span className="ll-price-setup-name">{setup.name}</span>

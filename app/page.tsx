@@ -66,18 +66,27 @@ export default function Home() {
             act, evaluate, adapt. Lucky Loop points that loop at the work that
             piles up — mail, bills, admin — and runs it where you can watch.
           </p>
+          {/* No claim about WHAT the passes ran on. "on real items" was true
+            * of pass one and false the moment a synthetic test document went
+            * through — and any fixed description of the mix rots the same way
+            * the next time the mix changes. /loop carries the composition,
+            * where it can be stated against the actual records. The comment
+            * sits OUTSIDE the paragraph: an expression boundary inside the text
+            * run once swallowed the space and rendered "andlive". */}
           <p className="ll-sub">
-            The War Room, the dashboard we run the company on, is public and
-            {/* No claim about WHAT the passes ran on. "on real items" was true
-              * of pass one and false the moment a synthetic test document went
-              * through — and any fixed description of the mix rots the same way
-              * the next time the mix changes. /loop carries the composition,
-              * where it can be stated against the actual records. */}
+            The War Room, the dashboard we run the business on, is public and
             live. The loop has made{" "}
             {runs.length === 1 ? "its first pass" : `${runs.length} recorded passes`} — you can
             read exactly what each one did.
           </p>
           <p className="ll-thesis">Luck as an engineered outcome.</p>
+          {/* The one plain-language line the first screen owes a business
+            * owner: what it is, for whom, the price, the exit — each word from
+            * data/pricing.json, none beyond real maturity ("tended by a human"). */}
+          <p className="ll-hero-offer">
+            For businesses: a hosted loop that triages mail and bills, tended by a human —{" "}
+            <a href="#pricing">from {eur(pricing.hosted.monthlyEur)} a month, cancel monthly</a>.
+          </p>
         </section>
 
         <section className="ll-section" aria-labelledby="ll-loop">

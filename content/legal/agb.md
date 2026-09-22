@@ -63,7 +63,7 @@ Die Sprachmodelle laufen lokal auf dieser Maschine (Ollama); kein Cloud-KI-Diens
 Der Kunde braucht keine eigene Installation und kein Nutzerkonto; es gibt keinen Login. Jeder Kunden-Loop wird von einem Menschen eingerichtet und betreut.
 
 (d) **Entwicklungsstand.** Lucky Loop ist ein neues Produkt. Zum Stand dieser AGB (22. September 2026) läuft der gehostete Loop unbeaufsichtigt auf unserer Maschine in München
-und hat fünf Dokumente verarbeitet (Verwaltung und Abrechnung: Rechnungen, Belege, Umsatzsteuerrechnungen), davon eines ein synthetisches Testdokument.
+und hat fünf Dokumente verarbeitet (Verwaltung und Abrechnung: Rechnungen, Belege, Umsatzsteuerrechnungen und sonstige Dokumente), davon eines ein synthetisches Testdokument.
 Unser eigener Mail-Triage-Agent hat eine bewertete Runde abgeschlossen. Es gibt noch keinen zahlenden Kunden. Der Kunde bestellt in Kenntnis dieses Standes.
 
 (e) **Keine Ergebnisgarantie.** Die Agenten arbeiten mit KI-Modellen. Deren Ergebnisse können unvollständig, veraltet oder falsch sein.

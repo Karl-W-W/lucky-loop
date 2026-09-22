@@ -1,9 +1,14 @@
 {
-  "generatedAt": 1790082778000,
-  "builtAt": 1790090608467,
+  "generatedAt": 1790090746000,
+  "builtAt": 1790091493465,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "80ab22081e4a61d689aa1f05948069e9b99d9e71",
+      "t": 1790090746000,
+      "msg": "feat(site): the Stripe-minimum — price card, Impressum, Datenschutz, AGB, Kontakt, footer, legal gate"
+    },
     {
       "sha": "bf75a07d36321bce0924ef5a18a237fe676bb04a",
       "t": 1790082778000,

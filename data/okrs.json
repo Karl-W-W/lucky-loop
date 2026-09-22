@@ -63,7 +63,7 @@
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/loop-runs.json",
-            "computedAt": "2026-09-22T15:23:28.521Z",
+            "computedAt": "2026-09-22T15:38:13.514Z",
             "passes": 4,
             "fixturesExcluded": 1,
             "docTypes": [
@@ -91,7 +91,7 @@
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/ci-runs.json",
-            "computedAt": "2026-09-22T15:23:28.521Z",
+            "computedAt": "2026-09-22T15:38:13.514Z",
             "cleanDays": 6,
             "windowDays": 51,
             "cleanFrom": "2026-09-10",
@@ -110,7 +110,7 @@
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/loop-runs.json",
-            "computedAt": "2026-09-22T15:23:28.521Z",
+            "computedAt": "2026-09-22T15:38:13.514Z",
             "streak": 1,
             "idle": 13,
             "nights": 14,

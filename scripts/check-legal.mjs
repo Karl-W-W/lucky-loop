@@ -15,7 +15,8 @@ import { dirname, join } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PAGES = ["impressum", "datenschutz", "agb", "kontakt"];
-const FORBIDDEN = ["{{", "}}", "[[", "]]", "TODO", "Muster", "Lorem", "PLACEHOLDER"];
+const FORBIDDEN = ["{{", "}}", "[[", "]]", "TODO", "TBD", "FIXME", "XXX", "Muster", "Lorem", "PLACEHOLDER", "coming soon"];
+const has = (s, t) => s.toLowerCase().includes(t.toLowerCase());
 const problems = [];
 
 function read(p) {
@@ -28,7 +29,7 @@ function read(p) {
 function nonEmpty(obj, key, file) {
   const v = obj[key];
   if (typeof v !== "string" || !v.trim()) problems.push(`${file}: "${key}" is empty`);
-  else if (FORBIDDEN.some((t) => v.includes(t))) problems.push(`${file}: "${key}" holds a placeholder`);
+  else if (FORBIDDEN.some((t) => has(v, t))) problems.push(`${file}: "${key}" holds a placeholder`);
 }
 
 const impressum = JSON.parse(read("data/impressum.json") || "{}");
@@ -49,7 +50,7 @@ for (const page of PAGES) {
   const p = `content/legal/${page}.md`;
   const s = read(p); texts[page] = s;
   if (!s) continue;
-  for (const t of FORBIDDEN) if (s.includes(t)) problems.push(`${p}: contains "${t}"`);
+  for (const t of FORBIDDEN) if (has(s, t)) problems.push(`${p}: contains "${t}"`);
   if (!/^# /m.test(s)) problems.push(`${p}: no "# " title`);
   if (!/^Stand: \d{1,2}\. \w+ \d{4}\s*$/m.test(s)) problems.push(`${p}: no closing "Stand: <date>" line`);
   if (/^\|/m.test(s) || /<[a-z]+[ >]/i.test(s)) problems.push(`${p}: tables or HTML are not rendered — plain markdown only`);
@@ -67,6 +68,34 @@ if (texts.agb) {
   if (!/§\s*14\s*BGB/.test(texts.agb)) problems.push("content/legal/agb.md: must state the B2B scope (§ 14 BGB)");
   if (/Widerrufsbelehrung|Widerrufsformular|312k/.test(texts.agb)) problems.push("content/legal/agb.md: consumer clauses (Widerruf, § 312k) do not belong in a B2B-only AGB");
 }
+
+// The maturity sentence in the AGB and on the Kontakt page restates numbers
+// that /war and / DERIVE at build (data/okrs.json O3/KR1.derived, from
+// data/loop-runs.json). Hand-typed prose drifts; this check fails the build
+// when the legal pages no longer carry the derived pass count or miss one of
+// the derived document types — the same rule as the price mismatch above.
+const DOC_WORDS = {
+  invoice: /Rechnung|invoice/i, "vat-invoice": /Umsatzsteuerrechnung|VAT invoice/i, receipt: /Beleg|receipt/i,
+  other: /sonstig|other document/i, reminder: /Mahnung|reminder/i, statement: /Kontoauszug|statement/i, notice: /Bescheid|notice/i,
+};
+const NUM_WORDS = { 1: "ein|one", 2: "zwei|two", 3: "drei|three", 4: "vier|four", 5: "fünf|five", 6: "sechs|six", 7: "sieben|seven", 8: "acht|eight", 9: "neun|nine", 10: "zehn|ten" };
+try {
+  const okrs = JSON.parse(read("data/okrs.json") || "{}");
+  const kr1 = (okrs.objectives || []).find((o) => o.id === "O3")?.keyResults?.find((k) => k.id === "KR1");
+  const d = kr1 && kr1.derived;
+  if (d && Number.isInteger(d.passes)) {
+    const total = d.passes + (d.fixturesExcluded || 0);
+    const totalRe = new RegExp(`\\b(${total}|${NUM_WORDS[total] || total})\\b`, "i");
+    for (const page of ["agb", "kontakt"]) {
+      const s = texts[page]; if (!s) continue;
+      if (!totalRe.test(s)) problems.push(`content/legal/${page}.md: does not carry the derived pass count (${total}) — data/okrs.json O3/KR1.derived moved; update the maturity sentence`);
+      for (const t of d.docTypes || []) {
+        const re = DOC_WORDS[t];
+        if (re && !re.test(s)) problems.push(`content/legal/${page}.md: derived document type "${t}" is not named in the maturity sentence`);
+      }
+    }
+  }
+} catch (e) { problems.push(`data/okrs.json: unreadable for the maturity check (${e.message})`); }
 
 if (problems.length) {
   console.error(`check-legal: REFUSING — ${problems.length} problem(s)`);
