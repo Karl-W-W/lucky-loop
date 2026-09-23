@@ -404,3 +404,177 @@ body {
   color: var(--ll-pine);
   text-wrap: balance;
 }
+
+/* ---------------------------------------------------------------------------
+ * Stripe-minimum (2026-09-22): masthead nav, the offer strip reuses .ll-strip,
+ * the price card, the legal document pages and the site footer. Additive; all
+ * under .ll-home except .ll-footer, which /loop and /war also render on their
+ * dark theme, so it carries its own tokens.
+ * ------------------------------------------------------------------------- */
+.ll-home .ll-masthead {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.ll-home .ll-masthead-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: inherit;
+  text-decoration: none;
+}
+.ll-home .ll-masthead-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 1rem;
+  font-family: var(--ll-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+}
+.ll-home .ll-masthead-nav a {
+  color: var(--ll-pine);
+  text-decoration: underline;
+  text-decoration-color: var(--ll-hairline);
+  text-underline-offset: 0.25em;
+}
+.ll-home .ll-masthead-nav a:hover { text-decoration-color: var(--ll-pine); }
+
+/* --- price card ----------------------------------------------------------- */
+.ll-home .ll-price {
+  border: 1px solid var(--ll-pine);
+  padding: 1.5rem 1.25rem;
+  background: var(--ll-field);
+  scroll-margin-top: 1.5rem;
+}
+@media (min-width: 40rem) { .ll-home .ll-price { padding: 2.25rem 2rem; } }
+.ll-home .ll-price-name {
+  font-family: var(--ll-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ll-ink-2);
+  margin: 0 0 0.5rem;
+}
+.ll-home .ll-price-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.ll-home .ll-price-numeral {
+  font-size: clamp(3rem, 12vw, 5.5rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  color: var(--ll-pine);
+}
+.ll-home .ll-price-per { font-size: 1rem; color: var(--ll-ink-2); }
+.ll-home .ll-price-rule {
+  display: block;
+  width: 4rem;
+  height: 2px;
+  background: var(--ll-brass);
+  margin: 1rem 0 1.1rem;
+}
+.ll-home .ll-price-included { margin: 0 0 1.25rem; max-width: 40rem; }
+.ll-home .ll-price-setup {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0.9rem 0 0;
+  border-top: 1px solid var(--ll-hairline-soft);
+}
+@media (min-width: 40rem) {
+  .ll-home .ll-price-setup { grid-template-columns: auto auto 1fr; gap: 0.25rem 1rem; align-items: baseline; }
+}
+.ll-home .ll-price-setup-name { font-weight: 600; color: var(--ll-pine); }
+.ll-home .ll-price-setup-amount { font-family: var(--ll-mono); font-size: 0.95rem; color: var(--ll-pine); }
+.ll-home .ll-price-setup-note { font-size: 0.875rem; color: var(--ll-ink-2); }
+.ll-home .ll-price-terms {
+  margin: 1.5rem 0 0;
+  padding: 0;
+  border-top: 1px solid var(--ll-hairline);
+}
+.ll-home .ll-price-terms > div {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--ll-hairline-soft);
+  font-size: 0.9rem;
+}
+.ll-home .ll-price-terms dt {
+  font-family: var(--ll-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ll-ink-2);
+  padding-top: 0.15rem;
+}
+.ll-home .ll-price-terms dd { margin: 0; }
+.ll-home .ll-price-terms a,
+.ll-home .ll-doc a,
+.ll-home .ll-strip-val a { color: var(--ll-pine); text-decoration: underline; text-decoration-color: var(--ll-hairline); text-underline-offset: 0.2em; }
+.ll-home .ll-price .ll-cta-row { margin-top: 1.5rem; }
+.ll-home .ll-price-foot { margin: 0.9rem 0 0; font-size: 0.8125rem; color: var(--ll-ink-2); }
+
+/* --- legal document pages ------------------------------------------------- */
+.ll-home .ll-doc { max-width: 44rem; margin-top: 2rem; }
+.ll-home .ll-doc h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.1; letter-spacing: -0.02em; color: var(--ll-pine); margin: 0 0 1.25rem; }
+.ll-home .ll-doc h2 { font-size: 1.25rem; color: var(--ll-pine); margin: 2.25rem 0 0.6rem; padding-top: 0.75rem; border-top: 1px solid var(--ll-hairline); scroll-margin-top: 1rem; }
+.ll-home .ll-doc h3 { font-size: 1.05rem; color: var(--ll-pine); margin: 1.5rem 0 0.4rem; }
+.ll-home .ll-doc p { margin: 0 0 0.9rem; }
+.ll-home .ll-doc ul, .ll-home .ll-doc ol { margin: 0 0 0.9rem 1.25rem; padding: 0; }
+.ll-home .ll-doc li { margin: 0.25rem 0; }
+.ll-home .ll-doc blockquote {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  border-left: 2px solid var(--ll-brass);
+  background: var(--ll-field-deep);
+  font-size: 0.925rem;
+}
+.ll-home .ll-doc blockquote p:last-child { margin-bottom: 0; }
+.ll-home .ll-doc hr { border: 0; border-top: 1px solid var(--ll-hairline); margin: 1.5rem 0; }
+.ll-home .ll-doc strong { color: var(--ll-pine); }
+
+/* --- site footer (light on /, dark on /loop and /war) --------------------- */
+.ll-footer {
+  --llf-ink: #1e3a2f;
+  --llf-ink-2: #5a6157;
+  --llf-rule: rgba(30, 58, 47, 0.24);
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--llf-rule);
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.8125rem;
+  color: var(--llf-ink-2);
+}
+.ll-footer--dark {
+  --llf-ink: #c3c2b7;
+  --llf-ink-2: #898781;
+  --llf-rule: rgba(255, 255, 255, 0.1);
+}
+.ll-footer-nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; margin: 0 0 0.75rem; }
+.ll-footer-nav a { color: var(--llf-ink); text-decoration: underline; text-decoration-color: var(--llf-rule); text-underline-offset: 0.25em; }
+.ll-footer-nav a:hover { text-decoration-color: var(--llf-ink); }
+.ll-footer-line { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
+.ll-footer-line a { color: inherit; text-decoration: underline; text-decoration-color: var(--llf-rule); text-underline-offset: 0.25em; }
+
+/* --- hero offer line + legal contents list (critic pass, 2026-09-22) ------ */
+.ll-home .ll-hero-offer {
+  margin: 1.25rem 0 0;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid var(--ll-hairline-soft);
+  font-size: 0.95rem;
+  color: var(--ll-ink-2);
+  max-width: 40rem;
+}
+.ll-home .ll-hero-offer a { color: var(--ll-pine); text-decoration: underline; text-decoration-color: var(--ll-hairline); text-underline-offset: 0.2em; }
+.ll-home .ll-toc { margin-top: 2rem; }
+.ll-home .ll-toc-title { font-family: var(--ll-mono); font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ll-ink-2); margin: 0 0 0.4rem; }
+.ll-home .ll-toc ol { margin: 0 0 0 1.1rem; padding: 0; font-size: 0.875rem; columns: 1; }
+.ll-home .ll-toc li { margin: 0.15rem 0; }
+.ll-home .ll-toc a { color: var(--ll-pine); text-decoration: underline; text-decoration-color: var(--ll-hairline); text-underline-offset: 0.2em; }
