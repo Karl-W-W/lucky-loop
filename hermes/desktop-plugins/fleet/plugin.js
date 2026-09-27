@@ -52,6 +52,9 @@ const { ROUTES_AREA, SIDEBAR_NAV_AREA } = SDK
 const STATUSBAR_RIGHT = SDK.STATUSBAR_AREAS ? SDK.STATUSBAR_AREAS.right : null
 const PALETTE_AREA = SDK.PALETTE_AREA || null
 const TITLEBAR_RIGHT = SDK.TITLEBAR_AREAS ? SDK.TITLEBAR_AREAS.right : null
+const TITLEBAR_LEFT = SDK.TITLEBAR_AREAS ? SDK.TITLEBAR_AREAS.left : null
+const STATUSBAR_LEFT = SDK.STATUSBAR_AREAS ? SDK.STATUSBAR_AREAS.left : null
+const BOTS_PANE_AREA = SDK.BOTS_PANE_AREA || null // the Lucky Loop Hermes fork's area; stock Desktops skip the sidebar sections
 const THEMES_AREA = SDK.THEMES_AREA || null
 function navigate(path) {
   try { if (SDK.host && typeof SDK.host.navigate === 'function') SDK.host.navigate(path) } catch { /* no-op */ }
@@ -1695,6 +1698,1255 @@ function LivePage() {
     }) : null)
 }
 
+/* ======================================================================== */
+/* C STAGE — direction C of the Command Center, to parity with its click-   */
+/* through (docs/design/2026-09-22-command-center/c-stage.html, local only; */
+/* the checklist is parity-spec.md beside it). The mockup's own render code */
+/* is ported here over REAL data — the box's live block, rooms, proposals,  */
+/* the herdr snapshot — so the call looks and behaves as drawn by           */
+/* construction, not by eye. Routes: /live (Gallery, Speaker, an agent's    */
+/* chat, a room) and /battlefield. Deep-linkable states, so every one can   */
+/* be opened and shot: hermes://open/live?view=speaker|chat=<seat>|         */
+/* room=<id>|pop=rooms|sheet=props|sheet=leave|left=1|pick=1, and           */
+/* hermes://open/battlefield?tray=1.                                        */
+/*                                                                          */
+/* What it writes: the decide line to the clipboard (↵ / Copy), and — verb  */
+/* (a), ON since 09-27 — one word for one card through POST /answer, only   */
+/* on Karl's click, tier 3 on a second click. Nothing else. Leaving closes  */
+/* the view; it starts and stops nothing. No card data lives in this file: */
+/* every name, lane, room and card comes from the box at run time.          */
+/* ======================================================================== */
+const CC_STYLE_ID = 'fleet-cc-style'
+const CC_TOKENS = `
+.ccs{--page:#0d0d0d;--surface:#161615;--surface-2:#1f1f1d;--surface-3:#292927;--stage:#0a0a0a;--chrome:#121211;
+  --ink:#f4f3ee;--ink-2:#c3c2b7;--ink-3:#898781;--ink-4:#63625d;--grid:#2c2c2a;--border:rgba(255,255,255,.09);
+  --border-2:rgba(255,255,255,.15);--blue:#3987e5;--orange:#d95926;--good:#3fbf3f;--danger:#e66767;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,sans-serif;--mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --e:cubic-bezier(.2,.7,.2,1);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased;text-align:left;color-scheme:dark}
+.ccs *,.ccs *::before,.ccs *::after{box-sizing:border-box;margin:0;padding:0}
+.ccs.cc-page{height:100%;min-height:0;display:flex;flex-direction:column;background:var(--stage)}
+.ccs .cc-main{grid-row:auto;grid-column:auto;flex:1;min-height:0}
+.ccs .cc-stale{flex:none;padding:6px 16px;background:#3a1d1a;color:#f2c9c2;font-size:12.5px}
+.ccs .cc-stale small{margin-left:8px;opacity:.7}
+.ccs .cc-msg{padding:24px;color:var(--ink-3)}
+.ccs .send{height:34px;padding:0 13px;border-radius:9px;border:1px solid var(--ink);color:var(--ink);font-weight:600;font-size:13.5px;display:inline-flex;align-items:center;white-space:nowrap}
+.ccs .send.arm{background:var(--orange);border-color:var(--orange)}
+.ccs .send:disabled{opacity:.5}
+.ccs .sent{flex-basis:100%;font-size:12px;color:var(--ink-2)}.ccs .sent.bad{color:var(--danger)}
+.ccs .navs{display:flex;gap:6px;margin-top:8px}
+.ccs .tile.away .t-face svg{filter:saturate(.35) brightness(.7)}
+.ccs .comp .in{cursor:pointer}.ccs .comp .in:hover{border-color:var(--border-2);color:var(--ink-3)}
+/* the sidebar sections below the Bots roster, and the chrome items */
+.ccs.cc-side{padding:4px 8px 14px;display:flex;flex-direction:column;gap:1px;background:transparent}
+.ccs.cc-side .sh{margin:14px 8px 5px}
+.ccs.cc-title{position:fixed;left:0;top:0;height:var(--titlebar-height,38px);display:flex;align-items:center;
+  font-size:12.5px;color:var(--ink-3);white-space:nowrap;pointer-events:none;z-index:5;background:transparent}
+.ccs.cc-title b{color:var(--ink-2);font-weight:500}
+.ccs.cc-pill{position:fixed;left:0;top:0;height:var(--titlebar-height,38px);z-index:5;background:transparent;display:inline-flex;align-items:center}
+.ccs.cc-pill .need{cursor:pointer}
+.ccs.cc-sbar{display:inline-flex;align-items:center;gap:14px;font:11.5px/1 var(--mono);color:var(--ink-3);white-space:nowrap;background:transparent}
+.ccs.cc-sbar b{font-weight:500}
+`
+/* The mockup's own CSS, scoped under .ccs (ids became classes: #main .cc-main, #cb .cc-cb, #stage */
+/* .cc-stage, #panel .cc-panel, #tray .cc-tray), frame-only rules dropped. Generated from the file */
+/* by a one-off script; edit here, not there.                                                      */
+const CC_MOCK_CSS = `.ccs a{color:inherit;text-decoration:none}
+.ccs button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:inherit}
+.ccs button:disabled{cursor:default}
+.ccs kbd{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 4px;border-radius:5px;background:var(--surface-3);border:1px solid var(--border-2);font:500 10.5px/1 var(--mono);color:var(--ink-2)}
+.ccs .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.ccs .dim{color:var(--ink-3)}
+.ccs .c-needs{color:var(--orange)}
+.ccs .c-working{color:var(--blue)}
+.ccs .c-parked{color:var(--ink-3)}
+.ccs .c-done{color:var(--good)}
+.ccs .c-failed{color:var(--danger)}
+.ccs .eyebrow{font:500 10.5px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.ccs .cbtn{height:28px;padding:0 11px;border-radius:8px;border:1px solid var(--border-2);font-size:12.5px;color:var(--ink-2);display:inline-flex;align-items:center;gap:7px;white-space:nowrap;background:rgba(255,255,255,.02);transition:border-color .15s,color .15s}
+.ccs .cbtn:hover{color:var(--ink);border-color:rgba(255,255,255,.28)}
+.ccs .cbtn.dash{border-style:dashed}
+.ccs .cbtn.on{color:var(--ink)}
+.ccs .sw{position:relative;width:24px;height:14px;border-radius:8px;background:var(--surface-3);border:1px solid var(--border-2)}
+.ccs .sw::after{content:"";position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--ink-3);transition:transform .15s var(--e)}
+.ccs .on .sw::after{transform:translateX(10px);background:var(--ink)}
+.ccs .need{display:inline-flex;align-items:center;height:21px;padding:0 9px;border-radius:999px;background:var(--orange);color:var(--ink);font:600 11.5px/1 var(--sans);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ccs .need.zero{background:none;color:var(--ink-3);border:1px solid var(--border-2);font-weight:500}
+.ccs .mk{display:inline-flex;align-items:center;height:16px;padding:0 5px;border-radius:4px;font:500 9.5px/1 var(--mono);letter-spacing:.04em;white-space:nowrap;flex:none;vertical-align:middle;user-select:none;cursor:help}
+.ccs .mk-H{background:#d9d8d0;color:#121211}
+.ccs .mk-P{border:1px solid rgba(255,255,255,.3);color:var(--ink-2)}
+.ccs .mk-Ps{border:1px dashed rgba(255,255,255,.45);color:var(--ink-2)}
+.ccs .mk-W{border:1px dotted rgba(255,255,255,.5);color:var(--ink-2);border-radius:1px}
+.ccs .tabs{display:flex;align-items:center;gap:4px;margin:0 2px 8px}
+.ccs .tabs .tg{flex:1;display:flex;padding:3px;border-radius:8px;background:var(--surface-2);font-size:12px}
+.ccs .tabs .tg span{flex:1;text-align:center;padding:3px 0;border-radius:6px;color:var(--ink-3)}
+.ccs .tabs .tg span.on{background:var(--surface-3);color:var(--ink)}
+.ccs .row{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;font-size:13px;color:var(--ink-2);min-width:0;cursor:pointer}
+.ccs .row:hover{background:rgba(255,255,255,.04)}
+.ccs .row.on{background:var(--surface-2);color:var(--ink)}
+.ccs .rw{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.ccs .rw b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccs .rw small{font-size:11px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccs .sh{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:14px 8px 5px;font:500 10.5px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.ccs .sh.sub{margin-top:10px}
+.ccs .gl{width:16px;height:16px;color:var(--ink-3);flex:none}
+.ccs .fc{display:inline-grid;flex:none}
+.ccs .fc svg{width:100%;height:100%;display:block}
+.ccs .s16{width:16px;height:16px}
+.ccs .s18{width:18px;height:18px}
+.ccs .s22{width:22px;height:22px}
+.ccs .s24{width:24px;height:24px}
+.ccs .s28{width:28px;height:28px}
+.ccs .s30{width:30px;height:30px}
+.ccs .s34{width:34px;height:34px}
+.ccs .s40{width:40px;height:40px}
+.ccs .s64{width:64px;height:64px}
+.ccs .stack{display:inline-flex;flex:none}
+.ccs .stack .fc{margin-left:-7px;border-radius:50%;background:#20201e;box-shadow:0 0 0 2px var(--chrome);padding:1px}
+.ccs .stack .fc:first-child{margin-left:0}
+.ccs .cc-main{grid-row:2;grid-column:2;min-width:0;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto;background:var(--stage)}
+.ccs .cc-cb{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--chrome)}
+.ccs .cb-l{display:flex;align-items:center;gap:12px;min-width:0}
+.ccs .live{display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:13.5px;flex:none}
+.ccs .live i{width:7px;height:7px;border-radius:50%;background:var(--ink)}
+.ccs .cb-sum{font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ccs .cb-sum .pp{color:var(--ink-3)}
+.ccs .cb-r{display:flex;align-items:center;gap:8px;flex:none}
+.ccs .seg{display:inline-flex;padding:2px;border-radius:8px;border:1px solid var(--border-2)}
+.ccs .seg button{height:22px;padding:0 10px;border-radius:6px;font-size:12px;color:var(--ink-3)}
+.ccs .seg button.on{background:var(--surface-3);color:var(--ink)}
+.ccs .cbtn.leave{color:var(--ink);border-color:rgba(255,255,255,.26)}
+.ccs .cc-stage{grid-column:1;grid-row:2;min-height:0;min-width:0;overflow:auto;padding:14px 16px}
+.ccs .grid{height:100%;min-height:0;display:grid;gap:12px;grid-auto-rows:minmax(0,1fr)}
+.ccs .g5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.ccs .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ccs .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ccs .tile{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;padding:11px 14px 12px;border-radius:14px;border:1px solid var(--border);background:radial-gradient(85% 65% at 50% 36%,hsl(var(--h) 42% 52% / .12),transparent 72%),#161615;cursor:pointer;overflow:hidden;transition:border-color .18s var(--e),background-color .18s var(--e)}
+.ccs .tile:hover{border-color:rgba(255,255,255,.2)}
+.ccs .tile.speaking{border-color:rgba(244,243,238,.72)}
+.ccs .where{font:10.5px/16px var(--mono);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:60px}
+.ccs .t-face{flex:1 1 auto;min-height:0;display:grid;place-items:center;padding:4px 0}
+.ccs .t-face svg{width:76px;height:76px;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5));transition:filter .18s var(--e)}
+.ccs .t-body{min-width:0}
+.ccs .t-name{display:flex;align-items:center;gap:7px;font-size:15.5px;font-weight:600;letter-spacing:-.01em;line-height:1.3;white-space:nowrap}
+.ccs .kg{width:14px;height:14px;color:var(--ink-3);flex:none}
+.ccs .t-cap{margin-top:3px;font-size:13px;line-height:1.42;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:37px}
+.ccs .t-cap b{color:var(--ink);font-weight:500}
+.ccs .t-st{margin-top:7px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3);min-width:0;white-space:nowrap;overflow:hidden}
+.ccs .sl{display:inline-flex;align-items:center;gap:6px;font-weight:500;white-space:nowrap;flex:none}
+.ccs .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none;display:inline-block}
+.ccs .c-parked .dot,.ccs .dot.pk-d{background:none;border:1.5px dashed var(--ink-3)}
+.ccs .t-fold{margin-top:3px;font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccs .t-fold[data-act]{cursor:pointer}
+.ccs .t-fold[data-act]:hover{color:var(--ink-2)}
+.ccs .tile[data-s=parked]{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.028) 0 6px,transparent 6px 12px)}
+.ccs .quiet .tile{background:#131312}
+.ccs .quiet .t-face svg{filter:saturate(.45) brightness(.85)}
+.ccs .hand{position:absolute;top:9px;right:10px;z-index:2;display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px 0 8px;border-radius:999px;background:var(--orange);color:var(--ink);font:600 13px/1 var(--sans);font-variant-numeric:tabular-nums;box-shadow:0 6px 18px -5px rgba(217,89,38,.6);transform-origin:50% 100%;cursor:pointer}
+.ccs .hand svg{width:15px;height:15px}
+.ccs .hand.sm{position:static;height:20px;padding:0 7px 0 6px;font-size:11.5px;gap:3px;box-shadow:none}
+.ccs .hand.sm svg{width:12px;height:12px}
+.ccs .hand.ab{position:absolute}
+.ccs .hand.dip{animation:cc-dip .18s var(--e)}
+.ccs .hand.lower{animation:cc-lower .18s var(--e) forwards;pointer-events:none}
+.ccs .cap-in{animation:cc-capin .18s var(--e)}
+.ccs .tick{animation:cc-tick .18s var(--e)}
+@keyframes cc-dip{50%{transform:translateY(5px) scale(.93)}}
+@keyframes cc-lower{to{transform:translateY(14px) rotate(-12deg) scale(.8);opacity:0}}
+@keyframes cc-capin{from{opacity:0;transform:translateY(4px)}}
+@keyframes cc-tick{from{opacity:.2;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.ccs .hand.lower{display:none}}
+.ccs .host{cursor:default;background:linear-gradient(180deg,#171716,#131312)}
+.ccs .host.span2{grid-column:span 2}
+.ccs .h-hd{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap}
+.ccs .h-name{font-size:15.5px;font-weight:600}
+.ccs .tag{font:500 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--border-2);border-radius:4px;padding:3px 5px}
+.ccs .h-hd .ok{margin-left:auto;font:11px var(--mono);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis}
+.ccs .h-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:20px;margin-top:12px}
+.ccs .gpu{display:flex;align-items:center;gap:10px;margin-top:8px}
+.ccs .gpu .big{font:500 36px/1 var(--mono);letter-spacing:-.04em}
+.ccs .gpu .big small{font-size:15px;color:var(--ink-3);margin-left:2px;letter-spacing:0}
+.ccs .bar{height:6px;border-radius:3px;background:var(--grid);overflow:hidden;margin:12px 0 5px}
+.ccs .bar i{display:block;height:100%;background:var(--ink-2);border-radius:3px}
+.ccs .h-l{font-size:11.5px;color:var(--ink-3);line-height:1.5;min-width:0;overflow-wrap:anywhere}
+.ccs .h-l .mono{color:var(--ink-2)}
+.ccs .h-sub{font:500 10px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin:0 0 5px}
+.ccs .tmr{font-size:11.5px;line-height:1.55;color:var(--ink-2)}
+.ccs .tmr i{font-style:normal;color:var(--ink-4);margin:0 5px}
+.ccs .fl{font-size:11.5px;line-height:1.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccs .fl .mono{color:var(--ink-3);margin-right:4px}
+.ccs .spk{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px}
+.ccs .strip{display:flex;gap:10px;min-width:0}
+.ccs .mini{position:relative;flex:1 1 0;min-width:0;height:98px;border-radius:12px;border:1px solid var(--border);background:radial-gradient(80% 70% at 50% 40%,hsl(var(--h) 42% 52% / .12),transparent 72%),#161615;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;padding:0 6px}
+.ccs .mini.speaking{border-color:rgba(244,243,238,.72)}
+.ccs .mini .fc{width:42px;height:42px}
+.ccs .mini b{font-size:12px;font-weight:500;color:var(--ink-2);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccs .mini .hand{top:6px;right:6px}
+.ccs .mini.hostm{cursor:default;font-size:11.5px;color:var(--ink-3);text-align:center;gap:2px}
+.ccs .mini.hostm .big{font:500 20px/1 var(--mono);color:var(--ink)}
+.ccs .bigt{align-items:center;text-align:center;padding:18px 28px 22px}
+.ccs .bigt .where{padding:0}
+.ccs .bigt .t-face svg{width:150px;height:150px}
+.ccs .bigt .t-name{justify-content:center;font-size:22px}
+.ccs .bigt .t-cap{font-size:18px;line-height:1.45;-webkit-line-clamp:3;min-height:0;max-width:60ch;margin:6px auto 0}
+.ccs .bigt .t-st{justify-content:center}
+.ccs .bigt .hand{top:16px;right:18px;height:32px;font-size:15px;padding:0 12px 0 10px}
+.ccs .bigt .hand svg{width:18px;height:18px}
+.ccs .you .t-face svg{filter:none}
+.ccs .s26{width:26px;height:26px}
+.ccs .s36{width:36px;height:36px}
+.ccs .s44{width:44px;height:44px}
+.ccs .cb-sum .cnt{color:var(--ink);font-weight:600}
+.ccs .tile .sl.nd,.ccs .sl.nd{color:var(--ink-2);font-weight:500}
+.ccs .tile.you{cursor:default;background:#141413;border-style:dashed;border-color:rgba(255,255,255,.14)}
+.ccs .mini.sel::after{content:"";position:absolute;left:34%;right:34%;bottom:5px;height:2px;border-radius:2px;background:var(--ink)}
+.ccs .mini.speaking.sel{border-color:rgba(244,243,238,.72)}
+.ccs .cc-tray{grid-column:1;grid-row:3;min-width:0;position:relative;border-top:1px solid var(--border);background:var(--chrome);padding:14px 18px 15px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,330px) 236px;gap:22px;align-items:start}
+.ccs .tr-q{display:flex;gap:14px;min-width:0}
+.ccs .tr-q>.fc{margin-top:3px}
+.ccs .tr-m{min-width:0;flex:1}
+.ccs .tr-meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden}
+.ccs .tr-meta b{color:var(--ink-2);font-weight:500}
+.ccs .tr-title{margin-top:2px;font-size:20px;font-weight:600;letter-spacing:-.018em;line-height:1.28;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ccs .tr-ask{margin-top:4px;font-size:14px;line-height:1.45;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:72ch}
+.ccs .tr-def{margin-top:7px;font-size:12.5px;color:var(--ink-3);line-height:1.4}
+.ccs .tr-def b{color:var(--ink-2);font-weight:500}
+.ccs .tr-pos{display:none}
+.ccs .tr-a{min-width:0}
+.ccs .picks{display:flex;flex-wrap:wrap;gap:6px}
+.ccs .pk{height:34px;display:inline-flex;align-items:center;gap:8px;padding:0 13px 0 7px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface);font-size:13.5px;font-weight:500;color:var(--ink);white-space:nowrap;transition:border-color .15s var(--e),background-color .15s var(--e)}
+.ccs .pk:hover{border-color:rgba(255,255,255,.32)}
+.ccs .pk.on{border-color:var(--ink);background:var(--surface-3)}
+.ccs .pk.on kbd{background:var(--ink);border-color:var(--ink);color:#121211}
+.ccs .pk.sm{height:28px;font-size:12.5px;padding:0 10px 0 5px;gap:6px}
+.ccs .never{margin-top:8px;display:flex;gap:7px;align-items:flex-start;font-size:12px;line-height:1.4;color:var(--ink-3)}
+.ccs .never .gl{width:13px;height:13px;margin-top:2px}
+.ccs .conf{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
+.ccs .confirm{height:34px;padding:0 9px 0 14px;border-radius:9px;background:var(--ink);color:#121211;font-weight:600;font-size:13.5px;display:inline-flex;align-items:center;gap:9px;white-space:nowrap}
+.ccs .confirm kbd{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.18);color:#121211}
+.ccs .confirm:disabled{background:var(--surface-3);color:var(--ink-4)}
+.ccs .confirm:disabled kbd{background:transparent;color:var(--ink-4);border-color:var(--border)}
+.ccs .confirm.sm{height:28px;font-size:12.5px;padding:0 7px 0 11px}
+.ccs .ow{font-size:12px;color:var(--ink-3);min-width:0}
+.ccs .ow .dl{color:var(--ink-2);word-break:break-all}
+.ccs .tb{border-left:1px solid var(--border);padding-left:18px;min-width:0;font-size:12px;color:var(--ink-3);line-height:1.45}
+.ccs .tb-h{font-size:13px;color:var(--ink);font-weight:500}
+.ccs .pips{display:flex;gap:4px;margin:9px 0 9px}
+.ccs .pip{flex:1;height:5px;border-radius:3px;background:var(--grid)}
+.ccs .pip.p-working{background:var(--blue)}
+.ccs .pip.p-done{background:var(--good)}
+.ccs .pip.p-parked{background:none;box-shadow:inset 0 0 0 1px var(--ink-3)}
+.ccs .pip.cur{background:var(--ink)}
+.ccs .tb-l+.tb-l{margin-top:3px}
+.ccs .tb-k{margin-top:9px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:11.5px}
+.ccs .tb-k .mk{margin-right:3px}
+.ccs .tr-zero{grid-column:1/-1;display:flex;align-items:center;gap:16px;min-height:62px}
+.ccs .tz-t{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.2}
+.ccs .tz-s{font-size:13px;color:var(--ink-3);margin-top:2px}
+.ccs .tr-zero>div:nth-child(2){flex:1;min-width:0}
+.ccs .hand-off{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--border-2);color:var(--ink-3);flex:none}
+.ccs .hand-off svg{width:16px;height:16px;transform:rotate(-14deg) translateY(2px)}
+.ccs .tr-mini{grid-column:1/-1;display:flex;align-items:center;gap:12px;min-width:0;white-space:nowrap}
+.ccs .tr-mini .nx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink-3);font-size:13px}
+.ccs .tr-mini .nx b{color:var(--ink-2);font-weight:500}
+.ccs .tr-mini .cnt{font-weight:600}
+.ccs[data-r=battlefield] .cc-tray{padding:10px 16px}
+.ccs .trx{position:absolute;top:8px;right:8px}
+.ccs .sbtn{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2);font:inherit}
+.ccs .sbtn:hover{color:var(--ink)}
+.ccs .sbtn kbd{height:16px;font-size:10px}
+.ccs .cc-panel{grid-column:2;grid-row:2/4;width:420px;min-height:0;border-left:1px solid var(--border);background:var(--chrome);display:flex;flex-direction:column}
+.ccs .cc-panel:empty{display:none}
+.ccs .cc-panel.wide{width:470px}
+.ccs .ph{display:flex;align-items:center;gap:11px;padding:11px 12px 11px 14px;border-bottom:1px solid var(--border);flex:none}
+.ccs .ph-t{flex:1;min-width:0}
+.ccs .ph-t b{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:600;line-height:1.3}
+.ccs .ph-t small{display:block;font-size:12px;color:var(--ink-3);line-height:1.35;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccs .x{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink-3);flex:none}
+.ccs .x:hover{background:var(--surface-2);color:var(--ink)}
+.ccs .x .gl{width:14px;height:14px}
+.ccs .cons{flex:none;padding:8px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-3);display:flex;gap:8px;align-items:flex-start;line-height:1.45}
+.ccs .cons .mk{margin-top:1px}
+.ccs .msgs{flex:1;min-height:0;overflow:auto;padding:14px 14px 12px;display:flex;flex-direction:column;gap:9px}
+.ccs .day{align-self:center;font:11px var(--mono);color:var(--ink-3);padding:3px 10px;border-radius:999px;background:var(--surface)}
+.ccs .sys{align-self:center;text-align:center;font-size:12px;line-height:1.5;color:var(--ink-3);max-width:90%}
+.ccs .sys b{color:var(--ink-2);font-weight:500}
+.ccs .m{display:flex;gap:8px;align-items:flex-end;max-width:94%}
+.ccs .m>.fc{margin-bottom:2px}
+.ccs .m.me{align-self:flex-end;flex-direction:row-reverse;max-width:80%}
+.ccs .bub{min-width:0;background:var(--surface-2);border-radius:14px 14px 14px 4px;padding:8px 11px 9px;font-size:13.5px;line-height:1.45;color:var(--ink);overflow-wrap:anywhere}
+.ccs .bub>b{font-weight:600}
+.ccs .me .bub{background:#22303a;border-radius:14px 14px 4px 14px}
+.ccs .bub.ask{box-shadow:inset 2px 0 0 var(--orange)}
+.ccs .who{font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:2px}
+.ccs .at{font:500 12.5px var(--mono);color:var(--orange)}
+.ccs .why,.ccs .def{display:block;margin-top:5px;font-size:12.5px;line-height:1.4;color:var(--ink-3)}
+.ccs .lbl{display:block;font:500 10px/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:3px}
+.ccs .qc{margin-top:9px;padding-top:9px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ccs .badge{display:inline-flex;align-items:center;height:19px;padding:0 8px;border-radius:999px;background:var(--orange);color:var(--ink);font:600 11px/1 var(--sans)}
+.ccs .qpk{display:flex;flex-wrap:wrap;gap:5px;width:100%;align-items:center}
+.ccs .qw{font-size:12px;color:var(--ink-3);margin-right:4px}
+.ccs .tr-lint{font-size:12px;color:var(--orange);margin:0 0 6px}
+.ccs .thr{display:block;margin-top:6px;font-size:12px;color:var(--ink-3)}
+.ccs .wpv{display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 9px;border-radius:9px;border:1px dotted rgba(255,255,255,.28);font-size:12px;color:var(--ink-3)}
+.ccs details.act{align-self:stretch;border:1px solid var(--border);border-radius:10px;padding:7px 11px;font-size:12px;line-height:1.5;color:var(--ink-3);background:var(--surface)}
+.ccs details.act summary{cursor:pointer;color:var(--ink-2)}
+.ccs details.act div{margin-top:3px}
+.ccs .comp{flex:none;border-top:1px solid var(--border);padding:10px 12px 6px;display:flex;gap:8px;align-items:center}
+.ccs .comp .in{flex:1;height:36px;border-radius:18px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;padding:0 14px;color:var(--ink-4);font-size:13px}
+.ccs .ow2{flex:none;padding:0 14px 10px;font-size:11.5px;color:var(--ink-3)}
+.ccs .bf{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start}
+.ccs .bf-l,.ccs .bf-r{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ccs .cardx{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:13px 15px;min-width:0}
+.ccs .bf-top{display:flex;align-items:flex-end;gap:30px;padding:16px 18px}
+.ccs .bf-n{font-size:15px;color:var(--ink-2);white-space:nowrap}
+.ccs .bf-n b{display:block;font:600 58px/1 var(--sans);letter-spacing:-.045em;color:var(--ink);font-variant-numeric:tabular-nums;margin-bottom:2px}
+.ccs .tal{display:flex;gap:22px;padding-bottom:3px}
+.ccs .tal div{font-size:12px;color:var(--ink-3)}
+.ccs .tal b{display:block;font:500 22px/1.15 var(--mono);color:var(--ink)}
+.ccs .bf-w{flex:1;text-align:right;font-size:12.5px;color:var(--ink-2);line-height:1.5;padding-bottom:3px}
+.ccs .bf-top>.mk{align-self:flex-start}
+.ccs .sh2{display:flex;align-items:baseline;gap:10px;font:500 10.5px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin:4px 2px -4px}
+.ccs .sh2 span{letter-spacing:0;text-transform:none;font:12px var(--sans);color:var(--ink-4)}
+.ccs .ev{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.ccs .evr{position:relative;display:flex;align-items:center;gap:10px;min-width:0;padding:9px 10px;border-radius:11px;border:1px solid var(--border);background:radial-gradient(90% 140% at 0% 50%,hsl(var(--h) 42% 52% / .1),transparent 70%),var(--surface);cursor:pointer}
+.ccs .evr:hover,.ccs .cl:hover{border-color:rgba(255,255,255,.2)}
+.ccs .evr .rw b{display:flex;align-items:center;gap:5px;font-size:13px}
+.ccs .evr .kg{width:12px;height:12px}
+.ccs .rooms{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.ccs .cl{display:flex;flex-direction:column;gap:8px;min-width:0;padding:11px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);cursor:pointer}
+.ccs .cl-h{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.ccs .cl b{font-size:13px;font-weight:600;line-height:1.3}
+.ccs .cl .stack .fc{box-shadow:0 0 0 2px var(--surface)}
+.ccs .cl small{font-size:11.5px;color:var(--ink-3);line-height:1.35}
+.ccs .segbar{display:flex;gap:2px;height:5px}
+.ccs .segbar i{flex:1;border-radius:2px;background:rgba(244,243,238,.3)}
+.ccs .segbar i.p-working{background:var(--blue)}
+.ccs .segbar i.p-done{background:var(--good)}
+.ccs .segbar i.p-parked{background:none;box-shadow:inset 0 0 0 1px var(--ink-3)}
+.ccs .ch{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.ccs .ch h4{font:500 10.5px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.ccs .bxg{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.ccs .bxg div{font-size:11.5px;color:var(--ink-3);line-height:1.35}
+.ccs .bxg b{display:block;font:500 18px/1.25 var(--mono);color:var(--ink)}
+.ccs .li2{margin-top:10px;font-size:11.5px;color:var(--ink-2);line-height:1.5}
+.ccs .li2.dim{margin-top:3px;color:var(--ink-3)}
+.ccs .li{display:flex;gap:8px;align-items:center;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;min-width:0;white-space:nowrap}
+.ccs .ch+.li{border-top:0}
+.ccs .li>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+.ccs .li .mono{font-size:11px}
+.ccs .pop-bg{position:fixed;inset:0;z-index:39}
+.ccs .pop{position:fixed;z-index:40;background:var(--surface);border:1px solid var(--border-2);border-radius:13px;box-shadow:0 22px 60px rgba(0,0,0,.6);padding:12px;max-height:calc(100vh - 24px);overflow:auto;animation:cc-capin .16s var(--e)}
+.ccs .pop-h{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;padding:2px 4px 10px}
+.ccs .pop-n{font-size:12.5px;color:var(--ink-3);line-height:1.5;padding:0 4px 10px}
+.ccs .pop-s{font:500 10.5px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);padding:12px 4px 4px}
+.ccs .prow{display:flex;align-items:center;gap:10px;padding:8px;border-radius:9px;min-width:0;cursor:pointer}
+.ccs .prow:hover{background:var(--surface-2)}
+.ccs .prow .stack .fc{box-shadow:0 0 0 2px var(--surface)}
+.ccs .pop-f{font-size:11.5px;color:var(--ink-3);padding:9px 4px 2px;line-height:1.45;border-top:1px solid var(--border);margin-top:6px}
+.ccs .lg{display:flex;align-items:flex-start;gap:12px;padding:5px 4px;font-size:12.5px;color:var(--ink-2);line-height:1.45}
+.ccs .lg>:first-child{flex:none;width:66px;justify-content:center;margin-top:1px}
+.ccs .lgs{display:inline-flex;justify-content:center;padding-top:5px}
+.ccs .cc-in{border:1px dashed rgba(255,255,255,.2);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px}
+.ccs .cc-n{font-size:20px;font-weight:600;letter-spacing:-.02em;padding:6px 8px 4px}
+.ccs .ov-bg{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.62);display:grid;place-items:center;padding:24px;animation:cc-capin .16s var(--e)}
+.ccs .sheet{width:min(880px,100%);max-height:calc(100vh - 48px);overflow:auto;background:var(--surface);border:1px solid var(--border-2);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.ccs .sh-h{display:flex;align-items:flex-start;gap:16px;justify-content:space-between;padding:22px 24px 16px;border-bottom:1px solid var(--border)}
+.ccs .sh-h h2{font-size:26px;font-weight:600;letter-spacing:-.025em;line-height:1.2;margin-top:6px}
+.ccs .lead{margin-top:6px;font-size:14px;color:var(--ink-2);line-height:1.5;max-width:66ch}
+.ccs .lv{display:grid;grid-template-columns:1fr 1fr;gap:0 30px;padding:4px 24px 8px}
+.ccs .lv section{padding:14px 0 12px;border-bottom:1px solid var(--border);min-width:0}
+.ccs .lv h3{font:500 10.5px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+.ccs .lv h3 b{color:var(--orange);font-weight:500}
+.ccs .lr{display:grid;grid-template-columns:86px minmax(0,1fr);gap:1px 12px;font-size:12.5px;line-height:1.45;padding:3px 0;color:var(--ink-2)}
+.ccs .lr>:first-child{color:var(--ink-3);font-family:var(--mono);font-size:11.5px;padding-top:1px}
+.ccs .lr small{grid-column:2;color:var(--ink-3);font-size:12px}
+.ccs .sh-f{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:14px 24px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--surface)}
+.ccs .sh-f .ow{flex:1}
+.ccs .pl{padding:4px 24px 8px}
+.ccs .pi{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--border)}
+.ccs .pi b{font-size:14.5px;font-weight:600;line-height:1.35}
+.ccs .pi p{font-size:13px;color:var(--ink-2);margin-top:2px;line-height:1.45}
+.ccs .pi small{display:block;font-size:11.5px;color:var(--ink-3);margin-top:3px}
+@media (max-width:700px){.ccs .cc-main{display:block}
+.ccs .cc-cb{flex-direction:column;align-items:stretch;gap:10px;padding:12px 16px}
+.ccs .cb-l{flex-wrap:wrap;gap:8px 10px}
+.ccs .cb-sum{white-space:normal}
+.ccs .cb-r{flex-wrap:wrap}
+.ccs .cc-stage{overflow:visible;padding:12px 16px 330px}
+.ccs .grid{height:auto;display:flex;flex-direction:column;gap:8px}
+.ccs .tile{flex-direction:row;align-items:center;gap:12px;padding:10px 12px;overflow:visible}
+.ccs .tile .where,.ccs .tile .t-fold{display:none}
+.ccs .t-face{flex:none;padding:0}
+.ccs .t-face svg{width:44px;height:44px}
+.ccs .t-body{flex:1;min-width:0}
+.ccs .t-name{font-size:15px}
+.ccs .t-cap{-webkit-line-clamp:1;min-height:0;font-size:12.5px}
+.ccs .t-st{margin-top:3px}
+.ccs .tile .hand{position:static;order:3;flex:none;box-shadow:none}
+.ccs .host{display:block}
+.ccs .host.span2{grid-column:auto}
+.ccs .h-grid{grid-template-columns:1fr;gap:12px}
+.ccs .strip{display:none}
+.ccs .spk{display:block}
+.ccs .bigt .t-face svg{width:56px;height:56px}
+.ccs .bigt .t-cap{font-size:13px}
+.ccs .cc-panel,.ccs .cc-panel.wide{width:auto;border-left:0;border-top:1px solid var(--border);padding-bottom:320px}
+.ccs[data-r=chat] .cc-stage,.ccs[data-r=room] .cc-stage{display:none}
+.ccs .msgs{overflow:visible}
+.ccs .cc-tray{position:fixed;left:0;right:0;bottom:0;z-index:30;grid-template-columns:minmax(0,1fr);gap:10px;padding:12px 16px 14px;border-top:1px solid var(--border-2);box-shadow:0 -16px 36px rgba(0,0,0,.65);max-height:64vh;overflow:auto}
+.ccs .tb{display:none}
+.ccs .tr-pos{display:inline}
+.ccs .tr-q>.fc{width:34px;height:34px}
+.ccs .tr-title{font-size:17px}
+.ccs .tr-ask{font-size:13px}
+.ccs .tr-meta>span:nth-of-type(1){display:none}
+.ccs[data-r=battlefield] .cc-stage{padding-bottom:96px}
+.ccs .bf{grid-template-columns:minmax(0,1fr)}
+.ccs .bf-top{flex-wrap:wrap;gap:14px 24px}
+.ccs .bf-w{text-align:left;flex-basis:100%}
+.ccs .ev{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ccs .rooms{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ccs .tr-mini .cbtn{flex:none}
+.ccs .lv{grid-template-columns:1fr}
+.ccs .ov-bg{padding:10px;align-items:end}
+.ccs .sheet{max-height:calc(100vh - 20px)}
+.ccs .sh-h{padding:18px 16px 12px}
+.ccs .sh-h h2{font-size:22px}
+.ccs .lv,.ccs .pl{padding-left:16px;padding-right:16px}
+.ccs .sh-f{padding:12px 16px}}
+.ccs .rh{display:inline-flex;align-items:center;gap:3px;font:500 11.5px/1 var(--mono);color:var(--ink-2);flex:none}
+.ccs .rh svg{width:12px;height:12px;color:var(--orange)}
+.ccs .dim2{color:var(--ink-4)}
+.ccs .echo{margin-top:9px;font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+.ccs .echo b{color:var(--ink);font-weight:600}
+.ccs .latr{margin-top:8px;font-size:11.5px;color:var(--ink-4);display:flex;gap:8px;align-items:baseline}
+.ccs .lat{all:unset;cursor:pointer;font:500 12px/1.2 var(--mono);color:var(--ink-3);border-bottom:1px dashed var(--ink-4)}
+.ccs .lat:hover,.ccs .lat.on{color:var(--ink);border-bottom-color:var(--ink-2)}
+.ccs .lat:focus-visible{outline:1px solid var(--ink-3);outline-offset:3px}
+.ccs .rw small.c-failed{color:var(--danger)}
+.ccs .where{padding-right:46px}
+.ccs .host .h-grid{flex:none}
+.ccs .gpu .big{font-size:30px}
+.ccs .host .h-l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccs .host>.h-sub{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media (min-width:701px){.ccs .t-face{flex:1 1 0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ccs .t-face svg{height:100%;width:auto;max-height:76px;flex:none}
+.ccs .bigt .t-face svg{height:100%;width:auto;max-height:128px}
+.ccs[data-r=chat] .cc-tray,.ccs[data-r=room] .cc-tray{grid-template-columns:minmax(0,1fr) minmax(0,290px)}
+.ccs[data-r=chat] .cc-tray .tb,.ccs[data-r=room] .cc-tray .tb{display:none}
+.ccs[data-r=chat] .tr-pos,.ccs[data-r=room] .tr-pos{display:inline}
+.ccs[data-r=chat] .tr-meta>span:nth-of-type(1),.ccs[data-r=room] .tr-meta>span:nth-of-type(1){display:none}}
+.ccs .bigt .t-face svg{width:128px;height:128px}
+.ccs .mini{height:104px;justify-content:flex-end;padding-bottom:10px}
+.ccs .lv section.wide{grid-column:1/-1}
+.ccs .cols2{columns:2;column-gap:30px}
+.ccs .cols2 .lr{break-inside:avoid}
+.ccs .row .need{height:19px;font-size:11px;padding:0 7px}
+.ccs .tal .dot{margin-right:5px;vertical-align:1px}
+.ccs .cc-in .mk{align-self:flex-start}
+.ccs .li .fc{flex:none}
+.ccs .bf-n b.tick{animation:cc-tick .18s var(--e)}
+@media (max-width:700px){.ccs .cols2{columns:1}
+.ccs .bigt .t-face svg{width:56px;height:56px}
+.ccs .mini{height:auto}}
+`
+const CC_CSS = CC_TOKENS + CC_MOCK_CSS
+function injectCC() {
+  const old = document.getElementById(CC_STYLE_ID)
+  if (old && old.textContent === CC_CSS) return
+  if (old) old.remove()
+  const el = document.createElement('style')
+  el.id = CC_STYLE_ID
+  el.textContent = CC_CSS
+  document.head.appendChild(el)
+}
+
+/* ---- the route, from the hash router: #/live?room=… ------------------- */
+function ccLoc() {
+  const raw = String(window.location.hash || '').replace(/^#/, '')
+  const qi = raw.indexOf('?')
+  const path = qi < 0 ? raw : raw.slice(0, qi)
+  const params = new URLSearchParams(qi < 0 ? '' : raw.slice(qi + 1))
+  return { path: path || '/', params }
+}
+function useCcLoc() {
+  const [loc, setLoc] = useState(ccLoc)
+  useEffect(() => {
+    const on = () => setLoc(ccLoc())
+    window.addEventListener('hashchange', on)
+    window.addEventListener('popstate', on)
+    const t = setInterval(on, 800) // a router that replaces state without an event is still followed
+    return () => { window.removeEventListener('hashchange', on); window.removeEventListener('popstate', on); clearInterval(t) }
+  }, [])
+  return loc
+}
+
+/* ---- helpers ported from the mockup ----------------------------------- */
+const ccEsc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const ccClean = s => String(s == null ? '' : s).replace(/^NEEDS YOU #\d+\s*[—–-]\s*/i, '')
+const ccT = s => ccEsc(keep(ccClean(s)))
+const CC_HAND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-6-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>'
+const ccSv = (p, c = 'gl') => `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`
+const CC_IC = {
+  live: ccSv('<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8.5"/>'),
+  bf: ccSv('<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>'),
+  prop: ccSv('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>'),
+  leave: ccSv('<path d="M2.5 14.2c5.3-5 13.7-5 19 0l-2.1 2.8-4-1.5v-2.6a12 12 0 0 0-6.8 0v2.6l-4 1.5z"/>'),
+  x: ccSv('<path d="M6 6l12 12M18 6L6 18"/>'),
+  lock: ccSv('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>')
+}
+const CC_KG = {
+  claude: ccSv('<path d="M4 17l6-5-6-5M12 19h8"/>', 'kg'),
+  hermes: ccSv('<path d="M20.5 12a8.5 8.5 0 0 1-12.3 7.6L3.5 21l1.3-4.5A8.5 8.5 0 1 1 20.5 12z"/>', 'kg'),
+  timer: ccSv('<circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.3 2M10 2.5h4"/>', 'kg')
+}
+const CC_KIND = { claude: 'Claude Code', hermes: 'Hermes Bot', timer: 'timer' }
+const CC_YOU = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="42" fill="#232321" stroke="rgba(255,255,255,.2)" stroke-width="1.5" stroke-dasharray="3 4"/><circle cx="50" cy="40" r="13" fill="#6b6a64"/><path d="M26 76c3-13 13-20 24-20s21 7 24 20" fill="#6b6a64"/></svg>'
+/* Faces: the mockup's deterministic generator, whole — hue, shape family by kind. */
+const ccHue = id => Math.round(176 + rnd(hsh(id))() * 92)
+const ccFaces = new Map()
+function ccFace(id, kind) {
+  const key = id + '|' + kind
+  if (ccFaces.has(key)) return ccFaces.get(key)
+  const r = rnd(hsh(id))
+  const hh = Math.round(176 + r() * 92), s = Math.round(20 + r() * 26), l = Math.round(58 + r() * 10)
+  const fill = `hsl(${hh} ${s}% ${l}%)`, dk = `hsl(${hh} ${Math.round(s * 0.7)}% ${l - 20}%)`
+  let body = '', ey = 49
+  if (kind === 'hermes') {
+    const A = 34 + r() * 3, B = 31 + r() * 3, n = 0.55
+    let d = ''
+    for (let i = 0; i < 56; i++) {
+      const q = (i / 56) * Math.PI * 2, c = Math.cos(q), si = Math.sin(q)
+      d += (i ? 'L' : 'M') + f1(50 + A * Math.sign(c) * Math.pow(Math.abs(c), n)) + ' ' + f1(47 + B * Math.sign(si) * Math.pow(Math.abs(si), n))
+    }
+    body = `<path d="M25 68 L15 93 L43 77 Z" fill="${fill}"/><path d="${d}Z" fill="${fill}"/>`; ey = 44
+  } else if (kind === 'timer') {
+    body = `<rect x="42" y="5" width="16" height="10" rx="3" fill="${dk}"/><rect x="46" y="12" width="8" height="10" fill="${dk}"/><rect x="79" y="21" width="13" height="7" rx="2.5" fill="${dk}" transform="rotate(42 85.5 24.5)"/><circle cx="50" cy="56" r="37" fill="${fill}"/><circle cx="50" cy="56" r="30.5" fill="none" stroke="${dk}" stroke-opacity=".5" stroke-width="1.6" stroke-dasharray="1.6 5.4" stroke-linecap="round"/>`; ey = 54
+  } else {
+    const N = 7, p = []
+    for (let i = 0; i < N; i++) { const q = (i / N) * Math.PI * 2 + (r() - 0.5) * 0.35 - Math.PI / 2, rr = 34 + r() * 8; p.push([50 + rr * Math.cos(q), 52 + rr * Math.sin(q)]) }
+    let d = `M${f1(p[0][0])} ${f1(p[0][1])}`
+    for (let i = 0; i < N; i++) {
+      const p0 = p[(i - 1 + N) % N], p1 = p[i], p2 = p[(i + 1) % N], p3 = p[(i + 2) % N]
+      d += `C${f1(p1[0] + (p2[0] - p0[0]) / 6)} ${f1(p1[1] + (p2[1] - p0[1]) / 6)} ${f1(p2[0] - (p3[0] - p1[0]) / 6)} ${f1(p2[1] - (p3[1] - p1[1]) / 6)} ${f1(p2[0])} ${f1(p2[1])}`
+    }
+    body = `<path d="${d}Z" fill="${fill}"/>`
+  }
+  const sp = 9 + r() * 4, ox = (r() - 0.5) * 6, hx = (r() - 0.5) * 1.6
+  const eyes = [-1, 1].map(k => { const x = 50 + ox + k * sp; return `<ellipse cx="${f1(x)}" cy="${ey}" rx="4.3" ry="5.4" fill="#131315"/><circle cx="${f1(x + 1.3 + hx)}" cy="${ey - 2}" r="1.5" fill="#fff"/>` }).join('')
+  const mw = 5 + r() * 4, my = ey + 12
+  const mouth = `<path d="M${f1(50 + ox - mw)} ${my} Q${f1(50 + ox)} ${f1(my + 3 + r() * 3)} ${f1(50 + ox + mw)} ${my}" fill="none" stroke="#131315" stroke-width="2.3" stroke-linecap="round"/>`
+  const shine = `<ellipse cx="36" cy="${ey - 17}" rx="9" ry="5" fill="#fff" fill-opacity=".16" transform="rotate(-22 36 ${ey - 17})"/>`
+  const svg = `<svg viewBox="0 0 100 100" aria-hidden="true">${body}${shine}${eyes}${mouth}</svg>`
+  ccFaces.set(key, svg)
+  return svg
+}
+
+/* ---- the model: real data in the mockup's shape ------------------------ */
+const ccMMDD = iso => { const m = String(iso || '').match(/\d{4}-(\d\d)-(\d\d)/); return m ? m[1] + '-' + m[2] : String(iso || '') }
+const ccHM = iso => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '—' : pad2(d.getHours()) + ':' + pad2(d.getMinutes()) }
+const ccStamp = iso => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? String(iso || '—') : d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) }
+const ccEvery = raw => {
+  const s = String(raw || '')
+  let m = s.match(/every\s+(\d+)\s*min/i); if (m) return m[1] + ' min'
+  m = s.match(/^\*-\*-\* \*:\d\d\/(\d+):00$/); if (m) return Number(m[1]) + ' min'
+  m = s.match(/^\*-\*-\* (\d\d:\d\d):00$/); if (m) return m[1]
+  m = s.match(/every\s+(\d+)\s*h/i); if (m) return m[1] + ' h'
+  return s.replace(/^every\s+/i, '') || '—'
+}
+function ccModel(data, ov) {
+  const today = localDay()
+  const ny = (data && data.needs_you) || {}
+  const items = Array.isArray(ny.items) ? ny.items : []
+  const lv = data && data.live && !data.live.error && Array.isArray(data.live.order) ? data.live : null
+  const panes = (data && data.agents_now && data.agents_now.rows) || []
+  const runs = (data && data.agents && data.agents.items) || []
+  const rb = data && data.rooms && Array.isArray(data.rooms.rooms) ? data.rooms : { rooms: [], bots: {} }
+  const botsB = data && data.bots && Array.isArray(data.bots.items) ? data.bots.items : []
+  const seatOf = i => i.agent || 'no agent yet'
+  const done = lv && Array.isArray(lv.done_today) ? lv.done_today : []
+
+  const cards = items.map(i => {
+    const pk = isParked(i, today)
+    return {
+      id: String(i.id), p: i.priority ?? 9, tier: Number(i.tier) || null, kind: i.ask_kind || 'DO', owner: seatOf(i),
+      expiry: ccMMDD(i.expiry), expired: Boolean(i.expiry) && String(i.expiry) < today, title: topic(i), full: i.title || i.ask || i.id,
+      ask: i.ask || '', why: i.why || '', default: i.default || '', options: wordsOf(i), plain: SAFE_ID.test(String(i.id)),
+      parked: pk ? ((i.parked && (i.parked.reason === 'later' ? 'later' : i.parked.reason)) || 'parked') + ' · until ' + ccMMDD(i.parked.until) : null,
+      shipped: i.agent_shipped !== false, since: i.since, raw: i, open: true
+    }
+  })
+  const doneCards = done.filter(d => !cards.some(c => c.id === String(d.id))).map(d => ({
+    id: String(d.id), p: 9, tier: Number(d.tier) || null, kind: '', owner: d.agent || 'no agent yet', expiry: '', title: d.title || d.ask || d.id,
+    ask: d.ask || '', why: '', default: '', options: [], plain: false, parked: null, open: false,
+    how: '“' + (d.answer || '?') + '” ✓✓ ' + (d.surface === 'page' ? 'sent from this page' : d.surface === 'phone' ? 'tapped on the phone' : d.surface === 'decide' ? 'by decide' : 'closed') +
+      (d.answeredAt ? ' at ' + ccHM(d.answeredAt) : '') + ' — for its owner’s next pass'
+  }))
+  const order = lv ? lv.order.map(String) : cards.filter(c => !c.parked).sort((a, b) => byQueue(a.raw, b.raw)).map(c => c.id)
+  cards.filter(c => !c.parked && !order.includes(c.id)).forEach(c => order.push(c.id))
+
+  // agents: the seats first (Claude Code panes on the Mac when seated; each is also a Bot on the box)
+  const AG = {}
+  const botOf = id => botsB.find(b => (b.id || b.name) === id) || {}
+  const botName = id => (rb.bots && rb.bots[id]) || botOf(id).name || botOf(id).display_name || id
+  const botLane = id => botOf(id).lane || ''
+  const failedOf = id => runs.filter(r => r.agent === id && (r.status === 'failed' || r.status === 'stopped') && lastNight(r.t))
+  // a seat is an owner with an open card, or one whose card closed today; cards with no agent have no tile
+  const seatIds = [...new Set(cards.map(c => c.owner).concat(done.filter(d => d.agent).map(d => d.agent)))]
+  seatIds.forEach(id => {
+    const pane = panes.find(r => r.host === 'mac' && r.name === id) || null
+    AG[id] = { id, name: id, kind: pane ? 'claude' : 'hermes', where: pane ? 'mac' : 'box', pane, seat: true,
+      herdr: pane ? [pane.detail, pane.where].filter(Boolean).join(' · ') : null,
+      lane: botLane(id) || (pane ? 'owner seat · ' + (pane.detail || 'the Mac') : 'owner seat · not in a pane yet'),
+      state: failedOf(id).length ? 'failed' : pane ? (PANE_STATE[pane.state] || pane.state || 'idle') : 'away' }
+  })
+  // everyone else the battlefield shows: the Mac's other panes, the box's Bots, the box's timers
+  panes.filter(r => r.host === 'mac' && !AG[r.name]).forEach(r => {
+    AG[r.name] = { id: r.name, name: r.name, kind: 'claude', where: 'mac', pane: r, herdr: [r.detail, r.where].filter(Boolean).join(' · '),
+      lane: 'Claude Code · ' + (r.detail || 'a pane'), state: PANE_STATE[r.state] || r.state || 'idle' }
+  })
+  botsB.filter(b => !AG[b.id || b.name]).forEach(b => {
+    const bid = b.id || b.name
+    AG[bid] = { id: bid, name: b.name || b.display_name || bid, kind: 'hermes', where: 'box', lane: b.lane || (b.bot ? 'Hermes Bot' : 'Hermes profile'),
+      state: failedOf(b.name).length ? 'failed' : 'idle' }
+  })
+  const tmr = data && data.timers && Array.isArray(data.timers.items) ? data.timers.items : []
+  tmr.forEach(t => {
+    const id = 'timer:' + t.name
+    AG[id] = { id, name: t.name, kind: 'timer', where: 'box', lane: 'every ' + ccEvery(t.every), state: failedOf(t.name).length ? 'failed' : 'idle', timer: t }
+  })
+  Object.values(AG).forEach(a => { if (a.seat) a.name = a.id; a.display = a.seat ? botName(a.id) : a.name })
+
+  const rooms = (rb.rooms || []).map(r => {
+    const members = (r.members || []).map(String)
+    return { id: String(r.id), name: r.name || r.id, agents: members.filter(m => AG[m]), cards: cards.concat(doneCards).filter(c => members.includes(c.owner)).map(c => c.id) }
+  })
+
+  // the box
+  const b = data && data.box && !data.box.error ? data.box : {}
+  const hl = ov && ov.health && !ov.health.error ? ov.health : {}
+  const g = hl.gpu && !hl.gpu.error ? hl.gpu : {}
+  const mem = hl.memory && !hl.memory.error && hl.memory.total_mb ? hl.memory : null
+  const ck = b.checks || {}
+  const failing = (ck.failing || []).length
+  const models = b.models || {}
+  const nightly = []
+  runs.filter(r => (r.status === 'failed' || r.status === 'stopped' || r.status === 'blocked') && lastNight(r.t)).forEach(r => {
+    const same = nightly.find(x => x.agent === r.agent && x.job === r.job && x.state === r.status)
+    if (same) same.n += 1
+    else nightly.push({ t: ccMMDD(r.t) + ' ' + ccHM(r.t), agent: r.agent, job: r.job || '?', state: r.status === 'stopped' ? 'failed' : r.status, why: r.reason || '', n: 1 })
+  })
+  const gb = mb => Math.round((mb || 0) / 1024)
+  const box = {
+    gpu: g.name || 'GPU', gpuPct: Math.round(Number(g.util_pct ?? b.gpu_util_pct) || 0), tempC: Math.round(Number(g.temp_c ?? b.gpu_temp_c) || 0),
+    cores: hl.cores || '—', load: Array.isArray(hl.load) ? hl.load.map(x => fmt(x, 2)) : [fmt(b.load1, 2)],
+    memTotal: mem ? gb(mem.total_mb) : '—', memUsed: mem ? gb(mem.total_mb - mem.available_mb) : '—', memFree: mem ? gb(mem.available_mb) : '—',
+    memPct: mem ? ((mem.total_mb - mem.available_mb) / mem.total_mb) * 100 : 0,
+    diskPct: b.disk_pct ?? '—', uptimeDays: hl.uptime_s ? Math.floor(hl.uptime_s / 86400) : '—',
+    checks: ck.total ? (ck.total - failing) + '/' + ck.total + ' ' + String(ck.status || 'checks').toLowerCase() : 'checks —',
+    models: (models.loaded || []).map(m => ({ id: m.name, gb: m.size_gb, loaded: true })), onDisk: models.on_disk ?? null,
+    hermes: models.hermes || {}, timers: tmr.map(t => ({ id: t.name, every: ccEvery(t.every), next: t.next })), nightly,
+    error: data && data.box && data.box.error
+  }
+  const proposals = (data && data.proposals && Array.isArray(data.proposals.items) ? data.proposals.items : [])
+    .map((p, k) => ({ id: 'p' + k, owner: p.owner, title: p.title, why: p.why, about: p.about, date: p.date }))
+  const answer = lv && lv.answer ? lv.answer : null
+  return { today, cards, doneCards, order, AG, rooms, box, proposals, lv, answer, derived: (ny.derived || []).length,
+    sampled: data ? ccStamp(data.sampled_at) : '—', sampledAt: data && data.sampled_at, queueErr: ny.error || null, session: lv && lv.session }
+}
+
+/* ---- the view state: one per window, it survives re-renders ------------ */
+const CS = { focus: null, pick: null, pickAt: 0, view: 'gallery', pop: null, sheet: null, trayOpen: false, left: false,
+  seen: {}, lastBy: {}, fx: null, want: null, sent: {}, copied: {}, applied: '', prevOpen: null, pk: '' }
+
+function ccRender(M, route, answerOn) {
+  const CARD = {}; M.cards.concat(M.doneCards).forEach(c => { CARD[c.id] = c })
+  const AG = M.AG, ROOM = {}; M.rooms.forEach(r => { ROOM[r.id] = r })
+  const st = id => { const c = CARD[id]; if (!c) return 'gone'; if (!c.open) return 'done'; return c.parked ? 'parked' : 'needs' }
+  const QALL = M.cards.concat(M.doneCards)
+  const Q = M.order.filter(id => st(id) === 'needs')
+  const BATCH = {}; Q.forEach((id, i) => { BATCH[id] = Math.floor(i / BATCH_N) })
+  const NB = Math.max(1, Math.ceil(Q.length / BATCH_N))
+  const need = () => Q.length + M.derived
+  const NEED = () => need() + ' need you'
+  const openBatch = () => (Q.length ? BATCH[Q[0]] : -1)
+  const isN = c => st(c.id) === 'needs'
+  const cardsOf = a => QALL.filter(c => c.owner === a).sort((x, y) => (M.order.indexOf(x.id) + 1 || 999) - (M.order.indexOf(y.id) + 1 || 999))
+  const hands = a => cardsOf(a).filter(isN).length
+  const topQ = a => { const id = Q.find(x => CARD[x].owner === a); return id ? CARD[id] : null }
+  const OWN = Object.values(AG).filter(a => a.seat).map(a => a.id)
+    .sort((x, y) => hands(y) - hands(x) || cardsOf(y).length - cardsOf(x).length || x.localeCompare(y))
+  const ORDER = ['failed', 'needs', 'working', 'parked', 'done']
+  const LBL = { needs: 'needs you', working: 'working', parked: 'parked', done: 'done', failed: 'failed' }
+  const stOf = cs => { const ss = cs.map(c => st(c.id)); for (const s of ORDER) if (ss.includes(s)) return s; return '' }
+  const agentState = a => (AG[a] && AG[a].state === 'failed' ? 'failed' : stOf(cardsOf(a)) || (AG[a] && AG[a].state === 'working' ? 'working' : ''))
+  const roomCards = rm => QALL.filter(c => rm.cards.includes(c.id))
+  const roomNeeds = rm => roomCards(rm).filter(isN).length
+  const roomState = rm => { const ss = rm.agents.map(agentState).concat([stOf(roomCards(rm))]); for (const s of ORDER) if (ss.includes(s)) return s; return '' }
+  const kindOf = a => (AG[a] ? AG[a].kind : 'claude')
+  const F = (id, z) => `<span class="fc s${z}">${ccFace(id, kindOf(id))}</span>`
+  const whereOf = a => { const g = AG[a]; if (!g) return ''; return g.where === 'mac' ? 'the Mac' + (g.herdr ? ' · ' + g.herdr : '') : g.seat ? 'not in a pane yet' : 'the box' }
+  const onWhere = a => (AG[a] && AG[a].where === 'mac' ? 'the Mac' : AG[a] && AG[a].seat ? 'no pane yet' : 'the box')
+  const nameOf = a => (AG[a] ? AG[a].name : a)
+  const failedBy = a => M.box.nightly.filter(x => x.agent === a && x.state === 'failed')
+  const pw = (c, i) => (i === -1 ? 'later' : c.options[i])
+  const nextFocus = () => {
+    if (route.v === 'chat') { const q = topQ(route.id); if (q) return q.id }
+    if (route.v === 'room' && ROOM[route.id]) { const q = roomCards(ROOM[route.id]).find(isN); if (q) return q.id }
+    return Q[0] || null
+  }
+  if (!CS.focus || st(CS.focus) !== 'needs') CS.focus = nextFocus()
+  const speaking = () => CS.last || (CS.focus && CARD[CS.focus] ? CARD[CS.focus].owner : null)
+  const fxHas = cs => Boolean(CS.fx && CS.fx.c && cs.some(c => c.id === CS.fx.c))
+  const tk = () => (CS.fx && CS.fx.c ? ' tick' : '')
+  const viewName = () => (route.v === 'chat' ? nameOf(route.id) : route.v === 'room' ? (ROOM[route.id] || {}).name : route.v === 'battlefield' ? 'Battlefield' : 'Live')
+  const pill = () => `<span class="need${need() ? '' : ' zero'}${tk()}">${NEED()}</span>`
+  const MK = () => '' // markers are the mockup's annotation layer; the product draws none (parity-spec M1)
+
+  const cbar = () => {
+    let l = ''
+    const seated = OWN.filter(a => AG[a].where === 'mac').length
+    if (route.v === 'room') {
+      const rm = ROOM[route.id]
+      l = `<button class="cbtn" data-act="go" data-h="/live">← Back to the call</button><span class="live">${ccEsc(rm.name)}</span><span class="cb-sum">${rm.agents.length} members + you · ${rm.cards.length} cards · ${roomNeeds(rm)} of them wait on you</span>`
+    } else if (route.v === 'battlefield') {
+      l = `<span class="live"><i></i>Battlefield</span><span class="cb-sum">everyone · ${Object.keys(AG).length} agents · ${M.rooms.length} rooms · ${M.cards.length} cards · <b class="cnt${tk()}">${NEED()}</b></span>`
+    } else {
+      l = `<span class="live"><i></i>Live</span><span class="cb-sum">${M.cards.length} open · <b class="cnt${tk()}">${NEED()}</b> · ${M.cards.filter(c => c.parked).length} parked · <span class="pp">${seated}/${OWN.length} owners in a pane${M.session && M.session.line ? ' · session ' + ccEsc(M.session.line) + ' answered today' : ''}${answerOn ? ' · answering on this page is ON' : ''}</span></span>`
+    }
+    let rr = ''
+    if (route.v === 'live') rr += `<div class="seg"><button class="${CS.view === 'gallery' ? 'on' : ''}" data-act="view" data-v="gallery">Gallery</button><button class="${CS.view === 'speaker' ? 'on' : ''}" data-act="view" data-v="speaker">Speaker</button></div>`
+    rr += `<button class="cbtn" data-act="pop" data-p="rooms">Breakout rooms <span class="dim">${M.rooms.length}</span></button><button class="cbtn" data-act="sheet" data-s="props">Proposals</button>`
+    rr += CS.left ? '<button class="cbtn leave" data-act="rejoin">Rejoin the call</button>' : `<button class="cbtn leave" data-act="sheet" data-s="leave">${CC_IC.leave}Leave the call</button>`
+    return `<div class="cb-l">${l}</div><div class="cb-r">${rr}</div>`
+  }
+  const capHTML = (a, cs) => {
+    const lb = CS.lastBy[a]
+    if (lb && cs.some(c => c.id === lb.c)) {
+      const c = CARD[lb.c], s = st(lb.c)
+      if (lb.k === 'parked' && s === 'parked') return `parked — <b>${ccT(c.title)}</b>`
+      if (lb.k === 'done' && s === 'done') return `done — <b>${ccT(c.title)}</b>${c.how ? ' · ' + ccEsc(c.how) : ''}`
+    }
+    const q = cs.find(isN); if (q) return `<b>${ccT(q.title)}</b> — “${ccT(q.ask)}”`
+    return ccEsc(AG[a] ? AG[a].lane : '')
+  }
+  const stLine = (a, cs, room) => {
+    const p = [], g = AG[a]
+    if (g.state === 'failed') p.push('<span class="sl c-failed"><i class="dot"></i>failed</span>')
+    const n = cs.filter(isN).length, cnt = s => cs.filter(c => st(c.id) === s).length
+    if (n) p.push(`<span class="sl nd">needs you ${n}</span>`)
+    const late = cs.filter(c => isN(c) && c.expired).length
+    if (late) p.push(`<span class="sl nd">${late} expired</span>`)
+    if (g.state === 'working') p.push('<span class="sl c-working"><i class="dot"></i>working</span>')
+    const pk = cnt('parked'), d = cnt('done')
+    if (pk) p.push(`<span class="sl c-parked"><i class="dot"></i>parked${pk > 1 ? ' ' + pk : ''}</span>`)
+    if (d) p.push(`<span class="sl c-done"><i class="dot"></i>done ${d}</span>`)
+    if (!cs.length || (!n && !pk && !d && g.state !== 'working' && g.state !== 'failed')) p.push(`<span class="sl dim">${cs.length ? '' : room ? 'no card in this room · ' : 'no card · '}${ccEsc(g.state === 'away' ? 'not in a pane' : g.state)}</span>`)
+    return p.join('')
+  }
+  const folds = (a, cs, max) => {
+    const o = []
+    const f = failedBy(a)
+    if (f.length) o.push(`<div class="t-fold c-failed">failed last night — ${f.map(x => ccEsc(x.job)).join(', ')}</div>`)
+    if (AG[a].seat && !AG[a].pane && cs.some(c => c.open && !c.shipped)) o.push('<div class="t-fold">no agent for this seat yet</div>')
+    cs.filter(c => st(c.id) === 'parked').forEach(c => { const nx = topQ(a); o.push(`<div class="t-fold">parked · ${ccEsc(c.parked)} — ${nx ? 'took next: ' + ccT(nx.title) : 'proposing next'}</div>`) })
+    cs.filter(c => st(c.id) === 'done' && !CS.seen[c.id]).forEach(c => o.push(`<div class="t-fold" data-act="seen" data-id="${ccEsc(c.id)}" title="seen — fold it"><i class="dot c-done"></i> done — ${ccT(c.title)}${c.how ? ' · ' + ccEsc(c.how) : ''}</div>`))
+    const sn = cs.filter(c => st(c.id) === 'done' && CS.seen[c.id]).length
+    if (sn) o.push(`<div class="t-fold">… ${sn} done</div>`)
+    return o.slice(0, max || 1).join('')
+  }
+  const handEl = (a, cs, cls) => {
+    const n = cs.filter(isN).length, hit = fxHas(cs); cls = cls || ''
+    if (n) return `<button class="hand${cls}${hit ? ' dip' : ''}" data-act="hand" data-a="${ccEsc(a)}" title="${n} question${n > 1 ? 's' : ''} — answer in the tray">${CC_HAND}<span class="${hit ? 'tick' : ''}">${n}</span></button>`
+    if (hit) return `<span class="hand${cls} lower" aria-hidden="true">${CC_HAND}</span>`
+    return ''
+  }
+  const ROOMWHERE = { hermes: 'Hermes Bot · native', claude: 'Claude · joins 1 Oct', timer: 'timer · not a Bot' }
+  const tile = (a, o) => {
+    o = o || {}
+    const g = AG[a], rm = o.room
+    const cs = rm ? roomCards(rm).filter(c => c.owner === a) : cardsOf(a)
+    const s = g.state === 'failed' ? 'failed' : (stOf(cs) || 'idle'), hit = fxHas(cs)
+    const where = rm ? (g.seat ? 'Hermes Bot · native' + (g.where === 'mac' ? ' · pane ' + ccEsc(g.pane.where || '') : '') : ROOMWHERE[g.kind]) : whereOf(a)
+    return `<div class="tile${o.cls || ''}${speaking() === a ? ' speaking' : ''}${g.state === 'away' ? ' away' : ''}" style="--h:${ccHue(a)}" data-act="tile" data-a="${ccEsc(a)}" data-s="${s}"><div class="where">${ccEsc(where)}</div>${handEl(a, cs, o.hcls)}<div class="t-face">${ccFace(a, g.kind)}</div><div class="t-body"><div class="t-name">${ccEsc(g.name)}${g.where === 'mac' ? CC_KG.claude : CC_KG[g.kind]}</div><div class="t-cap${hit ? ' cap-in' : ''}">${cs.length ? capHTML(a, cs) : ccEsc(g.lane)}</div><div class="t-st">${stLine(a, cs, Boolean(rm))}</div>${folds(a, cs, o.max)}</div></div>`
+  }
+  const hostTile = cls => {
+    const b = M.box, lm = b.models
+    return `<div class="tile host${cls || ''}" data-s="host"><div class="h-hd"><span class="h-name">the box</span><span class="tag">host</span><span class="ok${b.error ? ' c-failed' : ''}">${ccEsc(b.error ? 'could not sample: ' + b.error : b.checks)} · up ${b.uptimeDays} d</span></div>
+<div class="h-grid"><div><div class="h-sub">GPU · ${ccEsc(b.gpu)}</div><div class="gpu"><span class="big">${b.gpuPct}<small>%</small></span><span class="h-l">${b.tempC} °C · ${b.cores} cores<br>load <span class="mono">${b.load.join(' ')}</span></span></div><div class="bar"><i style="width:${b.memPct.toFixed(1)}%"></i></div><div class="h-l"><span class="mono">${b.memUsed}</span> of <span class="mono">${b.memTotal} GB</span> used · <span class="mono">${b.memFree}</span> free</div><div class="h-l">loaded: ${lm.length ? lm.map(m => `<span class="mono">${ccEsc(m.id)}</span>`).join(' + ') : '<span class="dim">no model in memory</span>'}</div></div>
+<div><div class="h-sub">last night · never folds</div>${b.nightly.length ? b.nightly.map(f => `<div class="fl"><span class="mono">${ccEsc(f.t)}</span><span class="${f.state === 'failed' ? 'c-failed' : 'dim'}">${ccEsc(f.state)}</span> · ${ccEsc(f.job)}${f.n > 1 ? ' ×' + f.n : ''}${f.why ? ' <span class="dim">— ' + ccEsc(f.why) + '</span>' : ''}</div>`).join('') : '<div class="fl dim">nothing failed or blocked last night</div>'}</div></div>
+<div class="h-sub" style="margin:9px 0 3px">timers · ${b.timers.length} <span class="tmr" style="letter-spacing:0;text-transform:none;font-family:var(--sans)">${b.timers.map(x => `${ccEsc(x.id)} <span class="dim">${ccEsc(x.every)}</span>`).join('<i>·</i>')}</span></div></div>`
+  }
+  const youTile = rm => { const n = roomNeeds(rm); return `<div class="tile you" data-s="you"><div class="where">you · in every room</div><div class="t-face">${CC_YOU}</div><div class="t-body"><div class="t-name">you</div><div class="t-cap">the one who answers: your word, one card at a time</div><div class="t-st"><span class="sl nd">${n ? n + ' question' + (n > 1 ? 's' : '') + ' here wait on you' : 'nothing here waits on you'}</span></div></div></div>` }
+  const speakerV = id => {
+    const sp = speaking()
+    const minis = OWN.map(a => `<div class="mini${a === sp ? ' speaking' : ''}${a === id ? ' sel' : ''}" style="--h:${ccHue(a)}" data-act="tile" data-a="${ccEsc(a)}">${handEl(a, cardsOf(a), ' sm ab')}${F(a, 40)}<b>${ccEsc(AG[a].name)}</b></div>`).join('')
+    const host = `<div class="mini hostm"><span class="big">${M.box.gpuPct}%</span>GPU · the box<span>${M.box.memUsed}/${M.box.memTotal} GB</span></div>`
+    return `<div class="spk"><div class="strip">${minis}${host}</div>${AG[id] ? tile(id, { cls: ' bigt', max: 3 }) : ''}</div>`
+  }
+  const stage = () => {
+    if (route.v === 'battlefield') return bf()
+    if (route.v === 'room') { const rm = ROOM[route.id]; return `<div class="grid ${rm.agents.length + 1 <= 4 ? 'g2' : 'g3'}">${rm.agents.map(a => tile(a, { room: rm })).join('')}${youTile(rm)}</div>` }
+    if (route.v === 'chat') return speakerV(route.id)
+    if (CS.view === 'speaker') return speakerV(speaking() || OWN[0])
+    return `<div class="grid g5">${OWN.map(a => tile(a)).join('')}${hostTile(' span2')}</div>`
+  }
+
+  /* the tray */
+  const isPromote = c => /^promote/.test(c.id)
+  const wLine = () => '<div class="wpv"><span>the preview opens in the preview rail — behind your Vercel login</span></div>'
+  const silence = c => {
+    const [word] = String(c.default || '').split(/\s+[—–-]\s+/)
+    const t3 = c.tier === 3 || !word
+    return `If you don't answer: <b>${t3 ? 'it waits for your word' : ccT(c.default)}</b>${t3 ? '' : ' <span class="dim">(its default)</span>'} · ${c.expired ? `<b>${t3 ? 'wanted by' : 'expired'} ${ccEsc(c.expiry)}, still open</b>` : `${t3 ? 'wanted by' : 'expires'} <span class="mono">${ccEsc(c.expiry || '—')}</span>`}`
+  }
+  const tray = () => {
+    const n = need()
+    if (CS.left) return `<div class="tr-zero"><span class="hand-off">${CC_HAND}</span><div><div class="tz-t">You left the call</div><div class="tz-s">You closed the view; the page starts and stops nothing, and owners work to their brief’s budget. Your words wait in the queue for each owner’s next pass. <b class="cnt">${NEED()}</b>; unanswered, a tier-3 card stays open (silence changes nothing).</div></div><button class="confirm" data-act="rejoin">Rejoin the call</button></div>`
+    if (!Q.length) return `<div class="tr-zero"><span class="hand-off">${CC_HAND}</span><div><div class="tz-t">no hands up</div><div class="tz-s">${M.cards.filter(c => c.parked).length} parked · ${M.doneCards.length} done today${M.derived ? ' · ' + M.derived + ' derived item(s) wait on Today' : ''} — leaving only closes the view; answers wait in the queue for each owner’s next pass.</div></div><button class="cbtn leave" data-act="sheet" data-s="leave">${CC_IC.leave}Leave the call</button></div>`
+    const id = CS.focus, c = CARD[id], a = AG[c.owner] || { name: c.owner, kind: 'claude' }
+    if (route.v === 'battlefield' && !CS.trayOpen) return `<div class="tr-mini">${pill()}<span class="nx">next: <b>${ccT(c.title)}</b> · ${ccEsc(a.name)}</span><button class="cbtn" data-act="tray">Answer here <kbd>↵</kbd></button></div>`
+    const os = c.options, b = BATCH[id], bq = Q.filter(x => BATCH[x] === b), qi = bq.indexOf(id) + 1, hit = CS.fx && CS.fx.c
+    let h = `<div class="tr-q">${F(c.owner, 44)}<div class="tr-m"><div class="tr-meta"><b>${ccEsc(a.name)}</b><span>· ${onWhere(c.owner)} · ${CC_KIND[a.where === 'mac' ? 'claude' : a.kind] || ''}</span><span>· p${c.p} · ${ccEsc(c.kind)}${c.tier === 3 ? ' · tier 3' : ''}</span><span class="tr-pos">· ${qi} of ${bq.length} · batch ${b + 1} of ${NB}</span></div>
+<div class="tr-title${hit ? ' cap-in' : ''}" title="${ccEsc(c.full || c.title)}">${ccT(c.title)}</div><div class="tr-ask">${ccT(c.ask)}</div>
+${!c.shipped && !(AG[c.owner] && AG[c.owner].pane) ? '<div class="tr-lint">no agent for this seat yet — the card waits on its owner being built</div>' : ''}<div class="tr-def">${silence(c)}</div>${isPromote(c) ? wLine() : ''}</div></div>`
+    h += `<div class="tr-a">${os.length ? `<div class="picks">${os.map((w, i) => `<button class="pk${CS.pick === i ? ' on' : ''}" data-act="pick" data-i="${i}"><kbd>${i + 1}</kbd>${ccEsc(w)}</button>`).join('')}</div>` : `<div class="tr-lint">${c.plain ? 'No options yet — nothing can answer this card; the chair adds them.' : 'This card’s id is not a plain id — answer it with decide in a terminal.'}</div>`}`
+    const word = CS.pick != null ? pw(c, CS.pick) : null
+    if (word) h += `<div class="echo">“${ccT(c.title)}” → <b>${ccEsc(word)}</b> — ${word === 'later' ? 'parks it until tomorrow; it stays open' : 'answers it and closes the card'} · press <kbd>${CS.pick === -1 ? 'L' : CS.pick + 1}</kbd> again or <kbd>↵</kbd> to copy its decide line</div>`
+    if (c.kind === 'PASTE') h += `<div class="never">${CC_IC.lock}<span>${ccEsc(NEVER)}</span></div>`
+    if (c.plain) h += `<div class="latr"><button class="lat${CS.pick === -1 ? ' on' : ''}" data-act="later">later</button><span>parks the card until tomorrow — it stays open; its owner takes the next</span></div>`
+    const line = word ? 'decide ' + c.id + ' ' + word : null
+    const offer = answerOn && M.answer ? (M.answer.offers || {})[c.id] || null : null
+    const sst = CS.sent[c.id] && CS.sent[c.id].word === word ? CS.sent[c.id] : null
+    const canSend = Boolean(word && offer && offer.tokens && offer.tokens[word])
+    const armed = Boolean(sst && sst.state === 'confirm')
+    h += `<div class="conf"><button class="confirm" data-act="confirm"${line ? '' : ' disabled'}>${line && CS.copied[c.id] === word ? 'Copied' : 'Copy'} <kbd>↵</kbd></button>`
+    if (canSend) h += `<button class="send${armed ? ' arm' : ''}" data-act="send"${sst && sst.state === 'sending' ? ' disabled' : ''} title="${armed ? 'Tier 3: this second click sends the word' : 'Sends this one word for this one card'}">${sst && sst.state === 'sending' ? 'Sending…' : armed ? 'Confirm “' + ccEsc(word) + '”' : 'Send “' + ccEsc(word) + '”'}</button>`
+    h += `<span class="ow">${line ? `<span class="mono dl">${ccEsc(line)}</span> — paste it in a terminal${canSend ? ', or Send records it from here' : ''}` : 'pick a word — ↵ copies its decide line' + (answerOn ? '; Send records it from here' : '; this page writes nothing')}</span>`
+    if (sst && sst.state !== 'sending') h += `<div class="sent${sst.state === 'bad' ? ' bad' : ''}">${armed ? 'Tier 3 — “' + ccT(sst.title || c.title) + '” → <b>' + ccEsc(word) + '</b>. Click Confirm to send it; nothing is written until you do.' : ccEsc(sst.msg || '')}</div>`
+    h += '</div></div>'
+    const pips = bq.map(x => `<i class="pip${x === id ? ' cur' : st(x) !== 'needs' ? ' p-' + st(x) : ''}" data-act="jump" data-id="${ccEsc(x)}"></i>`).join('')
+    const behind = []; for (let k = b + 1; k < NB; k++) behind.push(Q.filter(x => BATCH[x] === k).length + ' in batch ' + (k + 1))
+    h += `<div class="tb"><div class="tb-h">question ${qi} of ${bq.length} · batch ${b + 1} of ${NB}</div><div class="pips">${pips}</div><div class="tb-l">${behind.length ? 'queued behind it: ' + behind.join(' · ') : 'the last batch — nothing queued behind it'}</div><div class="tb-l dim2">nothing opens on its own: the next batch waits for your click</div><div class="navs">${b > 0 ? '<button class="cbtn" data-act="batch" data-b="' + (b - 1) + '">Back five</button>' : ''}${b < NB - 1 ? '<button class="cbtn" data-act="batch" data-b="' + (b + 1) + '">Next five</button>' : ''}</div><div class="tb-k">${os.length > 1 ? `<kbd>1</kbd>–<kbd>${Math.min(9, os.length)}</kbd>` : '<kbd>1</kbd>'} pick · <kbd>L</kbd> later · <kbd>↵</kbd> copy the decide line · <kbd>esc</kbd> back</div></div>`
+    if (route.v === 'battlefield') h += `<button class="x trx" data-act="tray" title="collapse">${CC_IC.x}</button>`
+    return h
+  }
+
+  /* chats: lines composed only from card + agent fields */
+  const bubble = (a, body, o) => { o = o || {}; return `<div class="m">${F(a, 26)}<div class="bub${o.ask ? ' ask' : ''}">${o.who ? `<div class="who">${ccEsc(nameOf(a))}</div>` : ''}${body}</div></div>` }
+  const mine = (w, txt) => `<div class="m me"><div class="bub"><b>${ccEsc(w)}</b>${txt ? ' — ' + ccEsc(txt) : ''}</div></div>`
+  const decCard = c => `<div class="qc"><span class="badge">needs you</span><div class="qpk"><span class="qw">${c.options.map(w => ccEsc(w)).join(' · ')}</span><button class="pk sm" data-act="totray" data-id="${ccEsc(c.id)}">answer in the tray →</button></div>${c.kind === 'PASTE' ? `<span class="thr">${CC_IC.lock.replace('class="gl"', 'class="gl" style="width:12px;height:12px;vertical-align:-2px"')} ${ccEsc(NEVER)}</span>` : ''}</div>`
+  const cardThread = (c, room) => {
+    const s = st(c.id), a = c.owner
+    let h = ''
+    if (c.open) {
+      const def = `<span class="def">${silence(c)}</span>`
+      h += bubble(a, `${room ? '<span class="at">@you</span> ' : ''}<b>${ccT(c.title)}</b><br>${ccT(c.ask)}${c.why ? `<span class="why">${ccT(c.why)}</span>` : ''}${def}${isPromote(c) ? wLine() : ''}${s === 'needs' ? decCard(c) : ''}`, { ask: s === 'needs', who: room })
+    }
+    if (s === 'parked') { const nx = topQ(a); h += bubble(a, `parked — ${ccEsc(c.parked)} — ${nx ? 'took next: <b>' + ccT(nx.title) + '</b>' : 'proposing next'}`, { who: room }) }
+    if (s === 'done') { h += mine(String(c.how || '').replace(/^“([^”]*)”.*$/, '$1') || 'done', ''); h += bubble(a, `done — <b>${ccT(c.title)}</b>${c.how ? ' · ' + ccEsc(c.how) : ''}`, { who: room }) }
+    return h
+  }
+  const chatPanel = id => {
+    const g = AG[id], cs = cardsOf(id), bot = g.kind === 'hermes' || g.seat
+    let h = `<div class="ph">${F(id, 36)}<div class="ph-t"><b>${ccEsc(g.name)}${g.where === 'mac' ? CC_KG.claude : CC_KG[g.kind]}</b><small>${g.seat ? 'Bot Chat · ' + ccEsc(g.display || g.name) + (g.pane ? ' · pane ' + ccEsc(g.pane.where || '') : '') : bot ? 'Bot Chat · ' + ccEsc(g.lane) : 'forever chat · ' + ccEsc(whereOf(id))}</small></div><button class="x" data-act="go" data-h="/live" title="back to the call">${CC_IC.x}</button></div>`
+    h += `<div class="msgs"><div class="day">today · sampled ${ccEsc(M.sampled)}</div>`
+    h += `<div class="sys"><b>${ccEsc(g.name)}</b> · ${g.seat ? 'owner seat — a Hermes Bot on the box' + (g.pane ? ', and a Claude Code pane on the Mac' : ', no pane on the Mac yet') : CC_KIND[g.kind] + ' on ' + onWhere(id)} · ${ccEsc(g.lane)}${g.timer ? '<br>cadence ' + ccEsc(ccEvery(g.timer.every)) : ''}</div>`
+    const nf = M.box.nightly.filter(x => x.agent === id)
+    if (nf.length) h += `<div class="sys">last night, in the 03:30 queue:<br>${nf.map(x => `<span class="mono">${ccEsc(x.t)}</span> <span class="${x.state === 'failed' ? 'c-failed' : ''}">${ccEsc(x.state)}</span> · ${ccEsc(x.job)}${x.why ? ' — ' + ccEsc(x.why) : ''}`).join('<br>')}</div>`
+    if (!cs.length) h += `<div class="sys">no card — ${ccEsc(g.name)} owns none of today’s ${M.cards.length}</div>`
+    cs.forEach(c => { h += cardThread(c, false) })
+    M.proposals.filter(p => p.owner === id).forEach(p => { h += bubble(id, `<span class="lbl">proposal · not a question · never applied by silence</span><b>${ccEsc(p.title)}</b>${p.why ? `<span class="why">${ccEsc(p.why)}</span>` : ''}`) })
+    h += `</div><div class="comp"><button class="in" data-act="openbot" data-p="${ccEsc(id)}" title="Opens ${ccEsc(g.name)}’s own chat">Message ${ccEsc(g.name)}</button></div><div class="ow2">Answers are words in the tray only — whatever is typed in a Bot chat is stored in that session and sent to its model</div>`
+    return h
+  }
+  const roomPanel = id => {
+    const rm = ROOM[id], cs = roomCards(rm), k = { seat: 0, claude: 0, hermes: 0, timer: 0 }
+    rm.agents.forEach(a => { k[AG[a].seat ? 'seat' : AG[a].kind]++ })
+    let h = `<div class="ph"><span class="stack">${rm.agents.map(a => F(a, 24)).join('')}</span><div class="ph-t"><b>${ccEsc(rm.name)}</b><small>${rm.agents.length} members + you · ${cs.length} cards</small></div><button class="x" data-act="go" data-h="/live" title="back to the call">${CC_IC.x}</button></div>`
+    const parts = [k.seat ? k.seat + ' Hermes Bot' + (k.seat > 1 ? 's' : '') + ' — native, in this Group Chat' : '', k.claude ? k.claude + ' Claude Code — join' + (k.claude > 1 ? '' : 's') + ' only after the 1 Oct shim' : '', k.timer ? k.timer + ' timer' + (k.timer > 1 ? 's' : '') + ' — not a Bot' : ''].filter(Boolean)
+    h += `<div class="cons"><span>The room is the box gateway’s Group Chat. Here: ${parts.join(' · ') || 'no member yet'}. A seat’s Claude Code pane joins after the 1 Oct shim.</span></div>`
+    h += `<div class="msgs"><div class="day">today · sampled ${ccEsc(M.sampled)}</div><details class="act"><summary>Activity · ${rm.agents.length} members and you joined</summary>${rm.agents.map(a => `<div>${ccEsc(nameOf(a))} — ${ccEsc(AG[a].lane)}</div>`).join('')}</details>`
+    cs.forEach(c => { h += cardThread(c, true) })
+    if (!cs.length) h += '<div class="sys">no card in this room today</div>'
+    h += `</div><div class="comp"><button class="in" data-act="openroom" data-g="${ccEsc(rm.name)}" title="Opens the room’s own Group Chat">Reply in thread</button></div><div class="ow2">Answers are words in the tray only — whatever is typed in a Bot chat is stored in that session and sent to its model</div>`
+    return h
+  }
+
+  /* battlefield: everyone at once */
+  const cell = a => {
+    const g = AG[a], s = agentState(a) || '', n = hands(a)
+    const lab = s ? LBL[s] : ccEsc(g.state === 'away' ? 'not in a pane' : g.state) + (g.seat ? '' : ' · no card')
+    return `<button class="evr" style="--h:${ccHue(a)}" data-act="go" data-h="/live?chat=${encodeURIComponent(a)}">${F(a, 34)}<span class="rw"><b>${ccEsc(g.name)}${g.where === 'mac' ? CC_KG.claude : CC_KG[g.kind]}</b><small><span class="${s && s !== 'needs' ? 'c-' + s : ''}">${lab}</span></small></span>${n ? `<span class="hand sm">${CC_HAND}${n}</span>` : ''}</button>`
+  }
+  const bf = () => {
+    const n = need(), k = s => M.cards.concat(M.doneCards).filter(c => st(c.id) === s).length
+    const fa = Object.values(AG).filter(a => a.state === 'failed').length
+    const all = Object.values(AG)
+    const mac = all.filter(a => a.where === 'mac'), box = all.filter(a => a.where !== 'mac')
+    const working = all.filter(a => a.state === 'working').length
+    let L = `<div class="cardx bf-top"><div class="bf-n"><b class="${tk().trim()}">${n}</b>need you</div><div class="tal"><div><b>${working}</b><i class="dot c-working"></i>working</div><div><b>${k('parked')}</b><i class="dot pk-d"></i>parked</div><div><b>${k('done')}</b><i class="dot c-done"></i>done</div><div><b>${fa}</b><i class="dot c-failed"></i>failed · the nightly</div></div><div class="bf-w">the one who answers: you, one card at a time<br><span class="dim">${Q.length} questions in ${NB} batches · proposals sit apart — not questions</span></div></div>`
+    L += `<div class="sh2">the Mac <span>${mac.length} Claude Code session${mac.length === 1 ? '' : 's'}</span></div><div class="ev">${mac.map(a => cell(a.id)).join('') || '<span class="dim">no pane on the Mac</span>'}</div>`
+    L += `<div class="sh2">the box <span>${box.filter(a => a.kind === 'hermes').length} Hermes Bots · ${box.filter(a => a.kind === 'timer').length} timers</span></div><div class="ev">${box.map(a => cell(a.id)).join('')}</div>`
+    L += `<div class="sh2">rooms <span>a room shows its worst member state</span></div><div class="rooms">${M.rooms.map(rm => { const cs = roomCards(rm), ws = roomState(rm), q = roomNeeds(rm); return `<button class="cl" data-act="go" data-h="/live?room=${encodeURIComponent(rm.id)}"><div class="cl-h"><span class="stack">${rm.agents.map(a => F(a, 22)).join('')}</span>${q ? `<span class="hand sm">${CC_HAND}${q}</span>` : ''}</div><b>${ccEsc(rm.name)}</b><div class="segbar">${cs.map(c => `<i class="p-${st(c.id)}"></i>`).join('')}</div><small><span class="${ws && ws !== 'needs' ? 'c-' + ws : ''}">${ccEsc(LBL[ws] || ws || 'quiet')}</span> · worst of ${rm.agents.length} members · ${cs.length} cards</small></button>` }).join('')}</div>`
+    const b = M.box
+    let R = `<div class="cardx"><div class="ch"><h4>the box</h4></div><div class="bxg"><div><b>${b.gpuPct} %</b>GPU · ${ccEsc(b.gpu)}</div><div><b>${b.memUsed}/${b.memTotal}</b>GB used · ${b.memFree} free</div><div><b>${b.tempC} °C</b>${b.cores} cores · load ${b.load[0]}</div><div><b>${b.diskPct} %</b>disk · up ${b.uptimeDays} d</div></div><div class="li2">loaded: ${b.models.length ? b.models.map(m => `<span class="mono">${ccEsc(m.id)}</span> ${m.gb} GB`).join(' · ') : 'no model in memory'}</div><div class="li2 dim">${b.onDisk != null ? Math.max(0, b.onDisk - b.models.length) + ' more models on disk · ' : ''}Hermes ${ccEsc(b.hermes.version || '—')}${b.hermes.skills ? ' · ' + b.hermes.skills + ' skills' : ''} · ${ccEsc(b.checks)}</div></div>`
+    R += `<div class="cardx"><div class="ch"><h4><i class="dot c-failed" style="margin-right:6px"></i>failed · never folds</h4></div>${b.nightly.length ? b.nightly.map(x => `<div class="li"><span class="mono dim">${ccEsc(x.t)}</span><span class="${x.state === 'failed' ? 'c-failed' : 'dim'}">${ccEsc(x.state)}</span><span>${ccEsc(x.job)}${x.n > 1 ? ' ×' + x.n : ''}${x.why ? ' — ' + ccEsc(x.why) : ''}</span></div>`).join('') : '<div class="li"><span class="dim">nothing failed last night</span></div>'}</div>`
+    R += `<div class="cardx"><div class="ch"><h4>proposals</h4><span class="dim" style="font-size:11.5px;white-space:nowrap">not questions · no count</span></div><div class="dim" style="font-size:11.5px;margin:-2px 0 8px">never applied by silence</div>${M.proposals.length ? M.proposals.map(p => `<div class="li" data-act="sheet" data-s="props" style="cursor:pointer">${F(p.owner, 18)}<span>${ccEsc(p.title)}</span></div>`).join('') : '<div class="li"><span class="dim">no proposal yet — owners write one per pass report</span></div>'}</div>`
+    return `<div class="bf"><div class="bf-l">${L}</div><div class="bf-r">${R}</div></div>`
+  }
+
+  /* popovers */
+  const pops = () => {
+    if (!CS.pop) return ''
+    let w = 340, h = ''
+    if (CS.pop === 'rooms') {
+      h = `<div class="pop-h">Breakout rooms</div>${M.rooms.map(rm => { const q = roomNeeds(rm); return `<div class="prow" data-act="go" data-h="/live?room=${encodeURIComponent(rm.id)}"><span class="stack">${rm.agents.map(a => F(a, 22)).join('')}</span><span class="rw"><b>${ccEsc(rm.name)}</b><small>${rm.agents.length} members + you · ${rm.cards.length} cards</small></span>${q ? `<span class="hand sm">${CC_HAND}${q}</span>` : ''}</div>` }).join('') || '<div class="pop-n">No room on the box gateway yet.</div>'}<div class="pop-f">Each room is a Group Chat on the box gateway: its Hermes Bots are native members. A seat’s Claude Code pane joins after the 1 Oct shim; timers are not Bots.</div>`
+    }
+    const vw = window.innerWidth, vh = window.innerHeight
+    w = Math.min(w, vw - 16)
+    const el = document.querySelector(`.ccs [data-act="pop"][data-p="${CS.pop}"]`), rc = el && el.getBoundingClientRect()
+    const sty = rc && rc.width ? `left:${Math.max(8, Math.min(rc.right - w, vw - w - 8))}px;top:${Math.round(rc.bottom + 8)}px` : `left:${Math.round((vw - w) / 2)}px;top:64px`
+    void vh
+    return `<div class="pop-bg" data-act="close"></div><div class="pop" style="width:${w}px;${sty}">${h}</div>`
+  }
+  /* sheets */
+  const ov = () => {
+    if (!CS.sheet) return ''
+    let h = ''
+    const X = `<button class="x" data-act="close" title="close">${CC_IC.x}</button>`
+    const b = M.box
+    if (CS.sheet === 'leave') {
+      const Pk = M.cards.filter(c => c.parked), N = Q.map(id => CARD[id])
+      const Wk = Object.values(AG).filter(a => a.state === 'working')
+      h = `<div class="sh-h"><div><div class="eyebrow">Leave the call</div><h2>Leaving closes the view</h2><p class="lead">The page starts and stops nothing: owners work to their brief’s budget (60 min or 6 cards). Your words wait in the queue for each owner’s next pass. On a tier-3 card silence changes nothing: it stays open until you answer. Leaving writes nothing.</p></div>${X}</div><div class="lv">
+<section><h3>the box’s timers · ${b.timers.length} — own schedule, they read no answers</h3>${b.timers.map(x => `<div class="lr"><span>${ccEsc(x.every)}</span><span>${ccEsc(x.id)}</span>${x.next ? `<small>next ${ccEsc(ccHM(x.next))}</small>` : ''}</div>`).join('')}</section>
+<section><h3>the 03:30 nightly · failures never fold</h3>${b.nightly.length ? b.nightly.map(x => `<div class="lr"><span>${ccEsc(x.t)}</span><span><span class="${x.state === 'failed' ? 'c-failed' : 'dim'}">${ccEsc(x.state)}</span> · ${ccEsc(x.job)}</span>${x.why ? `<small>${ccEsc(x.why)}</small>` : ''}</div>`).join('') : '<div class="lr"><span>—</span><span class="dim">nothing failed last night</span></div>'}
+<h3 style="margin-top:16px">working · ${Wk.length} — panes keep their own budget</h3>${Wk.length ? Wk.map(a => `<div class="lr"><span>${ccEsc(a.name)}</span><span>${ccEsc(a.herdr || a.lane)}</span></div>`).join('') : '<div class="lr"><span>—</span><span class="dim">nothing yet — an answer waits in its owner’s queue for the next session</span></div>'}</section>
+<section><h3>parked · ${Pk.length}</h3>${Pk.map(c => `<div class="lr"><span>${ccEsc(nameOf(c.owner))}</span><span>${ccT(c.title)}</span><small>${ccEsc(c.parked)}</small></div>`).join('') || '<div class="lr"><span>—</span><span class="dim">none</span></div>'}</section>
+<section><h3>proposals · ${M.proposals.length} — not questions · never applied by silence</h3>${M.proposals.map(p => `<div class="lr"><span>${ccEsc(nameOf(p.owner))}</span><span>${ccEsc(p.title)}</span></div>`).join('') || '<div class="lr"><span>—</span><span class="dim">none yet</span></div>'}</section>
+<section class="wide"><h3><b>${NEED()}</b> — unanswered, a tier-3 card stays open · what stays true if you don’t answer</h3><div class="cols2">${N.map(c => `<div class="lr"><span>${ccEsc(c.expiry || '—')}</span><span>${ccT(c.title)}</span><small>→ ${c.tier === 3 ? 'it waits for your word' : ccT(c.default)}</small></div>`).join('')}</div></section>
+</div><div class="sh-f"><span class="ow">your word is the only answer — leaving writes nothing</span><button class="cbtn" data-act="close">Stay on the call</button><button class="confirm" data-act="leave-go">Leave the call</button></div>`
+    } else if (CS.sheet === 'props') {
+      h = `<div class="sh-h"><div><div class="eyebrow">Proposals</div><h2>Not questions</h2><p class="lead">The owners’ own ideas, one per pass report: not questions · no count · never applied by silence. They sit apart from the queue and never raise a hand.</p></div>${X}</div><div class="pl">${M.proposals.length ? M.proposals.map(p => `<div class="pi">${F(p.owner, 34)}<div><b>${ccEsc(p.title)}</b>${p.why ? `<p>${ccEsc(p.why)}</p>` : ''}<small>${ccEsc(nameOf(p.owner))}${p.about ? ' · ' + ccEsc(p.about) : ''}${p.date ? ' · ' + ccEsc(p.date) : ''}</small></div></div>`).join('') : '<div class="pi"><div><b>No proposal yet</b><p>An owner writes one “Next best action” line per pass report; they land here.</p></div></div>'}</div><div class="sh-f"><span class="ow">no count, no badge</span><button class="cbtn" data-act="close">Close</button></div>`
+    }
+    return `<div class="ov-bg" data-act="ovbg"><div class="sheet" role="dialog">${h}</div></div>`
+  }
+
+  let stale = ''
+  const panel = route.v === 'chat' && AG[route.id] ? chatPanel(route.id) : route.v === 'room' && ROOM[route.id] ? roomPanel(route.id) : ''
+  const html = `${stale}<div class="cc-main"><div class="cc-cb">${cbar()}</div><section class="cc-stage${CS.left || !Q.length ? ' quiet' : ''}">${stage()}</section><aside class="cc-panel${route.v === 'room' ? ' wide' : ''}">${panel}</aside><footer class="cc-tray">${tray()}</footer></div><div class="cc-pops">${pops()}</div><div class="cc-ov">${ov()}</div>`
+  return { html, title: viewName(), need: need(), Q, CARD, BATCH, NB, nextFocus, pw, topQ, roomCards, ROOM, AG, st, isN, openBatch }
+}
+const BATCH_N = BATCH
+
+/* ---- chrome shared with the titlebar and status bar ------------------- */
+const ccChrome = { title: 'Live', path: '', listeners: new Set() }
+function ccSetChrome(p) {
+  if (ccChrome.title === p.title && ccChrome.path === p.path) return
+  Object.assign(ccChrome, p)
+  ccChrome.listeners.forEach(l => { try { l() } catch { /* isolated */ } })
+}
+const ccOurs = path => path === '/live' || path === '/battlefield'
+const ccOpen = detail => { try { window.dispatchEvent(new CustomEvent('hermes:lucky-open', { detail })) } catch { /* older Desktop: no bridge */ } }
+
+function makeCStage(bfRoute) {
+  return function CStage() {
+    const s = useToday(true)
+    const ov = useOverview(s.tickKey)
+    const loc = useCcLoc()
+    const [, setVer] = useState(0)
+    const [el, setEl] = useState(null)
+    const height = useFitHeight(el)
+    const rer = () => setVer(v => v + 1)
+    useEffect(() => { injectCC() }, [])
+
+    const P = loc.params
+    const route = bfRoute ? { v: 'battlefield' } : P.get('chat') ? { v: 'chat', id: P.get('chat') } : P.get('room') ? { v: 'room', id: P.get('room') } : { v: 'live' }
+    const data = s.data
+    const M = data ? ccModel(data, ov) : null
+    if (M) {
+      if (route.v === 'chat' && !M.AG[route.id]) route.v = 'live'
+      if (route.v === 'room' && !M.rooms.some(r => r.id === route.id)) route.v = 'live'
+    }
+    // one-shot UI state from the deep link, applied when the location changes
+    const lk = loc.path + '?' + P.toString()
+    if (CS.applied !== lk) {
+      CS.applied = lk
+      CS.pop = P.get('pop') || null
+      CS.sheet = P.get('sheet') || null
+      if (P.get('left') === '1') CS.left = true
+      if (P.get('view') === 'speaker' || P.get('view') === 'gallery') CS.view = P.get('view')
+      CS.trayOpen = P.get('tray') === '1'
+      CS.pick = null
+      CS.focus = CS.want || null
+      CS.want = null
+      if (P.get('pick')) CS.pickWant = Number(P.get('pick')) - 1
+    }
+    // receipts: a card that left the queue since the last sample lowers its hand
+    if (M) {
+      const open = new Set(M.cards.filter(c => !c.parked).map(c => c.id))
+      if (CS.prevOpen) {
+        CS.prevOpen.forEach(id => {
+          if (open.has(id)) return
+          const d = M.doneCards.find(c => c.id === id), p = M.cards.find(c => c.id === id && c.parked)
+          const c = d || p
+          if (c) { CS.lastBy[c.owner] = { k: d ? 'done' : 'parked', c: id }; CS.fx = { a: c.owner, c: id }; CS.last = c.owner }
+        })
+      }
+      CS.prevOpen = open
+      if (route.v === 'chat') M.doneCards.filter(c => c.owner === route.id).forEach(c => { CS.seen[c.id] = true })
+    }
+    if (ANSWER_ON_PAGE && M && M.answer && M.answer.enabled) probePageKey()
+    const answerOn = Boolean(ANSWER_ON_PAGE && M && M.answer && M.answer.enabled && pageKey === 'match')
+    const R = M ? ccRender(M, route, answerOn) : null
+    if (R && CS.pickWant != null) { const c = R.CARD[CS.focus]; if (c && CS.pickWant < c.options.length) CS.pick = CS.pickWant; CS.pickWant = null }
+    const R2 = R && CS.pick != null ? ccRender(M, route, answerOn) : R // the pick changes the tray's echo
+    const html = !data ? `<div class="cc-msg">${s.err ? 'Could not sample: ' + ccEsc(s.err) : 'Sampling the box…'}</div>`
+      : (s.err ? `<div class="cc-stale" role="alert">STALE — the last refresh failed ${ccEsc(ago(new Date(s.errAt).toISOString()))}; everything below was sampled ${ccEsc(ago(new Date(s.lastOkAt).toISOString()))}.<small>${ccEsc(s.err)}</small></div>` : '') + R2.html
+    ccSetChrome({ title: R2 ? R2.title : bfRoute ? 'Battlefield' : 'Live', path: loc.path })
+
+    // the stage's own DOM: set, keep the panel's scroll, place a popover under its button
+    React.useLayoutEffect(() => {
+      if (!el) return
+      const m0 = el.querySelector('.cc-panel .msgs')
+      const pk = route.v + '/' + (route.id || '')
+      const keepTop = m0 && CS.pk === pk ? m0.scrollTop : null
+      el.innerHTML = html
+      el.dataset.r = route.v
+      const m1 = el.querySelector('.cc-panel .msgs')
+      if (m1) {
+        if (keepTop != null) m1.scrollTop = keepTop
+        else { const q = m1.querySelector('.bub.ask'); const y = q ? q.parentNode.offsetTop - m1.offsetTop : 0; m1.scrollTop = q ? (y < m1.clientHeight - 170 ? 0 : y - 60) : m1.scrollHeight }
+      }
+      CS.pk = pk
+      const pop = el.querySelector('.pop'), btn = CS.pop && el.querySelector(`[data-act="pop"][data-p="${CS.pop}"]`)
+      if (pop && btn) {
+        const rc = btn.getBoundingClientRect(), w = pop.offsetWidth, vw = window.innerWidth
+        pop.style.left = Math.max(8, Math.min(rc.right - w, vw - w - 8)) + 'px'
+        pop.style.top = Math.round(rc.bottom + 8) + 'px'
+      }
+      CS.fx = null
+      CS.last = null
+    })
+
+    // clicks
+    const R2ref = React.useRef(null); R2ref.current = { R: R2, M, route, answerOn }
+    const confirmQ = () => {
+      const { R } = R2ref.current || {}
+      const id = CS.focus
+      if (!R || !id || !R.CARD[id] || R.st(id) !== 'needs' || CS.pick == null) return
+      const word = R.pw(R.CARD[id], CS.pick)
+      if (!R.CARD[id].plain || !word) return
+      copy('decide ' + id + ' ' + word).then(() => { CS.copied[id] = word; rer() }).catch(() => {})
+    }
+    const doSend = ts => {
+      const { R, M: m, answerOn: on } = R2ref.current || {}
+      const id = CS.focus
+      if (!on || !R || !id || CS.pick == null) return
+      const word = R.pw(R.CARD[id], CS.pick)
+      const offer = (m.answer.offers || {})[id]
+      if (!offer || !offer.tokens || !offer.tokens[word]) return
+      const cur = CS.sent[id]
+      const body = { id, word, exp: offer.exp, token: offer.tokens[word] }
+      if (cur && cur.state === 'confirm' && cur.word === word && cur.confirm) {
+        if (ts - cur.at < 400) return
+        body.confirm_exp = cur.confirm.exp
+        body.confirm = cur.confirm.token
+      }
+      const req = postAnswer(body)
+      if (!req) return
+      CS.sent[id] = { word, state: 'sending' }; rer()
+      req.then(r => {
+        CS.sent[id] = r && r.verdict === 'confirm' && r.confirm
+          ? { word, state: 'confirm', confirm: r.confirm, title: r.title, at: ts }
+          : { word, state: r && r.ok ? 'ok' : 'bad', msg: r ? r.verdict + (r.detail ? ' — ' + r.detail : '') : 'no reply' }
+        rer()
+      }).catch(err => { CS.sent[id] = { word, state: 'bad', msg: 'not sent — ' + String(err) }; rer() })
+    }
+    const onClick = e => {
+      const t = e.target.closest && e.target.closest('[data-act]')
+      if (!t || !el || !el.contains(t)) return
+      const { R, route: rt } = R2ref.current || {}
+      const act = t.dataset.act
+      switch (act) {
+        case 'go': CS.pop = null; CS.sheet = null; navigate(t.dataset.h); break
+        case 'tile': { const a = t.dataset.a; if (!(rt.v === 'chat' && rt.id === a)) navigate('/live?chat=' + encodeURIComponent(a)); break }
+        case 'hand': {
+          if (!R) break
+          const a = t.dataset.a
+          let q = rt.v === 'room' ? R.roomCards(R.ROOM[rt.id]).find(c => c.owner === a && R.isN(c)) : null
+          if (!q) q = R.topQ(a)
+          if (q) { if (CS.focus !== q.id) CS.pick = null; CS.focus = q.id; CS.trayOpen = true }
+          rer(); break
+        }
+        case 'pick': { const i = +t.dataset.i; if (CS.pick === i && e.timeStamp - CS.pickAt > 350) { confirmQ(); break } CS.pick = i; CS.pickAt = e.timeStamp; rer(); break }
+        case 'later': { if (CS.pick === -1 && e.timeStamp - CS.pickAt > 350) { confirmQ(); break } CS.pick = -1; CS.pickAt = e.timeStamp; rer(); break }
+        case 'confirm': confirmQ(); break
+        case 'send': doSend(e.timeStamp); break
+        case 'jump': CS.focus = t.dataset.id; CS.pick = null; rer(); break
+        case 'batch': { if (!R) break; const b = +t.dataset.b; const id = R.Q.find(x => R.BATCH[x] === b); if (id) { CS.focus = id; CS.pick = null } rer(); break }
+        case 'totray': CS.want = t.dataset.id; CS.pop = null; CS.sheet = null; navigate('/live'); break
+        case 'view': CS.view = t.dataset.v; rer(); break
+        case 'pop': { const p = t.dataset.p; CS.pop = CS.pop === p ? null : p; rer(); break }
+        case 'close': CS.pop = null; CS.sheet = null; rer(); break
+        case 'sheet': CS.sheet = t.dataset.s; CS.pop = null; rer(); break
+        case 'ovbg': if (e.target === t) { CS.sheet = null; rer() } break
+        case 'leave-go': CS.left = true; CS.sheet = null; rer(); break
+        case 'rejoin': CS.left = false; rer(); break
+        case 'seen': CS.seen[t.dataset.id] = true; rer(); break
+        case 'tray': CS.trayOpen = !CS.trayOpen; rer(); break
+        case 'openbot': ccOpen({ profile: t.dataset.p }); break
+        case 'openroom': ccOpen({ group: t.dataset.g }); break
+        default: break
+      }
+    }
+    // keys: only while this stage is on screen
+    const keyRef = React.useRef(null)
+    keyRef.current = e => {
+      if (!el || !el.isConnected || !el.getClientRects().length) return
+      const { R, route: rt } = R2ref.current || {}
+      const tg = e.target
+      const typing = tg && (/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName || '') || tg.isContentEditable)
+      if (e.key === 'Escape') {
+        if (typing) return
+        if (CS.pop) { CS.pop = null; rer(); return }
+        if (CS.sheet) { CS.sheet = null; rer(); return }
+        if (CS.pick != null) { CS.pick = null; rer(); return }
+        if (rt.v === 'battlefield' && CS.trayOpen) { CS.trayOpen = false; rer(); return }
+        if (rt.v !== 'live') navigate('/live')
+        return
+      }
+      if (typing || e.repeat || e.metaKey || e.ctrlKey || e.altKey || CS.sheet || CS.left || !R) return
+      if (/^[1-9lL]$/.test(e.key)) {
+        const id = CS.focus, c = id && R.CARD[id]
+        if (!c || R.st(id) !== 'needs' || !c.plain) return
+        const i = /l/i.test(e.key) ? -1 : +e.key - 1
+        if (i < c.options.length) {
+          if (CS.pick === i && (rt.v !== 'battlefield' || CS.trayOpen)) { confirmQ(); e.preventDefault(); return }
+          CS.pick = i; CS.pickAt = e.timeStamp
+          if (rt.v === 'battlefield') CS.trayOpen = true
+          rer(); e.preventDefault()
+        }
+        return
+      }
+      if (e.key === 'Enter' && !(tg && tg.tagName === 'BUTTON')) {
+        e.preventDefault()
+        if (rt.v === 'battlefield' && !CS.trayOpen) { CS.trayOpen = true; rer(); return }
+        confirmQ()
+      }
+    }
+    useEffect(() => {
+      const on = e => keyRef.current && keyRef.current(e)
+      window.addEventListener('keydown', on)
+      return () => window.removeEventListener('keydown', on)
+    }, [])
+    return h('div', { ref: setEl, className: 'ccs cc-page', 'data-r': route.v, onClick, style: height ? { height: height + 'px' } : undefined })
+  }
+}
+
+/* ---- the sidebar's Fleet + Rooms sections (the Bots tab, core area botsPane.after) ---- */
+function CcSide() {
+  const s = useToday(false)
+  const loc = useCcLoc()
+  useEffect(() => { injectCC() }, [])
+  const M = s.data ? ccModel(s.data, null) : null
+  const P = loc.params
+  const need = M ? M.order.filter(id => M.cards.some(c => c.id === id && !c.parked)).length + M.derived : null
+  const pill = n => (n === null ? '' : `<span class="need${n ? '' : ' zero'}">${n} need you</span>`)
+  const onLive = loc.path === '/live' && !P.get('room')
+  const failed = M ? M.box.nightly.filter(x => x.state === 'failed').length : 0
+  let html = `<div class="sh"><span>Fleet</span></div>`
+  html += `<button class="row${onLive ? ' on' : ''}" data-h="/live">${CC_IC.live}<span class="rw"><b>Live</b></span>${pill(need)}</button>`
+  html += `<button class="row${loc.path === '/battlefield' ? ' on' : ''}" data-h="/battlefield">${CC_IC.bf}<span class="rw"><b>Battlefield</b><small${failed ? ' class="c-failed"' : ''}>${M ? Object.keys(M.AG).length + ' agents · ' + M.rooms.length + ' rooms' + (failed ? ' · ' + failed + ' failed last night' : '') : 'sampling…'}</small></span></button>`
+  html += `<button class="row" data-h="/live?sheet=props">${CC_IC.prop}<span class="rw"><b>Proposals</b><small>not questions · no count</small></span></button>`
+  html += `<div class="sh sub"><span>Rooms</span></div>`
+  if (M) {
+    const inRoom = rm => M.cards.filter(c => !c.parked && rm.cards.includes(c.id)).length
+    html += M.rooms.map(rm => { const k = inRoom(rm); return `<button class="row${loc.path === '/live' && P.get('room') === rm.id ? ' on' : ''}" data-h="/live?room=${encodeURIComponent(rm.id)}"><span class="stack">${rm.agents.slice(0, 3).map(a => `<span class="fc s18">${ccFace(a, M.AG[a] ? M.AG[a].kind : 'hermes')}</span>`).join('')}</span><span class="rw"><b>${ccEsc(rm.name)}</b><small>${rm.agents.length} + you</small></span>${k ? `<span class="rh">${CC_HAND}${k}</span>` : ''}</button>` }).join('') || '<div class="row"><span class="rw"><small>no room on the box gateway</small></span></div>'
+  }
+  return h('div', {
+    className: 'ccs cc-side',
+    onClick: e => { const t = e.target.closest && e.target.closest('[data-h]'); if (t) navigate(t.dataset.h) },
+    dangerouslySetInnerHTML: { __html: html }
+  })
+}
+
+/* ---- titlebar: "Hermes · <view>", centred, on the call's routes only ---- */
+function useCcChrome() {
+  const [, set] = useState(0)
+  useEffect(() => { const l = () => set(v => v + 1); ccChrome.listeners.add(l); return () => { ccChrome.listeners.delete(l) } }, [])
+  return ccChrome
+}
+function CcTitle() {
+  const loc = useCcLoc()
+  const c = useCcChrome()
+  useEffect(() => { injectCC() }, [])
+  const [el, setEl] = useState(null)
+  useCcPin(el, 'center')
+  if (!ccOurs(loc.path)) return null
+  return h('div', { ref: setEl, className: 'ccs cc-title' }, h('span', null, h('b', null, 'Hermes'), ' · ' + (c.path === loc.path ? c.title : loc.path === '/battlefield' ? 'Battlefield' : 'Live')))
+}
+/* A titlebar slot sits in a cluster the Desktop moves with a transform, so "fixed" is relative to
+ * that cluster, not the window. Pin the element to the window's centre or right edge by measuring. */
+function useCcPin(el, where) {
+  React.useLayoutEffect(() => {
+    if (!el) return undefined
+    const place = () => {
+      el.style.left = '0px'; el.style.top = '0px'
+      const o = el.getBoundingClientRect() // where (0,0) of its containing block lands in the window
+      const w = el.offsetWidth
+      const x = where === 'center' ? (window.innerWidth - w) / 2 : window.innerWidth - w - 14
+      el.style.left = Math.round(x - o.left) + 'px'
+      el.style.top = Math.round(-o.top) + 'px'
+    }
+    place()
+    const t = setInterval(place, 1500)
+    window.addEventListener('resize', place)
+    return () => { clearInterval(t); window.removeEventListener('resize', place) }
+  })
+}
+/* titlebar right: C's pill */
+function CcPill() {
+  const s = useToday(false)
+  useEffect(() => { injectCC() }, [])
+  const n = needCount(s.data)
+  const label = n === null ? (s.loading ? 'needs you …' : 'needs you ?') : n + ' need you'
+  const [el, setEl] = useState(null)
+  useCcPin(el, 'right')
+  return h('span', { ref: setEl, className: 'ccs cc-pill' },
+    h('button', { type: 'button', className: cls('need', !n && 'zero'), onClick: () => navigate('/live'), title: 'Open Live' + (s.err ? ' — this count is STALE' : '') }, label + (s.err && s.data ? ' · stale' : '')))
+}
+/* status bar left: N need you · batch · the box · checks · GPU; right: sampled */
+function CcStatus({ side }) {
+  const s = useToday(false)
+  useEffect(() => { injectCC() }, [])
+  const M = s.data ? ccModel(s.data, null) : null
+  if (!M) return null
+  if (side === 'right') return h('span', { className: 'ccs cc-sbar' }, 'sampled ' + M.sampled)
+  const Q = M.order.filter(id => M.cards.some(c => c.id === id && !c.parked))
+  const n = Q.length + M.derived
+  const nb = Math.max(1, Math.ceil(Q.length / BATCH))
+  return h('span', { className: 'ccs cc-sbar' },
+    h('span', { className: n ? 'c-needs' : '' }, h('b', null, n + ' need you')),
+    h('span', null, Q.length ? 'batch 1 of ' + nb + ' open' : 'no batch open'),
+    h('span', null, 'the box · ' + M.box.checks + ' · GPU ' + M.box.gpuPct + ' %'))
+}
+/* The app opens to the Stage: once per launch, if the first route is not a page of ours. */
+const CStageLive = makeCStage(false)
+const CStageBF = makeCStage(true)
+function ccBootToStage() {
+  if (window.__ccBooted) return
+  window.__ccBooted = true
+  if (typeof performance !== 'undefined' && performance.now() > 60000) return // a hot reload mid-session: never yank the view
+  setTimeout(() => {
+    const p = ccLoc().path
+    if (!ccOurs(p) && !/^\/(settings|command-center|today|fleet|monitor|call)\b/.test(p)) navigate('/live')
+    try { if (SDK.host && typeof SDK.host.revealPane === 'function') SDK.host.revealPane('hermes-bots:pane') } catch { /* no Bots pane */ }
+  }, 1200)
+}
+
+
 /* ------------------------------------------------------------------------ */
 /* Monitor — B's board with lanes by room (docs/design/2026-09-22-command-    */
 /* center/b-board.html; plan C, slice 2: "one glance shows every agent; only  */
@@ -2190,7 +3442,11 @@ const plugin = {
       { id: 'today-nav', area: SIDEBAR_NAV_AREA, order: 5,
         data: { codicon: 'home', label: 'Today', path: '/today' } },
       { id: 'live-page', area: ROUTES_AREA, data: { path: '/live' },
-        render: () => h(Boundary, { name: 'Live' }, h(LivePage)) },
+        render: () => h(Boundary, { name: 'Live' }, h(CStageLive)) },
+      { id: 'battlefield-page', area: ROUTES_AREA, data: { path: '/battlefield' },
+        render: () => h(Boundary, { name: 'Battlefield' }, h(CStageBF)) },
+      { id: 'battlefield-nav', area: SIDEBAR_NAV_AREA, order: 6.5,
+        data: { codicon: 'layout', label: 'Battlefield', path: '/battlefield' } },
       { id: 'live-nav', area: SIDEBAR_NAV_AREA, order: 6,
         data: { codicon: 'broadcast', label: 'Live', path: '/live' } },
       { id: 'page', area: ROUTES_AREA, data: { path: '/fleet' },
@@ -2207,14 +3463,29 @@ const plugin = {
         { id: 'monitor-nav', area: SIDEBAR_NAV_AREA, order: 7,
           data: { codicon: 'layout', label: 'Monitor', path: '/monitor' } })
     }
+    // C's chrome: the status bar's left items and its sampled stamp, the titlebar's
+    // centred "Hermes · <view>" and its need pill, and the Bots tab's Fleet + Rooms.
+    if (STATUSBAR_LEFT) {
+      contributions.push({ id: 'cc-status', area: STATUSBAR_LEFT, order: 200,
+        render: () => h(Boundary, { name: 'Status' }, h(CcStatus, { side: 'left' })) })
+    }
     if (STATUSBAR_RIGHT) {
-      contributions.push({ id: 'need-chip', area: STATUSBAR_RIGHT, order: 115,
-        render: () => h(Boundary, { name: 'Needs-you chip' }, h(NeedChip)) })
+      contributions.push({ id: 'cc-sampled', area: STATUSBAR_RIGHT, order: 115,
+        render: () => h(Boundary, { name: 'Status' }, h(CcStatus, { side: 'right' })) })
+    }
+    if (TITLEBAR_LEFT) {
+      contributions.push({ id: 'cc-title', area: TITLEBAR_LEFT, order: 50,
+        render: () => h(Boundary, { name: 'Title' }, h(CcTitle)) })
     }
     if (TITLEBAR_RIGHT) {
       contributions.push({ id: 'need-chip-title', area: TITLEBAR_RIGHT, order: 5,
-        render: () => h(Boundary, { name: 'Needs-you chip' }, h(NeedChip, { title: true })) })
+        render: () => h(Boundary, { name: 'Needs-you chip' }, h(CcPill)) })
     }
+    if (BOTS_PANE_AREA) {
+      contributions.push({ id: 'cc-side', area: BOTS_PANE_AREA, order: 10,
+        render: () => h(Boundary, { name: 'Fleet' }, h(CcSide)) })
+    }
+    ccBootToStage()
     // Listed in Settings → Appearance, never selected here: choosing it changes the
     // whole app, and that is Karl's click. /live carries the same palette on its own.
     if (THEMES_AREA) contributions.push({ id: 'command-center-theme', area: THEMES_AREA, data: COMMAND_CENTER_THEME })
