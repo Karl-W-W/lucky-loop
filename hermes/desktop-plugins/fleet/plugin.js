@@ -259,6 +259,7 @@ const CSS = `
 .lv-host{grid-column:span 2;cursor:default;background:linear-gradient(180deg,#171716,#131312)}
 .lv-host:hover{border-color:var(--line)}
 .lv-host.lv-wide{grid-column:span 3}
+.lv-host.lv-alone{align-self:start}
 .lv-hhd{display:flex;align-items:center;gap:8px;white-space:nowrap;min-width:0}
 .lv-hname{font-size:15.5px;font-weight:600}
 .lv-tag{font:500 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line-2);
@@ -1194,7 +1195,7 @@ function timerLeft(raw) {
 /* they stay until a run replaces them, and a job that broke twice shows once, */
 /* ×2. Older ones are counted here and listed on Today. /overview adds what     */
 /* /today leaves out (GPU name, cores, memory, uptime, the timers by name).     */
-function HostTile({ box, ov, rows, wide }) {
+function HostTile({ box, ov, rows, wide, alone }) {
   const b = box && !box.error ? box : {}
   const hl = ov && ov.health && !ov.health.error ? ov.health : {}
   const g = hl.gpu && !hl.gpu.error ? hl.gpu : {}
@@ -1213,7 +1214,8 @@ function HostTile({ box, ov, rows, wide }) {
   const load = Array.isArray(hl.load) ? hl.load : b.load1 !== undefined ? [b.load1] : null
   const used = mem ? mem.total_mb - mem.available_mb : 0
   const gb = mb => String(Math.round((mb || 0) / 1024))
-  return h('div', { className: cls('lv-tile lv-host', wide && 'lv-wide') },
+  // alone in its row, the tile hugs its content instead of stretching to the seats' height
+  return h('div', { className: cls('lv-tile lv-host', wide && 'lv-wide', alone && 'lv-alone') },
     h('div', { className: 'lv-hhd' },
       h('span', { className: 'lv-hname' }, 'the box'),
       h('span', { className: 'lv-tag' }, 'host'),
@@ -1522,7 +1524,7 @@ function LivePage() {
               pane: paneOf(panes, x), gone: gone.filter(i => who(i) === x), failedRow: failed.find(r => r.agent === x),
               onFocus: () => { const t = Q.find(i => who(i) === x); if (t) focusOn(t.id) }
             })),
-            h(HostTile, { box: data.box, ov, rows, wide: seats.length % 5 === 0 }))),
+            h(HostTile, { box: data.box, ov, rows, wide: seats.length % 5 === 0, alone: seats.length % 5 === 0 || seats.length % 5 === 4 }))),
     data ? h(Tray, {
       q, hue: q ? hueFor(who(q), seats) : 222, pos, batch, bi, nb, qLen: Q.length, pane: q ? paneOf(panes, who(q)) : null,
       pick, copied, derivedN: derived.length, today, onPick: choose, onCopy: doCopy,
