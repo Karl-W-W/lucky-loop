@@ -59,6 +59,13 @@ for (const page of PAGES) {
 if (texts.impressum) for (const k of ["name", "street", "city", "email"]) {
   if (impressum[k] && !texts.impressum.includes(impressum[k])) problems.push(`content/legal/impressum.md: does not carry data/impressum.json "${k}" (${impressum[k]})`);
 }
+// The phone is optional, but the texts must agree with the JSON either way:
+// a number in the data with "gibt es nicht" on the page is the drift this catches.
+for (const page of ["impressum", "kontakt"]) {
+  const s = texts[page]; if (!s) continue;
+  if (impressum.phone && !s.includes(impressum.phone)) problems.push(`content/legal/${page}.md: does not carry data/impressum.json "phone" (${impressum.phone})`);
+  if (impressum.phone && /Telefonnummer gibt es nicht|no phone (line|number)/i.test(s)) problems.push(`content/legal/${page}.md: says there is no phone, but data/impressum.json has one`);
+}
 // The AGB must carry the same amounts the price card shows.
 if (texts.agb) {
   const m = String(pricing.hosted?.monthlyEur ?? ""), s = String(pricing.setup?.fromEur ?? "");

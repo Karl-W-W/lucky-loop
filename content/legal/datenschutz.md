@@ -18,6 +18,7 @@ Verantwortlich für die Datenverarbeitung auf dieser Website ist:
 - 80469 München
 - Deutschland
 - E-Mail: karl.wuerfel@icloud.com
+- Telefon: +49 162 1725555
 
 ## 2. Kein Datenschutzbeauftragter
 
@@ -113,6 +114,11 @@ auf die EU-Standardvertragsklauseln (Art. 46 Abs. 2 lit. c DSGVO).
 Datenschutzerklärung von Apple: [apple.com/legal/privacy](https://www.apple.com/legal/privacy/)
 
 Bitte senden Sie uns keine Passwörter, Zugangsdaten, Kontodaten oder besonders sensible Daten per unverschlüsselter E-Mail.
+
+### Anrufe
+
+Wenn Sie uns anrufen, verarbeiten wir Ihre Rufnummer, sofern sie übertragen wird, und was Sie uns im Gespräch mitteilen, zu denselben Zwecken und
+auf denselben Rechtsgrundlagen wie eine E-Mail. Gespräche werden nicht aufgezeichnet.
 
 ### Speicherdauer
 
@@ -279,4 +285,4 @@ Daten, die Sie an uns oder an Stripe senden, sind auf dem Übertragungsweg versc
 Wir passen diese Datenschutzerklärung an, wenn sich die Website, die eingesetzten Dienstleister oder die Rechtslage ändern.
 Es gilt jeweils die hier veröffentlichte Fassung. Das Datum der aktuellen Fassung steht am Ende der Seite.
 
-Stand: 22. September 2026
+Stand: 27. September 2026

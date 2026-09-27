@@ -1,6 +1,6 @@
 # Kontakt · Contact
 
-> Reach us by e-mail at karl.wuerfel@icloud.com. Postal address: Karl Würfel, Fuststrasse 4, 80469 München, Germany. There is no phone line.
+> Reach us by e-mail at karl.wuerfel@icloud.com. Postal address: Karl Würfel, Fuststrasse 4, 80469 München, Germany. Phone: +49 162 1725555; e-mail is the preferred channel.
 > Lucky Loop sells to businesses only (Unternehmer, § 14 BGB); consumers cannot order. Lucky Loop is run by one person; we usually answer within one working day, Monday to Friday.
 > Sales enquiry: tell us what kind of business you run and which recurring work (mail, bills, admin) an agent team should take over.
 > Support: send the e-mail address you paid with, what happened and when, and which document or "NEEDS YOU" card it concerns. Never send passwords.
@@ -12,9 +12,10 @@
 ## So erreichen Sie uns
 
 - E-Mail: karl.wuerfel@icloud.com
+- Telefon: +49 162 1725555
 - Post: Karl Würfel, Fuststrasse 4, 80469 München, Deutschland
 
-Der Kontaktweg ist E-Mail. Sie können auf Deutsch oder Englisch schreiben. Eine Telefonnummer gibt es nicht. Die vollständigen Anbieterangaben stehen im Impressum.
+Der bevorzugte Kontaktweg ist E-Mail. Sie können auf Deutsch oder Englisch schreiben. Die vollständigen Anbieterangaben stehen im Impressum.
 
 E-Mails an karl.wuerfel@icloud.com werden über Apple iCloud Mail empfangen. Bitte senden Sie keine Passwörter, Zugangsdaten, Kontodaten oder besonders sensible Daten
 per unverschlüsselter E-Mail. Wie wir Ihre E-Mail verarbeiten, steht in der Datenschutzerklärung.
@@ -80,7 +81,7 @@ welche zuständig ist, steht in der Datenschutzerklärung.
 
 ## Keine Telefon-Hotline
 
-Es gibt keine Telefon-Hotline und keinen gesonderten Kanal für dringende Fälle. Bitte schreiben Sie eine E-Mail.
+Die Telefonnummer ist keine Hotline: Lucky Loop wird von einer Person betrieben, und es gibt keinen gesonderten Kanal für dringende Fälle. Bitte schreiben Sie im Zweifel eine E-Mail.
 
 ## English version (non-binding)
 
@@ -89,9 +90,10 @@ Translation for convenience. The German text above is the binding version.
 ### How to reach us
 
 - E-mail: karl.wuerfel@icloud.com
+- Phone: +49 162 1725555
 - Post: Karl Würfel, Fuststrasse 4, 80469 München, Germany
 
-E-mail is the channel. You can write in German or English. There is no phone number. The full operator details are in the Impressum.
+E-mail is the preferred channel. You can write in German or English. The full operator details are in the Impressum.
 
 E-mail to karl.wuerfel@icloud.com is received through Apple iCloud Mail. Please do not send passwords, credentials, bank details or especially sensitive data
 by unencrypted e-mail. How we process your e-mail is described in the privacy policy (Datenschutzerklärung).
@@ -154,6 +156,6 @@ and, once you order, the payment data held by Stripe. You can also complain to a
 
 ### No phone hotline
 
-There is no phone hotline and no separate channel for urgent cases. Please send an e-mail.
+The phone number is not a hotline: Lucky Loop is run by one person, and there is no separate channel for urgent cases. When in doubt, please send an e-mail.
 
-Stand: 22. September 2026
+Stand: 27. September 2026

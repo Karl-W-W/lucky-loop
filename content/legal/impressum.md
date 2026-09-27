@@ -2,7 +2,7 @@
 
 > This is the legal notice that German law requires for this website (§ 5 DDG, § 18 MStV). The German text is binding; this summary is for orientation only.
 > Lucky Loop is operated by Karl Würfel, Fuststrasse 4, 80469 München, Germany, a natural person trading under his own name.
-> Contact: karl.wuerfel@icloud.com. There is no phone line; e-mail is the channel and is usually answered within one working day.
+> Contact: karl.wuerfel@icloud.com, phone +49 162 1725555. E-mail is the preferred channel and is usually answered within one working day.
 > Karl Würfel is responsible for the content of this site (§ 18 (2) MStV).
 > Lucky Loop sells to businesses only (§ 14 BGB); it does not contract with consumers and does not take part in consumer arbitration.
 > The closing sections are short notes on liability for the site's own content and for links to third-party sites.
@@ -18,9 +18,10 @@ Diese Website („Lucky Loop“) wird betrieben von:
 
 ## Kontakt
 
-E-Mail: karl.wuerfel@icloud.com
+- E-Mail: karl.wuerfel@icloud.com
+- Telefon: +49 162 1725555
 
-Wir sind per E-Mail erreichbar und antworten in der Regel innerhalb eines Werktags. Eine Telefonnummer gibt es nicht.
+Am schnellsten erreichen Sie uns per E-Mail; wir antworten in der Regel innerhalb eines Werktags.
 
 ## Verantwortlich für den Inhalt
 
@@ -49,4 +50,4 @@ Soweit diese Website auf Websites Dritter verlinkt (etwa auf den Quellcode bei G
 Für die Inhalte der verlinkten Seiten ist der jeweilige Anbieter verantwortlich.
 Werden uns Rechtsverletzungen auf verlinkten Seiten bekannt, entfernen wir den betreffenden Link.
 
-Stand: 22. September 2026
+Stand: 27. September 2026
