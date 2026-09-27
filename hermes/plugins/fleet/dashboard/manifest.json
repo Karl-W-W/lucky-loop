@@ -1,7 +1,7 @@
 {
   "name": "fleet",
   "label": "Fleet",
-  "description": "One view of this box — health, per-unit CPU budgets, infra checks, agent roster, scheduled jobs. Read-only; actions are emitted as commands to run.",
+  "description": "One view of this box — health, per-unit CPU budgets, infra checks, agent roster, scheduled jobs. Read-only except one answer verb that ships off; actions are emitted as commands to run.",
   "icon": "Activity",
   "version": "0.1.0",
   "tab": {

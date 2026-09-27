@@ -14,17 +14,22 @@
  *
  * LIVE (/live) is the call: the open cards in batches of five around one tray,
  * grouped by the agent that acts on Karl's word, with the `decide` line to copy.
- * The page writes nothing — `decide` in a terminal is the one answer place. The
- * same parked-aware count ("N need you") is computed here, once, and shown on
- * Today, on /live, in the status bar and in the ⌘K palette.
+ * Its order, batches, receipts (with the word and who gave it) and session number
+ * come from the server's `live` block when it has one; an un-restarted server
+ * without it gets the same view computed here. The same parked-aware count
+ * ("N need you") is computed here, once, and shown on Today, on /live, in the
+ * status bar and in the ⌘K palette.
+ *
+ * VERB (a), OFF. With ANSWER_ON_PAGE below false (the default) the page writes
+ * nothing — `decide` in a terminal is the one answer place. See ANSWER_ON_PAGE.
  *
  * Pure SDK-consumer work, same shape as before: a `/fleet` route + a sidebar row,
  * data from the Fleet plugin's REST router through `ctx.rest`. Plain ESM, no
  * build step, hot-reloaded from `~/.hermes/desktop-plugins/fleet/plugin.js`.
  *
- * READ-ONLY BY DESIGN. It reports; it does not control. Every action is a
- * copy-pasteable command a human runs — Hermes is interface and chat runtime,
- * never orchestration.
+ * READ-ONLY BY DESIGN, EXCEPT `answer`. It reports; it does not control. Every
+ * action is a copy-pasteable command a human runs — Hermes is interface and chat
+ * runtime, never orchestration. The one exception is verb (a), shipped off.
  *
  * Honesty rules, unchanged and still paid for:
  *   - every sampled value renders its sample time beside it;
@@ -53,6 +58,23 @@ const h = React.createElement
 const POLL_MS = 15000
 const IDLE_POLL_MS = 60000 // when only the status bar is listening
 const BATCH = 5
+/* VERB (a) — answer on the page. OFF unless BOTH switches are on:
+ *   here:        ANSWER_ON_PAGE = true, then install this file (atomically) on the Mac;
+ *   on the box:  echo on > ~/.config/lucky-loop/fleet-answer-verb  (read per request).
+ * Either one off: no send button is drawn, and the box answers POST /answer with 404.
+ * Only Karl's click on that card's own button sends an answer: one card per click, and
+ * a tier-3 word only after a second click that shows the card's title and the word.
+ * The route takes an open card id and one word from that card's options, or `later`,
+ * and nothing else. It logs time, card and word; the verifier reads that log at
+ * clock-out. No key sends: the keys still only pick a word and copy its decide line. */
+const ANSWER_ON_PAGE = false
+let answerInFlight = false // one answer at a time, across every view: a click while one is out is dropped
+/* The one POST this page can make. Null when another answer is still out (the click is dropped). */
+function postAnswer(body) {
+  if (answerInFlight || !restFn) return null
+  answerInFlight = true
+  return restFn('/answer', { method: 'POST', body }).finally(() => { answerInFlight = false; sample() })
+}
 const STYLE_ID = 'fleet-plugin-style'
 
 const CSS = `
@@ -313,6 +335,11 @@ const CSS = `
 .lv-confirm:disabled{background:var(--surface-3);color:var(--ink-4);cursor:default}
 .lv-confirm:disabled kbd{background:transparent;border-color:var(--line-2);color:var(--ink-4)}
 .lv-ow{font-size:12px;color:var(--ink-3);min-width:0;flex:1 1 100%;min-height:35px}
+.lv-send{height:34px;padding:0 14px;border-radius:9px;border:1px solid var(--orange);color:var(--ink);font-size:13.5px;font-weight:600;flex:none}
+.lv-send.lv-arm{background:var(--orange);color:#121211}
+.lv-send:disabled{border-color:var(--line-2);color:var(--ink-4);background:none;cursor:default}
+.lv-sent{font-size:12px;color:var(--ink-2)}
+.lv-sent.lv-bad{color:var(--danger)}
 .lv-dl{font-family:var(--mono);color:var(--ink-2);overflow-wrap:anywhere}
 .lv-tb{border-left:1px solid var(--line);padding-left:18px;font-size:12px;color:var(--ink-3);line-height:1.45;min-width:0}
 .lv-tbh{font-size:13px;color:var(--ink);font-weight:500}
@@ -1267,7 +1294,8 @@ function SeatTile({ seat, hue, mine, parked, pane, gone, failedRow, today, speak
   const fold = failedRow ? [h('span', { key: 'f', className: 'lv-c-failed' }, 'failed ' + stamp(failedRow.t)), ' — ' + (failedRow.job || '?')]
     : noAgent ? 'no agent for this seat yet'
       : parked.length ? 'parked · until ' + md(parked[0].parked.until) + ' — ' + lead(parked[0])
-        : left ? 'left the queue ' + ago(left.seenGoneAt) + ' — ' + lead(left)
+        : left ? (left.answer ? 'answered “' + left.answer + '” today' + (left.by ? ' · ' + left.by : '')
+          : 'left the queue ' + ago(left.seenGoneAt)) + ' — ' + lead(left)
           : top && top.expiry ? 'wanted by ' + md(top.expiry) : null
   return h('div', {
     className: cls('lv-tile', speaking && 'lv-speaking', !pane && 'lv-away'), 'data-s': mine.length ? 'needs' : 'parked',
@@ -1305,7 +1333,7 @@ const wordsOf = q => (SAFE_ID.test(String(q.id)) ? (q.options || []).filter(o =>
 /* copies the decide line; Esc un-picks; ← → step. Copying is the only thing a */
 /* key does outside this view, and the answer is still typed by Karl. Every     */
 /* word answers and closes the card (decide v2); only later keeps it open.      */
-function Tray({ q, hue, pos, batch, bi, nb, qLen, pane, pick, copied, derivedN, today, onPick, onCopy, onJump }) {
+function Tray({ q, hue, pos, batch, bi, nb, qLen, pane, pick, copied, derivedN, today, onPick, onCopy, onJump, send, onSend }) {
   if (!q) {
     return h('div', { className: 'lv-tray' },
       h('div', { className: 'lv-zero' },
@@ -1322,6 +1350,10 @@ function Tray({ q, hue, pos, batch, bi, nb, qLen, pane, pick, copied, derivedN, 
   const word = pick !== null ? opts.concat('later')[pick] : null
   const line = word ? 'decide ' + q.id + ' ' + word : null
   const done = Boolean(word) && copied[q.id] === word
+  // verb (a): drawn only when both flags are on and the server signed this card's word
+  const canSend = Boolean(send && word && send.offer && send.offer.tokens && send.offer.tokens[word])
+  const st = send && send.st && send.st.word === word ? send.st : null
+  const armed = Boolean(st && st.state === 'confirm')
   const behind = []
   for (let b = bi + 1; b < nb; b++) behind.push(Math.min(BATCH, qLen - b * BATCH) + ' in batch ' + (b + 1))
   return h('div', { className: 'lv-tray' },
@@ -1354,10 +1386,18 @@ function Tray({ q, hue, pos, batch, bi, nb, qLen, pane, pick, copied, derivedN, 
         'its line parks the card until tomorrow; the card stays open') : null,
       h('div', { className: 'lv-conf' },
         h('button', { type: 'button', className: 'lv-confirm', disabled: !line, onClick: onCopy }, done ? 'Copied' : 'Copy', h('kbd', null, '↵')),
+        canSend ? h('button', {
+          type: 'button', className: cls('lv-send', armed && 'lv-arm'), disabled: Boolean(send.busy), onClick: onSend,
+          title: armed ? 'Tier 3: this second click sends the word' : 'Sends this one word for this one card'
+        }, send.busy ? 'Sending…' : armed ? 'Confirm “' + word + '”' : 'Send “' + word + '”') : null,
         h('div', { className: 'lv-ow' }, line
           ? [h('span', { key: 'l', className: 'lv-dl' }, line),
               done ? ' — copied; paste it now' : ' — paste it in a terminal']
-          : 'pick a word — ↵ copies its decide line; this page writes nothing'))),
+          : 'pick a word — ↵ copies its decide line' + (send ? '; Send records it from here' : '; this page writes nothing')),
+        st && st.state !== 'sending' ? h('div', { className: cls('lv-sent', st.state === 'bad' && 'lv-bad') },
+          armed ? ['Tier 3 — “', h('b', { key: 't' }, keep(st.title || topic(q))), '” → ', h('b', { key: 'w' }, word),
+            '. Click Confirm to send it; nothing is written until you do.']
+            : st.msg) : null)),
     h('div', { className: 'lv-tb' },
       h('div', { className: 'lv-tbh' }, 'question ' + (pos + 1) + ' of ' + batch.length + ' · batch ' + (bi + 1) + ' of ' + nb),
       h('div', { className: 'lv-pips' }, batch.map((c, n) => h('button', {
@@ -1423,6 +1463,7 @@ function LivePage() {
   const [focus, setFocus] = useState({ id: null, idx: 0 }) // the card in the tray, and where it stood
   const [picked, setPicked] = useState(null) // { id, n, at } — this view only
   const [copied, setCopied] = useState({}) // id -> word — this view only
+  const [sent, setSent] = useState({}) // id -> { word, state: sending|confirm|ok|bad, msg, confirm, at } — verb (a)
   const keyRef = React.useRef(null)
   useEffect(() => { injectStyle() }, [])
   useEffect(() => {
@@ -1433,7 +1474,10 @@ function LivePage() {
 
   const data = s.data
   const { today, live, parked, derived } = splitNeeds((data && data.needs_you) || {})
-  const Q = live.slice().sort(byQueue)
+  // The server's live block when it has one (its order, its receipts); else the same order computed here.
+  const lv = data && data.live && !data.live.error && Array.isArray(data.live.order) ? data.live : null
+  const Q = lv ? lv.order.map(id => live.find(i => i.id === id)).filter(Boolean)
+    .concat(live.filter(i => !lv.order.includes(i.id)).sort(byQueue)) : live.slice().sort(byQueue)
   // A card that left the queue (its decide ran) hands the tray to the one after it.
   let qi = focus.id ? Q.findIndex(c => c.id === focus.id) : -1
   if (qi < 0) qi = Math.min(focus.idx, Math.max(0, Q.length - 1))
@@ -1457,6 +1501,30 @@ function LivePage() {
       .catch(() => { /* not copied: the button keeps saying Copy */ })
   }
   // The same word again copies: at once by key, and by click only past 350 ms (a double-click is not two answers).
+  const answerOn = ANSWER_ON_PAGE && Boolean(lv && lv.answer && lv.answer.enabled)
+  const offer = answerOn && q ? (lv.answer.offers || {})[q.id] || null : null
+  // verb (a): one card per click; a click while one is in flight is dropped; a tier-3 confirm
+  // counts only past 400 ms after it was armed (a double-click is not two clicks).
+  const doSend = e => {
+    if (!q || !word || !offer || !offer.tokens || !offer.tokens[word]) return
+    const id = q.id
+    const w = word
+    const st = sent[id]
+    const body = { id, word: w, exp: offer.exp, token: offer.tokens[w] }
+    if (st && st.state === 'confirm' && st.word === w && st.confirm) {
+      if (e && e.timeStamp - st.at < 400) return
+      body.confirm_exp = st.confirm.exp
+      body.confirm = st.confirm.token
+    }
+    const req = postAnswer(body)
+    if (!req) return
+    setSent(m => ({ ...m, [id]: { word: w, state: 'sending' } }))
+    req
+      .then(r => setSent(m => ({ ...m, [id]: r && r.verdict === 'confirm' && r.confirm
+        ? { word: w, state: 'confirm', confirm: r.confirm, title: r.title, at: e ? e.timeStamp : 0 }
+        : { word: w, state: r && r.ok ? 'ok' : 'bad', msg: r ? r.verdict + (r.detail ? ' — ' + r.detail : '') : 'no reply' } })))
+      .catch(err => setSent(m => ({ ...m, [id]: { word: w, state: 'bad', msg: 'not sent — ' + String(err) } })))
+  }
   const choose = (n, at) => {
     if (!q) return
     if (pick === n && (at === null || at - picked.at > 350)) { doCopy(); return }
@@ -1490,7 +1558,9 @@ function LivePage() {
   const held = x => all.filter(i => who(i) === x).length
   const seats = [...new Set(all.map(who))].sort((a, b) => hands(b) - hands(a) || held(b) - held(a) || a.localeCompare(b))
   const onStage = seats.filter(x => paneOf(panes, x)).length
-  const gone = s.receipts || []
+  // Receipts: the server's done-today list carries the word and who gave it; the fallback only saw cards leave.
+  const gone = lv && Array.isArray(lv.done_today) ? lv.done_today : (s.receipts || [])
+  const session = lv && lv.session ? lv.session : null
   const n = needCount(data)
   const iso = t => (t ? new Date(t).toISOString() : null)
 
@@ -1507,7 +1577,9 @@ function LivePage() {
             all.length + ' open · ', h('b', null, (n ?? '?') + ' need you'), ' · ' + parked.length + ' parked · ',
             h('span', { className: cls('lv-pp', !onStage && 'lv-pp0') },
               onStage ? onStage + ' of ' + seats.length + ' owners in a pane' : 'no owner is in a pane yet'),
-            gone.length ? h('span', { className: 'lv-pp' }, ' · ' + gone.length + ' left the queue since ' + hhmm(s.since)) : null) : null),
+            session ? h('span', { className: 'lv-pp', title: session.basis || '' }, ' · session ' + session.line + ' answered today')
+              : gone.length ? h('span', { className: 'lv-pp' }, ' · ' + gone.length + ' left the queue since ' + hhmm(s.since)) : null,
+            answerOn ? h('span', { className: 'lv-pp' }, ' · answering on this page is ON') : null) : null),
         h('div', { className: 'lv-cb-r' },
           data ? h('span', { className: 'lv-stamp' }, 'sampled ' + hhmm(data.sampled_at)) : null,
           h('button', {
@@ -1528,7 +1600,9 @@ function LivePage() {
     data ? h(Tray, {
       q, hue: q ? hueFor(who(q), seats) : 222, pos, batch, bi, nb, qLen: Q.length, pane: q ? paneOf(panes, who(q)) : null,
       pick, copied, derivedN: derived.length, today, onPick: choose, onCopy: doCopy,
-      onJump: (id, b) => focusOn(id || (Q[b * BATCH] || {}).id)
+      onJump: (id, b) => focusOn(id || (Q[b * BATCH] || {}).id),
+      send: answerOn ? { offer, st: q ? sent[q.id] || null : null, busy: Boolean(q && sent[q.id] && sent[q.id].state === 'sending') } : null,
+      onSend: doSend
     }) : null)
 }
 
