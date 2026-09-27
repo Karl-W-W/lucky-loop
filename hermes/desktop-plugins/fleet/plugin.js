@@ -12,6 +12,12 @@
  * state in one call — the "Copy for an agent" button copies the same digest the
  * backend serves at /today.txt.
  *
+ * LIVE (/live) is the call: the open cards in batches of five around one tray,
+ * grouped by the agent that acts on Karl's word, with the `decide` line to copy.
+ * The page writes nothing — `decide` in a terminal is the one answer place. The
+ * same parked-aware count ("N need you") is computed here, once, and shown on
+ * Today, on /live, in the status bar and in the ⌘K palette.
+ *
  * Pure SDK-consumer work, same shape as before: a `/fleet` route + a sidebar row,
  * data from the Fleet plugin's REST router through `ctx.rest`. Plain ESM, no
  * build step, hot-reloaded from `~/.hermes/desktop-plugins/fleet/plugin.js`.
@@ -28,11 +34,23 @@
  *   - what this box cannot see (Slack cloud agents) is said, not omitted.
  */
 
-import { ROUTES_AREA, SIDEBAR_NAV_AREA } from '@hermes/plugin-sdk'
+import * as SDK from '@hermes/plugin-sdk'
 import React, { useEffect, useState } from 'react'
+
+// Read off the namespace, not named-imported: a named import this Desktop build
+// does not export fails the whole plugin at link time, so the optional surfaces
+// (status bar, palette, navigate) are feature-detected and simply skipped.
+const { ROUTES_AREA, SIDEBAR_NAV_AREA } = SDK
+const STATUSBAR_RIGHT = SDK.STATUSBAR_AREAS ? SDK.STATUSBAR_AREAS.right : null
+const PALETTE_AREA = SDK.PALETTE_AREA || null
+function navigate(path) {
+  try { if (SDK.host && typeof SDK.host.navigate === 'function') SDK.host.navigate(path) } catch { /* no-op */ }
+}
 
 const h = React.createElement
 const POLL_MS = 15000
+const IDLE_POLL_MS = 60000 // when only the status bar is listening
+const BATCH = 5
 const STYLE_ID = 'fleet-plugin-style'
 
 const CSS = `
@@ -156,6 +174,41 @@ const CSS = `
   letter-spacing:.06em;background:rgba(128,128,128,.18);opacity:.8}
 .flt-warnbar{border:1px solid rgba(217,164,65,.55);background:rgba(217,164,65,.1);padding:9px 12px;border-radius:6px;font-size:12.5px;margin-bottom:12px}
 .flt-err{border:1px solid rgba(226,109,92,.5);background:rgba(226,109,92,.09);padding:9px 12px;border-radius:6px;font-size:12.5px}
+/* --- needs you: agent · kind · ask, and the decide lines --- */
+.tdy-agenthead{display:flex;align-items:baseline;gap:10px;margin:16px 0 6px;font-size:12px;
+  text-transform:uppercase;letter-spacing:.08em;opacity:.7;font-weight:600}
+.tdy-ask{font-size:15px;font-weight:600}
+.tdy-kind{display:inline-block;margin-right:8px;padding:0 6px;border-radius:4px;font-size:10px;font-weight:650;
+  letter-spacing:.06em;border:1px solid rgba(128,128,128,.45);vertical-align:middle}
+.tdy-sub{font-size:12px;opacity:.6;margin-top:2px}
+.tdy-decide{display:flex;align-items:center;gap:8px;margin-top:5px}
+.tdy-decide .tdy-cmd{flex:0 1 auto}
+.tdy-hold{opacity:.6;font-size:12px;margin-top:6px}
+.tdy-parked{display:grid;gap:4px;margin-top:8px}
+.tdy-parkrow{font-size:12.5px;opacity:.6;padding:5px 10px;border:1px dashed rgba(128,128,128,.3);border-radius:6px}
+.tdy-warn{color:#d9a441}
+.tdy-chip{font:inherit;font-size:11px;padding:0 8px;border-radius:999px;cursor:pointer;white-space:nowrap;
+  border:1px solid rgba(128,128,128,.35);background:transparent;color:inherit;opacity:.8}
+.tdy-chip.tdy-hot{background:#d95926;border-color:#d95926;color:#fff;opacity:1}
+/* --- live: the call --- */
+.lv-band{border:1px solid rgba(226,109,92,.55);background:rgba(226,109,92,.1);border-radius:8px;
+  padding:9px 12px;margin:12px 0 0;font-size:13px}
+.lv-band b{color:#e26d5c}
+.lv-tiles{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));margin:16px 0}
+.lv-tile{border:1px solid rgba(128,128,128,.26);border-radius:9px;padding:9px 12px;cursor:pointer;
+  background:rgba(128,128,128,.04);text-align:left;font:inherit;color:inherit}
+.lv-tile:hover{background:rgba(128,128,128,.1)}
+.lv-tile.lv-on{border-color:#d95926}
+.lv-tname{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;font-weight:600}
+.lv-tcount{font-size:12px;opacity:.65;margin-top:2px;font-variant-numeric:tabular-nums}
+.lv-tray{border:1px solid rgba(128,128,128,.35);border-radius:12px;padding:14px 16px;background:rgba(128,128,128,.06)}
+.lv-trayhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.lv-trayhead h2{font-size:17px;margin:0;font-weight:650}
+.lv-card{border-top:1px solid rgba(128,128,128,.2);padding:11px 0 9px}
+.lv-card:first-of-type{border-top:0}
+.lv-silence{font-size:12px;opacity:.62;margin-top:6px;max-width:84ch}
+.lv-expired{color:#d9a441}
+.lv-receipt{font-size:12.5px;padding:5px 0;border-bottom:1px solid rgba(128,128,128,.14)}
 `
 
 function injectStyle() {
@@ -194,6 +247,137 @@ function when(iso) {
     return same ? t : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + t
   } catch { return iso }
 }
+
+/* ------------------------------------------------------------------------ */
+/* One sampler for every surface. Today and Live poll at 15 s while open; the  */
+/* status bar alone polls at 60 s. Timers live only inside mounted components, */
+/* so a hot reload that unmounts the contributions stops them.                 */
+/* ------------------------------------------------------------------------ */
+let restFn = null
+const store = { data: null, err: null, lastOkAt: null, errAt: null, loading: true, tickKey: 0, receipts: [], since: null }
+const seenOpen = new Map() // id -> card, every open card a sample has returned since the plugin loaded
+let snap = { ...store } // the immutable snapshot React reads
+const listeners = new Set() // useSyncExternalStore subscribers
+const pollers = new Map() // token -> wants the fast cadence?
+let timer = null
+let timerFast = null
+
+function emit() {
+  snap = { ...store }
+  listeners.forEach(l => { try { l() } catch { /* isolated */ } })
+}
+function subscribe(l) { listeners.add(l); return () => listeners.delete(l) }
+const getSnap = () => snap
+function sample() {
+  if (!restFn) return
+  restFn('/today')
+    .then(d => {
+      const ny = d && d.needs_you
+      if (ny && !ny.error && Array.isArray(ny.items)) {
+        const open = new Set(ny.items.map(i => i.id))
+        const at = new Date().toISOString()
+        seenOpen.forEach((card, id) => {
+          if (!open.has(id)) { store.receipts = store.receipts.concat({ ...card, seenGoneAt: at }); seenOpen.delete(id) }
+        })
+        ny.items.forEach(i => seenOpen.set(i.id, i))
+        if (!store.since) store.since = at
+      }
+      Object.assign(store, { data: d, err: null, lastOkAt: Date.now(), loading: false, tickKey: store.tickKey + 1 })
+      emit()
+    })
+    .catch(e => { Object.assign(store, { err: String(e), errAt: Date.now(), loading: false }); emit() })
+}
+function reschedule() {
+  const fast = [...pollers.values()].some(Boolean)
+  if (!pollers.size) { if (timer) clearInterval(timer); timer = null; timerFast = null; return }
+  if (timer && timerFast === fast) return
+  if (timer) clearInterval(timer)
+  timerFast = fast
+  timer = setInterval(sample, fast ? POLL_MS : IDLE_POLL_MS)
+}
+function useToday(fast) {
+  const s = React.useSyncExternalStore(subscribe, getSnap)
+  useEffect(() => {
+    const token = {}
+    pollers.set(token, Boolean(fast))
+    const age = store.lastOkAt ? Date.now() - store.lastOkAt : Infinity
+    if (age > (fast ? POLL_MS : IDLE_POLL_MS)) sample()
+    reschedule()
+    return () => { pollers.delete(token); reschedule() }
+  }, [fast])
+  return s
+}
+
+/* The one N. The server's verdict counts parked cards, so it is recounted here:
+ * a card parked until today or later is not waiting on Karl today. Same rule as
+ * `decide`'s listing (local date, parked.until >= today). Derived items (a red
+ * infra check, a lapsed credential) count too — nobody typed them, but they
+ * still wait on a human hand. */
+function localDay(d = new Date()) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+}
+function isParked(i, today) {
+  const p = i.parked || {}
+  return Boolean(p.until) && String(p.until) >= today
+}
+function splitNeeds(ny) {
+  const today = localDay()
+  const items = (ny && ny.items) || []
+  return {
+    today,
+    live: items.filter(i => !isParked(i, today)),
+    parked: items.filter(i => isParked(i, today)),
+    derived: (ny && ny.derived) || []
+  }
+}
+function needCount(data) {
+  if (!data || !data.needs_you || data.needs_you.error) return null
+  const s = splitNeeds(data.needs_you)
+  return s.live.length + s.derived.length
+}
+function needLine(n, parked) {
+  const head = n === null ? 'The queue could not be read.'
+    : n ? (n === 1 ? '1 thing needs you.' : n + ' things need you.') : 'Nothing needs you.'
+  return head + (parked ? ' ' + parked + ' parked until later.' : '')
+}
+const byAgent = (a, b) =>
+  String(a.agent || '~').localeCompare(String(b.agent || '~')) ||
+  String(a.group || '').localeCompare(String(b.group || '')) ||
+  (a.priority ?? 99) - (b.priority ?? 99) || String(a.since || '').localeCompare(String(b.since || ''))
+const byCall = (a, b) =>
+  String(a.expiry || '9999').localeCompare(String(b.expiry || '9999')) ||
+  (a.priority ?? 99) - (b.priority ?? 99) || String(a.since || '').localeCompare(String(b.since || ''))
+
+/* A render error in one page shows here instead of blanking the Desktop pane. */
+class Boundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  componentDidCatch(error) { try { console.error('[fleet] ' + (this.props.name || 'page') + ' failed to render', error) } catch { /* no-op */ } }
+  render() {
+    if (!this.state.error) return this.props.children
+    const e = this.state.error
+    return h('div', { className: 'tdy-root' },
+      h('div', { className: 'tdy-err' },
+        (this.props.name || 'This page') + ' failed to render: ' + String((e && e.message) || e).replace(/\.+$/, '') +
+        '. Nothing was written anywhere; the queue is unchanged. `decide` in a terminal still works.'),
+      h('div', { className: 'tdy-actions' },
+        h('button', { className: 'tdy-btn', onClick: () => this.setState({ error: null }) }, 'Try again')))
+  }
+}
+
+/* Status bar, right: the same N, one click to the call. */
+function NeedChip() {
+  const s = useToday(false)
+  const n = needCount(s.data)
+  const parked = s.data && s.data.needs_you ? splitNeeds(s.data.needs_you).parked.length : 0
+  const label = n === null ? (s.loading ? 'needs you …' : 'needs you ?') : n + ' need you'
+  return h('button', {
+    type: 'button',
+    className: cls('tdy-chip', n > 0 && 'tdy-hot'),
+    title: needLine(n, parked) + (s.err ? ' Last refresh failed — this count is STALE.' : '') + ' Click: open Live.',
+    onClick: () => navigate('/live')
+  }, label + (s.err && s.data ? ' · stale' : ''))
+}
 function copy(text) {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text)
@@ -224,42 +408,82 @@ function CopyBtn({ text, small }) {
   }, done ? 'Copied' : 'Copy')
 }
 
+/* The lines Karl copies. The options render in the card's own order — on a
+ * tier-3 card the first is the no-op word — and nothing here answers more than
+ * one card or picks a word for him (A2). `later` parks through decide v2. */
+function DecideLines({ i }) {
+  const opts = i.options || []
+  return h('div', null,
+    opts.length
+      ? opts.map(o => {
+          const line = 'decide ' + i.id + ' ' + o
+          return h('div', { key: o, className: 'tdy-decide' },
+            h('pre', { className: 'tdy-cmd' }, line), h(CopyBtn, { text: line, small: true }))
+        })
+      : h('div', { className: 'tdy-hold tdy-warn' }, 'No options yet — nothing can answer this card; the chair adds them.'),
+    h('div', { className: 'tdy-decide' },
+      h('pre', { className: 'tdy-cmd tdy-check' }, 'decide ' + i.id + ' later'),
+      h(CopyBtn, { text: 'decide ' + i.id + ' later', small: true })))
+}
+
+function AskHead({ i }) {
+  return h('div', null,
+    h('div', { className: 'tdy-ask' },
+      h('span', { className: 'tdy-kind' }, i.ask_kind || '?'),
+      i.ask || i.title,
+      i.tier === 3 ? h('span', { className: 'tdy-tag' }, 'tier 3 · closes by your word') : null,
+      i.agent_shipped === false ? h('span', { className: 'tdy-tag tdy-warn' }, 'agent not shipped') : null),
+    i.ask && i.title && i.ask !== i.title ? h('div', { className: 'tdy-sub' }, i.title) : null)
+}
+
 function NeedsYou({ data: d }) {
   if (!d) return h(Err, { msg: 'no data' })
-  const items = d.items || []
-  const derived = d.derived || []
+  const { live, parked, derived } = splitNeeds(d)
+  const items = live.slice().sort(byAgent)
+  let agent
   return h('div', null,
     d.error ? h('div', { className: 'tdy-err' }, d.error) : null,
     h('div', { className: 'tdy-why', style: { marginBottom: 10 } },
-      'In any terminal: ', h('code', null, 'needs-you'), ' lists these, ',
-      h('code', null, 'needs-you 1'), ' runs item 1 line by line, ',
-      h('code', null, 'needs-you done 1'), ' closes it. Also: ctrl+b alt+b inside herdr.'),
+      'In any terminal: ', h('code', null, 'decide'), ' lists these; copy one ',
+      h('code', null, 'decide <id> <word>'), ' line per card. This page writes nothing. ',
+      'The Live page (sidebar) shows the same cards five at a time.'),
     !items.length && !derived.length && !d.error
       ? h('p', { className: 'tdy-empty' }, 'Nothing is waiting on you.')
       : null,
-    items.map((i, idx) =>
-      h('div', { key: i.id || idx, className: 'tdy-card' },
-        h('div', { className: 'tdy-num' }, String(idx + 1)),
-        h('div', null,
-          h('div', { className: 'tdy-title' }, i.title),
-          i.why ? h('div', { className: 'tdy-why' }, i.why) : null,
-          // Three distinct things, never mixed on one line: STEPS a person follows
-          // (not shell), COMMAND that is exactly what to paste (no comments, no
-          // placeholders), CHECK that proves it took (placeholders allowed, marked).
-          i.steps ? h('div', { className: 'tdy-steps' },
-            h('span', { className: 'tdy-lbl' }, 'Do'), i.steps) : null,
-          i.command ? h('div', { className: 'tdy-cmdrow' },
-            h('span', { className: 'tdy-lbl' }, 'Paste'),
-            h('pre', { className: 'tdy-cmd' }, i.command),
-            h(CopyBtn, { text: i.command, small: true })) : null,
-          i.check ? h('div', { className: 'tdy-cmdrow' },
-            h('span', { className: 'tdy-lbl' }, 'Check'),
-            h('pre', { className: 'tdy-cmd tdy-check' }, i.check),
-            h(CopyBtn, { text: i.check, small: true })) : null,
-          h('div', { className: 'tdy-since' },
-            'waiting since ' + (i.since || '?') +
-            (i.age_days !== null && i.age_days !== undefined ? ' · ' + i.age_days + ' days' : '') +
-            (i.source ? ' · ' + i.source : ''))))),
+    items.map((i, idx) => {
+      const head = i.agent !== agent
+        ? h('div', { key: 'a' + idx, className: 'tdy-agenthead' }, i.agent || 'no agent yet',
+            h('span', { className: 'tdy-count' }, String(items.filter(x => x.agent === i.agent).length)))
+        : null
+      agent = i.agent
+      return [head,
+        h('div', { key: i.id || idx, className: 'tdy-card' },
+          h('div', { className: 'tdy-num' }, String(idx + 1)),
+          h('div', null,
+            h(AskHead, { i }),
+            i.why ? h('div', { className: 'tdy-why' }, i.why) : null,
+            // Three distinct things, never mixed on one line: STEPS a person follows
+            // (not shell), COMMAND that is exactly what to paste (no comments, no
+            // placeholders), CHECK that proves it took (placeholders allowed, marked).
+            i.steps ? h('div', { className: 'tdy-steps' },
+              h('span', { className: 'tdy-lbl' }, 'Do'), i.steps) : null,
+            i.command ? h('div', { className: 'tdy-cmdrow' },
+              h('span', { className: 'tdy-lbl' }, 'Paste'),
+              h('pre', { className: 'tdy-cmd' }, i.command),
+              h(CopyBtn, { text: i.command, small: true })) : null,
+            i.check ? h('div', { className: 'tdy-cmdrow' },
+              h('span', { className: 'tdy-lbl' }, 'Check'),
+              h('pre', { className: 'tdy-cmd tdy-check' }, i.check),
+              h(CopyBtn, { text: i.check, small: true })) : null,
+            h('div', { className: 'tdy-cmdrow' },
+              h('span', { className: 'tdy-lbl' }, 'Answer'),
+              h('div', { style: { flex: 1 } }, h(DecideLines, { i }))),
+            h('div', { className: 'tdy-since' },
+              'waiting since ' + (i.since || '?') +
+              (i.age_days !== null && i.age_days !== undefined ? ' · ' + i.age_days + ' days' : '') +
+              (i.group ? ' · ' + i.group : '') +
+              (i.source ? ' · ' + i.source : ''))))]
+    }),
     derived.map((i, idx) =>
       h('div', { key: 'd' + idx, className: 'tdy-card tdy-derived' },
         h('div', { className: 'tdy-num' }, '•'),
@@ -269,9 +493,13 @@ function NeedsYou({ data: d }) {
           i.command ? h('div', { className: 'tdy-cmdrow' },
             h('pre', { className: 'tdy-cmd' }, i.command),
             h(CopyBtn, { text: i.command, small: true })) : null))),
+    parked.length ? h('div', { className: 'tdy-parked' },
+      h('div', { className: 'tdy-agenthead' }, 'Parked', h('span', { className: 'tdy-count tdy-zero' }, String(parked.length))),
+      parked.map(i => h('div', { key: i.id, className: 'tdy-parkrow' },
+        (i.agent ? i.agent + ' · ' : '') + (i.ask || i.title) + ' — until ' + i.parked.until +
+        (i.parked.reason ? ' (' + i.parked.reason + ')' : '')))) : null,
     h('p', { className: 'tdy-note' },
-      'Only you close an item: set done: true in ' + (d.source || 'the queue') +
-      '. Agents add; they never close.' +
+      'Only you close a card, with decide. Agents add; they never close.' +
       (d.updated_at ? ' Queue last updated ' + ago(d.updated_at) + '.' : '')))
 }
 
@@ -637,33 +865,17 @@ function oneLine(d) {
 
 function makeTodayPage(rest) {
   return function TodayPage() {
-    const [data, setData] = useState(null)
-    const [err, setErr] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [lastOkAt, setLastOkAt] = useState(null)
-    const [errAt, setErrAt] = useState(null)
-    const [tickKey, setTickKey] = useState(0)
+    const { data, err, loading, lastOkAt, errAt, tickKey } = useToday(true)
+    useEffect(() => { injectStyle() }, [])
 
-    useEffect(() => {
-      injectStyle()
-      let dead = false
-      const tick = () =>
-        rest('/today')
-          .then(d => { if (!dead) { setData(d); setErr(null); setLastOkAt(Date.now()); setLoading(false); setTickKey(k => k + 1) } })
-          .catch(e => { if (!dead) { setErr(String(e)); setErrAt(Date.now()); setLoading(false) } })
-      tick()
-      const id = setInterval(tick, POLL_MS)
-      return () => { dead = true; clearInterval(id) }
-    }, [])
-
-    if (loading) return h('div', { className: 'tdy-root' }, h('p', null, 'Sampling the box…'))
+    if (loading && !data) return h('div', { className: 'tdy-root' }, h('p', null, 'Sampling the box…'))
     if (err && !data) return h('div', { className: 'tdy-root' }, h(Err, { msg: err }))
 
     const stale = Boolean(err && data)
     const iso = t => (t ? new Date(t).toISOString() : null)
-    const v = data.verdict || {}
-    const needs = v.needs_you || 0
     const ny = data.needs_you || {}
+    const needs = needCount(data) || 0
+    const parkedN = splitNeeds(ny).parked.length
     const ag = data.agents || {}
     const an = data.agents_now || {}
     return h('div', { className: stale ? 'tdy-root tdy-stale' : 'tdy-root' },
@@ -679,7 +891,7 @@ function makeTodayPage(rest) {
             h('span', null, 'refreshes every ' + Math.round(POLL_MS / 1000) + 's'),
             h('span', null, data.box && data.box.host ? data.box.host : ''),
             err ? h('span', { style: { color: '#e26d5c' } }, 'last refresh failed') : null),
-          h('div', { className: cls('tdy-verdict', needs ? 'tdy-hot' : 'tdy-calm') }, v.line || ''),
+          h('div', { className: cls('tdy-verdict', needs ? 'tdy-hot' : 'tdy-calm') }, needLine(needCount(data), parkedN)),
           h('p', { className: 'tdy-oneline' }, oneLine(data)),
           h('div', { className: 'tdy-actions' },
             h(CopyBtn, { text: data.text || '' }),
@@ -717,6 +929,120 @@ function makeTodayPage(rest) {
             : null,
           children: h(AgentsNow, { data: an }) })))
   }
+}
+
+/* ------------------------------------------------------------------------ */
+/* Live — the call. The agents' tiles around one tray; the tray holds at most */
+/* five cards, soonest expiry first. Every control here changes the VIEW only; */
+/* the answer is a `decide` line Karl copies into a terminal (one answer place).*/
+/* ------------------------------------------------------------------------ */
+function silenceCopy(i) {
+  if (i.tier === 3) return 'Silence changes nothing: this card waits for your word.'
+  const dflt = i.default ? '“' + String(i.default).split(/\s+/)[0] + '”' : 'none'
+  return 'Tier 1. Its default is ' + dflt + ', but nothing applies defaults today (the applier is off), so silence also waits.'
+}
+
+function LiveCard({ i, today }) {
+  const expired = Boolean(i.expiry) && i.expiry < today
+  return h('div', { className: 'lv-card' },
+    h('div', { className: 'tdy-sub', style: { marginTop: 0, marginBottom: 3 } },
+      h('span', { className: 'tdy-agent' }, i.agent || 'no agent yet'),
+      i.group ? ' · ' + i.group : '',
+      i.expiry ? h('span', { className: expired ? 'lv-expired' : null },
+        ' · ' + (expired ? 'expired ' + i.expiry + ' — still open, still yours' : 'expires ' + i.expiry)) : null),
+    h(AskHead, { i }),
+    i.why ? h('div', { className: 'tdy-why' }, i.why) : null,
+    i.steps ? h('div', { className: 'tdy-steps' }, h('span', { className: 'tdy-lbl' }, 'Do'), i.steps) : null,
+    i.command ? h('div', { className: 'tdy-cmdrow' },
+      h('span', { className: 'tdy-lbl' }, 'Paste'), h('pre', { className: 'tdy-cmd' }, i.command),
+      h(CopyBtn, { text: i.command, small: true })) : null,
+    h('div', { className: 'tdy-cmdrow' },
+      h('span', { className: 'tdy-lbl' }, 'Answer'), h('div', { style: { flex: 1 } }, h(DecideLines, { i }))),
+    h('div', { className: 'lv-silence' }, silenceCopy(i)))
+}
+
+function LivePage() {
+  const { data, err, loading, lastOkAt, errAt, receipts, since } = useToday(true)
+  const [agent, setAgent] = useState(null)
+  const [page, setPage] = useState(0)
+  const gone = receipts || []
+  useEffect(() => { injectStyle() }, [])
+
+  if (loading && !data) return h('div', { className: 'tdy-root' }, h('p', null, 'Sampling the box…'))
+  if (err && !data) return h('div', { className: 'tdy-root' }, h(Err, { msg: err }))
+
+  const stale = Boolean(err && data)
+  const iso = t => (t ? new Date(t).toISOString() : null)
+  const ny = data.needs_you || {}
+  const { today, live, parked, derived } = splitNeeds(ny)
+  const n = needCount(data)
+  const agents = [...new Set(live.map(i => i.agent || 'no agent yet'))].sort()
+  const pool = live.filter(i => !agent || (i.agent || 'no agent yet') === agent).sort(byCall)
+  const pages = Math.max(1, Math.ceil(pool.length / BATCH))
+  const pg = Math.min(page, pages - 1)
+  const batch = pool.slice(pg * BATCH, pg * BATCH + BATCH)
+  const failed = ((data.agents || {}).items || []).filter(r => r.status === 'failed' || r.status === 'stopped')
+
+  return h('div', { className: stale ? 'tdy-root tdy-stale' : 'tdy-root' },
+    stale ? h('div', { className: 'tdy-stalebar', role: 'alert' },
+      'STALE — the last refresh failed ' + ago(iso(errAt)) +
+      '. Everything below was sampled ' + ago(iso(lastOkAt)) + ' and is NOT current.',
+      h('small', null, 'Error: ' + err)) : null,
+    h('div', { className: 'tdy-body' },
+      h('header', null,
+        h('h1', null, 'Live'),
+        h('div', { className: 'tdy-stamp' },
+          h('span', null, 'sampled ' + clock(data.sampled_at)),
+          h('span', null, 'refreshes every ' + Math.round(POLL_MS / 1000) + 's'),
+          ny.updated_at ? h('span', null, 'queue updated ' + ago(ny.updated_at)) : null),
+        h('div', { className: cls('tdy-verdict', n ? 'tdy-hot' : 'tdy-calm') }, needLine(n, parked.length)),
+        h('p', { className: 'tdy-oneline' },
+          'Copy one ', h('code', null, 'decide <id> <word>'), ' line per card into a terminal. ',
+          'This page writes nothing; Next, the tiles and Leave change only what you see.')),
+      failed.length ? h('div', { className: 'lv-band', role: 'alert' },
+        h('b', null, failed.length + ' failed'), ' — ',
+        failed.map(r => (r.agent || '?') + ' ' + (r.job || '?') + ' ' + when(r.t)).join(' · '),
+        ' (details on Today → What the agents did)') : null,
+      h('div', { className: 'lv-tiles' },
+        agents.map(a => {
+          const mine = live.filter(i => (i.agent || 'no agent yet') === a)
+          const notShipped = mine.some(i => i.agent_shipped === false)
+          return h('button', { key: a, type: 'button', className: cls('lv-tile', agent === a && 'lv-on'),
+            onClick: () => { setAgent(agent === a ? null : a); setPage(0) } },
+            h('div', { className: 'lv-tname' }, a),
+            h('div', { className: 'lv-tcount' }, mine.length + ' need you' +
+              (mine.some(i => i.expiry && i.expiry < today) ? ' · some expired' : '')),
+            notShipped ? h('div', { className: 'lv-tcount tdy-warn' }, 'not shipped — nothing runs on its cards yet') : null)
+        })),
+      h('div', { className: 'lv-tray' },
+        h('div', { className: 'lv-trayhead' },
+          h('h2', null, agent ? 'The call · ' + agent : 'The call'),
+          h('span', { className: 'tdy-meta', style: { marginLeft: 0 } },
+            pool.length ? 'batch ' + (pg + 1) + ' of ' + pages + ' · ' + batch.length + ' of ' + pool.length + ' cards · soonest expiry first' : ''),
+          h('span', { style: { marginLeft: 'auto', display: 'flex', gap: 6 } },
+            pg > 0 ? h('button', { className: 'tdy-btn tdy-small', onClick: () => setPage(pg - 1) }, 'Back') : null,
+            pg < pages - 1 ? h('button', { className: 'tdy-btn tdy-small', onClick: () => setPage(pg + 1) }, 'Next five') : null,
+            h('button', { className: 'tdy-btn tdy-small', title: 'Closes this view only. Nothing is answered or parked.',
+              onClick: () => navigate('/today') }, 'Leave'))),
+        batch.length
+          ? batch.map(i => h(LiveCard, { key: i.id, i, today }))
+          : h('p', { className: 'tdy-empty' }, agent ? 'Nothing from ' + agent + ' waits on you.' : 'Nothing is waiting on you.'),
+        derived.length ? h('p', { className: 'tdy-note' },
+          derived.length + ' derived item(s) also wait — nobody typed them; see Today → Needs you.') : null),
+      h(Section, { title: 'Receipts', count: gone.length,
+        meta: since ? 'since ' + clock(since) : null,
+        children: h('div', null,
+          gone.length
+            ? gone.map(i => h('div', { key: i.id, className: 'lv-receipt' },
+                h('span', { className: 'tdy-agent' }, i.agent || '—'), ' · ', i.ask || i.title,
+                h('span', { className: 'tdy-when', style: { marginLeft: 8 } }, 'left the queue ' + ago(i.seenGoneAt))))
+            : h('p', { className: 'tdy-empty' }, 'No card has left the queue since the Desktop loaded this page.'),
+          h('p', { className: 'tdy-note' },
+            'The word and who gave it are in the queue record, not on this page yet: the box serves open cards only, ' +
+            'and serving closed ones needs a server change that is not part of this slice.')) }),
+      parked.length ? h(Section, { title: 'Parked', count: parked.length,
+        children: h('div', { className: 'tdy-parked' }, parked.map(i => h('div', { key: i.id, className: 'tdy-parkrow' },
+          (i.agent ? i.agent + ' · ' : '') + (i.ask || i.title) + ' — until ' + i.parked.until))) }) : null))
 }
 
 /* ------------------------------------------------------------------------ */
@@ -795,16 +1121,41 @@ const plugin = {
     'text at /today.txt for agents. Fleet: the full view of the box, unchanged. Read-only; ' +
     'every action is a command you run yourself.',
   register(ctx) {
+    restFn = ctx.rest
     const TodayPage = makeTodayPage(ctx.rest)
     const FleetPage = makeFleetPage(ctx.rest)
-    ctx.registerMany([
-      { id: 'today-page', area: ROUTES_AREA, data: { path: '/today' }, render: () => h(TodayPage) },
+    const needDetail = () => {
+      const n = needCount(store.data)
+      return n === null ? 'not sampled yet' : n + ' need you' + (store.err ? ' · stale' : '')
+    }
+    const contributions = [
+      { id: 'today-page', area: ROUTES_AREA, data: { path: '/today' },
+        render: () => h(Boundary, { name: 'Today' }, h(TodayPage)) },
       { id: 'today-nav', area: SIDEBAR_NAV_AREA, order: 5,
         data: { codicon: 'home', label: 'Today', path: '/today' } },
-      { id: 'page', area: ROUTES_AREA, data: { path: '/fleet' }, render: () => h(FleetPage) },
+      { id: 'live-page', area: ROUTES_AREA, data: { path: '/live' },
+        render: () => h(Boundary, { name: 'Live' }, h(LivePage)) },
+      { id: 'live-nav', area: SIDEBAR_NAV_AREA, order: 6,
+        data: { codicon: 'broadcast', label: 'Live', path: '/live' } },
+      { id: 'page', area: ROUTES_AREA, data: { path: '/fleet' },
+        render: () => h(Boundary, { name: 'Fleet' }, h(FleetPage)) },
       { id: 'nav', area: SIDEBAR_NAV_AREA, order: 55,
         data: { codicon: 'pulse', label: 'Fleet', path: '/fleet' } }
-    ])
+    ]
+    if (STATUSBAR_RIGHT) {
+      contributions.push({ id: 'need-chip', area: STATUSBAR_RIGHT, order: 115,
+        render: () => h(Boundary, { name: 'Needs-you chip' }, h(NeedChip)) })
+    }
+    if (PALETTE_AREA) {
+      contributions.push(
+        { id: 'open-today', area: PALETTE_AREA,
+          data: { id: 'fleet.open-today', label: 'Open Today — what needs you', keywords: ['today', 'needs', 'decide'],
+            detail: needDetail, run: () => navigate('/today') } },
+        { id: 'open-live', area: PALETTE_AREA,
+          data: { id: 'fleet.open-live', label: 'Open Live — the call', keywords: ['live', 'call', 'cards'],
+            detail: needDetail, run: () => navigate('/live') } })
+    }
+    ctx.registerMany(contributions)
   }
 }
 
