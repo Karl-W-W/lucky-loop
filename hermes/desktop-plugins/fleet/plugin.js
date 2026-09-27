@@ -1867,6 +1867,190 @@ function MonitorPage() {
 }
 
 /* ------------------------------------------------------------------------ */
+/* CALL (/call) — the decision call (slice 3, Karl 2026-09-27). ONE card at  */
+/* a time, in the queue's order (the server's live block when it has one),  */
+/* with its why, its words and what each is for, its default. "Start the    */
+/* call" opens a Hermes chat with the `decision-call` profile, primed with   */
+/* `call <id>`: that agent presents the card, discusses its effects (the     */
+/* card and read-only vault context), reads Karl's word back, and records it */
+/* only after his explicit yes in a later turn (tier 3: a second yes). The   */
+/* recording is the agent's one narrow tool, enforced in code there          */
+/* (hermes/plugins/decision-call), through the vault's one writer, doneBy    */
+/* "karl — call <word>". THIS PAGE WRITES NOTHING: it opens a chat, or       */
+/* copies a line. Voice: in the chat, the composer's voice button (Ctrl+B)   */
+/* starts a spoken call; the profile hears with local Whisper and speaks     */
+/* with Edge TTS, so a call spends nothing.                                  */
+/* ------------------------------------------------------------------------ */
+const CALL_PROFILE = 'decision-call'
+const CALL_STYLE_ID = 'fleet-call-style'
+const CALL_CSS = `
+.cl-root{padding:22px 28px 64px;max-width:860px;font-size:14px;line-height:1.5}
+.cl-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.cl-head h1{font-size:28px;font-weight:650;margin:0;letter-spacing:-.015em}
+.cl-meta{font-size:11.5px;opacity:.55;font-variant-numeric:tabular-nums}
+.cl-card{border:1px solid rgba(128,128,128,.3);border-radius:12px;padding:18px 20px;margin-top:14px;
+  background:rgba(128,128,128,.05)}
+.cl-pos{font-size:12px;opacity:.6;font-variant-numeric:tabular-nums;display:flex;gap:10px;flex-wrap:wrap}
+.cl-tier{padding:0 7px;border-radius:999px;font-weight:600;background:rgba(128,128,128,.18)}
+.cl-tier.cl-t3{background:#e26d5c;color:#fff}
+.cl-ask{font-size:21px;font-weight:620;margin:8px 0 4px;letter-spacing:-.01em}
+.cl-title{font-size:12.5px;opacity:.6;margin-bottom:10px}
+.cl-sec{margin-top:12px}
+.cl-sec b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.55;margin-bottom:2px}
+.cl-sec p{margin:0;max-width:78ch;opacity:.88;white-space:pre-wrap}
+.cl-words{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.cl-word{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;padding:3px 9px;
+  border-radius:6px;border:1px solid rgba(128,128,128,.35)}
+.cl-word.cl-noop{border-style:dashed}
+.cl-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:18px}
+.cl-start{font:inherit;font-size:14px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer;
+  border:0;background:#2f7d5b;color:#fff}
+.cl-start[disabled]{opacity:.5;cursor:default}
+.cl-btn{font:inherit;font-size:12px;padding:6px 11px;border-radius:7px;cursor:pointer;
+  border:1px solid rgba(128,128,128,.35);background:rgba(128,128,128,.08);color:inherit}
+.cl-note{font-size:12px;opacity:.62;margin-top:14px;max-width:78ch}
+.cl-state{font-size:12.5px;margin-top:10px}
+.cl-bad{color:#e26d5c}
+`
+function injectCallStyle() {
+  const old = document.getElementById(CALL_STYLE_ID)
+  if (old && old.textContent === CALL_CSS) return
+  if (old) old.remove()
+  const el = document.createElement('style')
+  el.id = CALL_STYLE_ID
+  el.textContent = CALL_CSS
+  document.head.appendChild(el)
+}
+
+/* The local route that serves the decision-call profile, or null (then the bare-profile overload). */
+async function callRoute(host) {
+  if (typeof host.profileRoutes !== 'function') return null
+  try {
+    const routes = await host.profileRoutes()
+    const mine = (routes || []).filter(r => r && (r.targetProfile === CALL_PROFILE || r.profile === CALL_PROFILE))
+    return mine.find(r => r.mode === 'local') || mine[0] || null
+  } catch { return null }
+}
+
+/* Open a fresh decision-call chat primed with `call <id>`. Resolves to a line for the page.
+ * The same door Bot Mode uses: session.create → session.title → openSession → prompt.submit.
+ * Any missing piece falls back to a plain new chat in the profile plus the line on the clipboard. */
+async function startCall(card) {
+  const host = SDK.host
+  const line = 'call ' + card.id
+  const fallback = async why => {
+    try { if (host && typeof host.newChat === 'function') host.newChat(CALL_PROFILE) } catch { /* no-op */ }
+    await copy(line).catch(() => {})
+    return { ok: false, msg: why + ' — a new ' + CALL_PROFILE + ' chat was opened and "' + line + '" copied: paste it and send.' }
+  }
+  if (!host || typeof host.requestProfile !== 'function' || typeof host.openSession !== 'function') {
+    return fallback('this Desktop cannot open a primed chat from a plugin')
+  }
+  const route = await callRoute(host)
+  const target = route ? route : CALL_PROFILE
+  const req = (method, params) => host.requestProfile(target, method, params, undefined, { spawnPriority: 'foreground' })
+  try {
+    const title = 'Call · ' + String(card.ask || card.title || card.id).slice(0, 60)
+    const res = await req('session.create', { profile: route ? (route.targetProfile || route.profile) : CALL_PROFILE, title })
+    const sid = res && res.stored_session_id
+    const runtime = res && res.session_id
+    if (!sid || !runtime) return fallback('the ' + CALL_PROFILE + ' backend did not return a session')
+    try { await req('session.title', { session_id: runtime, title }) } catch { /* the first prompt persists the row */ }
+    let opened = false
+    const open = () => host.openSession(sid, { ...(route ? { route } : {}), profile: CALL_PROFILE, intent: 'main',
+      keepAllProfilesScope: true, tabTitle: title, awaitHydration: false })
+    try { await open(); opened = true } catch { /* retried after the first prompt */ }
+    await new Promise(r => setTimeout(r, 400))
+    await req('prompt.submit', { session_id: runtime, text: line })
+    if (!opened) { try { await open() } catch { /* the chat exists; it is in the Sessions list */ } }
+    return { ok: true, msg: 'The call is open in a ' + CALL_PROFILE + ' chat. Press Ctrl+B there to talk.' }
+  } catch (e) {
+    return fallback('could not open the call (' + String((e && e.message) || e).slice(0, 120) + ')')
+  }
+}
+
+function CallPage() {
+  const s = useToday(true)
+  const [focus, setFocus] = useState(null) // card id this view shows; null = the queue's first
+  const [st, setSt] = useState(null) // { busy } | { ok, msg } — this view only
+  useEffect(() => { injectStyle(); injectCallStyle() }, [])
+  const data = s.data
+  const { live } = splitNeeds((data && data.needs_you) || {})
+  const lv = data && data.live && !data.live.error && Array.isArray(data.live.order) ? data.live : null
+  const Q = lv ? lv.order.map(id => live.find(i => i.id === id)).filter(Boolean)
+    .concat(live.filter(i => !lv.order.includes(i.id)).sort(byQueue)) : live.slice().sort(byQueue)
+  let qi = focus ? Q.findIndex(c => c.id === focus) : 0
+  if (qi < 0) qi = 0 // the card left the queue (its word was recorded): the queue's first is next
+  const q = Q[qi] || null
+  const words = q ? wordsOf(q) : []
+  const tier = q ? Number(q.tier) || null : null
+  const plain = q && SAFE_ID.test(String(q.id))
+  const step = d => { const to = Q[Math.max(0, Math.min(Q.length - 1, qi + d))]; if (to) { setFocus(to.id); setSt(null) } }
+  const go = () => {
+    if (!q || !plain || (st && st.busy)) return
+    setSt({ busy: true })
+    startCall(q).then(r => setSt(r)).catch(e => setSt({ ok: false, msg: String(e) }))
+  }
+  const sec = (label, text) => text ? h('div', { className: 'cl-sec' }, h('b', null, label), h('p', null, String(text))) : null
+
+  return h('div', { className: 'cl-root' },
+    h('div', { className: 'cl-head' },
+      h('h1', null, 'The call'),
+      data ? h('span', { className: 'cl-meta' },
+        (Q.length ? Q.length + ' card' + (Q.length === 1 ? '' : 's') + ' in the queue’s order' : 'nothing needs you') +
+        ' · sampled ' + hhmm(data.sampled_at) + (s.err ? ' · STALE: ' + s.err : '')) : null),
+    !data ? h('div', { className: 'tdy-empty' }, s.err ? 'Could not sample: ' + s.err : 'Sampling the box…')
+      : !q ? h('div', { className: 'tdy-empty' }, 'Nothing needs you. Parked cards come back on their day.')
+        : h('div', { className: 'cl-card' },
+          h('div', { className: 'cl-pos' },
+            h('span', null, 'card ' + (qi + 1) + ' of ' + Q.length),
+            tier ? h('span', { className: cls('cl-tier', tier === 3 && 'cl-t3') }, 'tier ' + tier + (tier === 3 ? ' · a second yes' : '')) : null,
+            q.ask_kind ? h('span', null, q.ask_kind) : null,
+            h('span', null, who(q)),
+            q.expiry ? h('span', null, 'expires ' + q.expiry) : null),
+          h('div', { className: 'cl-ask' }, q.ask || q.title),
+          q.ask ? h('div', { className: 'cl-title' }, q.title) : null,
+          sec('Why', q.why),
+          sec('What it takes', q.steps),
+          sec('If you say nothing', q.default),
+          h('div', { className: 'cl-sec' }, h('b', null, 'The words'),
+            h('div', { className: 'cl-words' },
+              words.map((w, n) => h('span', { key: w, className: cls('cl-word', n === 0 && tier === 3 && 'cl-noop') }, w)),
+              plain ? h('span', { key: 'later', className: 'cl-word cl-noop', title: 'parks it until tomorrow; it stays open' }, 'later') : null)),
+          h('div', { className: 'cl-actions' },
+            h('button', { type: 'button', className: 'cl-start', disabled: !plain || Boolean(st && st.busy), onClick: go,
+              title: 'Opens a ' + CALL_PROFILE + ' chat primed with this card. Nothing is answered here.' },
+            st && st.busy ? 'Opening the call…' : 'Start the call'),
+            h('button', { type: 'button', className: 'cl-btn', disabled: qi <= 0, onClick: () => step(-1) }, '← previous'),
+            h('button', { type: 'button', className: 'cl-btn', disabled: qi >= Q.length - 1, onClick: () => step(1) }, 'next →'),
+            h('button', { type: 'button', className: 'cl-btn', onClick: () => copy('call ' + q.id).catch(() => {}),
+              title: 'For a chat you already have open with the ' + CALL_PROFILE + ' profile' }, 'Copy “call <id>”')),
+          st && !st.busy ? h('div', { className: cls('cl-state', !st.ok && 'cl-bad') }, st.msg) : null),
+    h('p', { className: 'cl-note' },
+      'In the call the agent presents this card, talks through what each word does, and reads your word back. ' +
+      'It records only after you say an explicit yes in your next message — a tier-3 card takes a second yes — ' +
+      'through the same writer as decide, marked “karl — call <word>”. It has no shell and sends nothing. ' +
+      'To talk instead of type, press Ctrl+B in the chat (local Whisper hears, Edge TTS speaks; nothing is spent). ' +
+      'This page writes nothing; decide in a terminal still works.'))
+}
+
+/* Registration for /call, kept apart so the other lanes' registration edits do not collide with it. */
+function callContributions() {
+  const out = [
+    { id: 'call-page', area: ROUTES_AREA, data: { path: '/call' },
+      render: () => h(Boundary, { name: 'Call' }, h(CallPage)) },
+    { id: 'call-nav', area: SIDEBAR_NAV_AREA, order: 8,
+      data: { codicon: 'unmute', label: 'Call', path: '/call' } }
+  ]
+  if (PALETTE_AREA) {
+    out.push({ id: 'open-call', area: PALETTE_AREA,
+      data: { id: 'fleet.open-call', label: 'Open the call — one decision card, talked through', keywords: ['call', 'decide', 'voice', 'card'],
+        run: () => navigate('/call') } })
+  }
+  return out
+}
+
+/* ------------------------------------------------------------------------ */
 /* Fleet — the full view of the box, unchanged, as its own page.             */
 /* Today ADDS a page; it does not replace this one (Karl, 2026-09-03).       */
 /* ------------------------------------------------------------------------ */
@@ -2012,6 +2196,7 @@ const plugin = {
             detail: needDetail, run: () => navigate('/monitor') } })
       }
     }
+    contributions.push(...callContributions())
     ctx.registerMany(contributions)
   }
 }
