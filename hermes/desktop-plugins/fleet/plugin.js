@@ -1735,6 +1735,14 @@ const CC_TOKENS = `
 .ccs .sent{flex-basis:100%;font-size:12px;color:var(--ink-2)}.ccs .sent.bad{color:var(--danger)}
 .ccs .navs{display:flex;gap:6px;margin-top:8px}
 .ccs .tile.away .t-face svg{filter:saturate(.35) brightness(.7)}
+.ccs .tile.host{align-self:start}
+.ccs .why{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ccs .tr-ask{-webkit-line-clamp:4}
+.ccs .thr{display:flex;gap:6px;align-items:flex-start}
+.ccs .evr .rw b{min-width:0}.ccs .evr .rw b .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ccs[data-r=chat] .tr-meta,.ccs[data-r=room] .tr-meta{white-space:normal;flex-wrap:wrap}
+.ccs.cc-sbar kbd{display:inline-grid;place-items:center;min-width:17px;height:16px;padding:0 4px;border-radius:4px;background:var(--surface-3);border:1px solid var(--border-2);font:500 10px/1 var(--mono);color:var(--ink-2)}
+.ccs.cc-sbar .sbtn{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2);font:inherit;background:none;border:0;cursor:pointer}
 .ccs .comp .in{cursor:pointer}.ccs .comp .in:hover{border-color:var(--border-2);color:var(--ink-3)}
 /* the sidebar sections below the Bots roster, and the chrome items */
 .ccs.cc-side{padding:4px 8px 14px;display:flex;flex-direction:column;gap:1px;background:transparent}
@@ -2172,7 +2180,7 @@ function ccLoc() {
 function useCcLoc() {
   const [loc, setLoc] = useState(ccLoc)
   useEffect(() => {
-    const on = () => setLoc(ccLoc())
+    const on = () => setLoc(prev => { const n = ccLoc(); return prev && prev.path === n.path && prev.params.toString() === n.params.toString() ? prev : n })
     window.addEventListener('hashchange', on)
     window.addEventListener('popstate', on)
     const t = setInterval(on, 800) // a router that replaces state without an event is still followed
@@ -2182,7 +2190,7 @@ function useCcLoc() {
 }
 
 /* ---- helpers ported from the mockup ----------------------------------- */
-const ccEsc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const ccEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 const ccClean = s => String(s == null ? '' : s).replace(/^NEEDS YOU #\d+\s*[—–-]\s*/i, '')
 const ccT = s => ccEsc(keep(ccClean(s)))
 const CC_HAND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-6-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>'
@@ -2203,14 +2211,39 @@ const CC_KG = {
 const CC_KIND = { claude: 'Claude Code', hermes: 'Hermes Bot', timer: 'timer' }
 const CC_YOU = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="42" fill="#232321" stroke="rgba(255,255,255,.2)" stroke-width="1.5" stroke-dasharray="3 4"/><circle cx="50" cy="40" r="13" fill="#6b6a64"/><path d="M26 76c3-13 13-20 24-20s21 7 24 20" fill="#6b6a64"/></svg>'
 /* Faces: the mockup's deterministic generator, whole — hue, shape family by kind. */
-const ccHue = id => Math.round(176 + rnd(hsh(id))() * 92)
+/* A Bot's hue is the roster's own (the SDK's profileColor), so the stage and the Bots list agree on who is */
+/* who; anything the roster does not draw keeps the mockup's cool range.                                   */
+const ccRosterColor = id => {
+  try {
+    const m = window.__luckyBotColors // published by the fork's Bots roster: the colour each bot's face is drawn in
+    if (m && typeof m[id] === 'string') return m[id]
+    return typeof SDK.profileColor === 'function' ? SDK.profileColor(String(id)) : null
+  } catch { return null }
+}
+const ccHueOf = c => {
+  const s = String(c || '')
+  let m = s.match(/hsla?\(\s*(\d+(?:\.\d+)?)/)
+  if (m) return Math.round(Number(m[1]))
+  m = s.match(/^#([0-9a-f]{6})$/i)
+  if (!m) return null
+  const n = parseInt(m[1], 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn
+  if (!d) return 0
+  const hh = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return Math.round((hh * 60 + 360) % 360)
+}
+const ccRosterHue = id => (String(id).startsWith('timer:') ? null : ccHueOf(ccRosterColor(id)))
+const ccHue = id => { const r = ccRosterHue(id); return r != null ? r : Math.round(176 + rnd(hsh(id))() * 92) }
 const ccFaces = new Map()
 function ccFace(id, kind) {
-  const key = id + '|' + kind
+  const key = id + '|' + kind + '|' + (ccRosterColor(id) || '')
   if (ccFaces.has(key)) return ccFaces.get(key)
   const r = rnd(hsh(id))
-  const hh = Math.round(176 + r() * 92), s = Math.round(20 + r() * 26), l = Math.round(58 + r() * 10)
-  const fill = `hsl(${hh} ${s}% ${l}%)`, dk = `hsl(${hh} ${Math.round(s * 0.7)}% ${l - 20}%)`
+  const rh = kind === 'timer' ? null : ccRosterHue(id)
+  const hh0 = Math.round(176 + r() * 92), s0 = Math.round(20 + r() * 26), l0 = Math.round(58 + r() * 10)
+  const hh = rh != null ? rh : hh0, s = rh != null ? 52 : s0, l = rh != null ? 62 : l0
+  const rc = rh != null ? ccRosterColor(id) : null
+  const fill = rc && /^(#[0-9a-f]{6}|hsla?\([\d.\s%,]+\))$/i.test(rc) ? rc : `hsl(${hh} ${s}% ${l}%)`, dk = `hsl(${hh} ${Math.round(s * 0.7)}% ${l - 20}%)`
   let body = '', ey = 49
   if (kind === 'hermes') {
     const A = 34 + r() * 3, B = 31 + r() * 3, n = 0.55
@@ -2248,9 +2281,12 @@ const ccHM = iso => { const d = new Date(iso); return Number.isNaN(d.getTime()) 
 const ccStamp = iso => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? String(iso || '—') : d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) }
 const ccEvery = raw => {
   const s = String(raw || '')
+  const cal = s.match(/\*-\*-\* \d\d:\d\d:\d\d/g)
+  if (cal && cal.length > 1) return cal.length + '× a day'
   let m = s.match(/every\s+(\d+)\s*min/i); if (m) return m[1] + ' min'
   m = s.match(/^\*-\*-\* \*:\d\d\/(\d+):00$/); if (m) return Number(m[1]) + ' min'
-  m = s.match(/^\*-\*-\* (\d\d:\d\d):00$/); if (m) return m[1]
+  m = s.match(/^\*-\*-\* (\d\d):(\d\d):00( UTC)?$/)
+  if (m) { if (!m[3]) return m[1] + ':' + m[2]; const d = new Date(); d.setUTCHours(+m[1], +m[2], 0, 0); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) }
   m = s.match(/every\s+(\d+)\s*h/i); if (m) return m[1] + ' h'
   return s.replace(/^every\s+/i, '') || '—'
 }
@@ -2269,7 +2305,7 @@ function ccModel(data, ov) {
   const cards = items.map(i => {
     const pk = isParked(i, today)
     return {
-      id: String(i.id), p: i.priority ?? 9, tier: Number(i.tier) || null, kind: i.ask_kind || 'DO', owner: seatOf(i),
+      id: String(i.id), p: Number.isFinite(+i.priority) && i.priority !== null && i.priority !== '' ? +i.priority : 9, tier: Number(i.tier) || null, kind: i.ask_kind || 'DO', owner: seatOf(i),
       expiry: ccMMDD(i.expiry), expired: Boolean(i.expiry) && String(i.expiry) < today, title: topic(i), full: i.title || i.ask || i.id,
       ask: i.ask || '', why: i.why || '', default: i.default || '', options: wordsOf(i), plain: SAFE_ID.test(String(i.id)),
       parked: pk ? ((i.parked && (i.parked.reason === 'later' ? 'later' : i.parked.reason)) || 'parked') + ' · until ' + ccMMDD(i.parked.until) : null,
@@ -2302,13 +2338,13 @@ function ccModel(data, ov) {
   })
   // everyone else the battlefield shows: the Mac's other panes, the box's Bots, the box's timers
   panes.filter(r => r.host === 'mac' && !AG[r.name]).forEach(r => {
-    AG[r.name] = { id: r.name, name: r.name, kind: 'claude', where: 'mac', pane: r, herdr: [r.detail, r.where].filter(Boolean).join(' · '),
+    AG[r.name] = { id: r.name, name: /^w\w*-p\w+$/.test(r.name) && r.detail ? r.detail + ' · ' + (r.where || r.name) : r.name, kind: 'claude', where: 'mac', pane: r, herdr: [r.detail, r.where].filter(Boolean).join(' · '),
       lane: 'Claude Code · ' + (r.detail || 'a pane'), state: PANE_STATE[r.state] || r.state || 'idle' }
   })
   botsB.filter(b => !AG[b.id || b.name]).forEach(b => {
     const bid = b.id || b.name
     AG[bid] = { id: bid, name: b.name || b.display_name || bid, kind: 'hermes', where: 'box', lane: b.lane || (b.bot ? 'Hermes Bot' : 'Hermes profile'),
-      state: failedOf(b.name).length ? 'failed' : 'idle' }
+      state: failedOf(bid).length ? 'failed' : 'idle' }
   })
   const tmr = data && data.timers && Array.isArray(data.timers.items) ? data.timers.items : []
   tmr.forEach(t => {
@@ -2319,7 +2355,7 @@ function ccModel(data, ov) {
 
   const rooms = (rb.rooms || []).map(r => {
     const members = (r.members || []).map(String)
-    return { id: String(r.id), name: r.name || r.id, agents: members.filter(m => AG[m]), cards: cards.concat(doneCards).filter(c => members.includes(c.owner)).map(c => c.id) }
+    return { id: String(r.id), name: r.name || r.id, agents: members.filter(m => AG[m]), cards: cards.filter(c => members.includes(c.owner)).map(c => c.id) }
   })
 
   // the box
@@ -2334,21 +2370,21 @@ function ccModel(data, ov) {
   runs.filter(r => (r.status === 'failed' || r.status === 'stopped' || r.status === 'blocked') && lastNight(r.t)).forEach(r => {
     const same = nightly.find(x => x.agent === r.agent && x.job === r.job && x.state === r.status)
     if (same) same.n += 1
-    else nightly.push({ t: ccMMDD(r.t) + ' ' + ccHM(r.t), agent: r.agent, job: r.job || '?', state: r.status === 'stopped' ? 'failed' : r.status, why: r.reason || '', n: 1 })
+    else nightly.push({ t: ccMMDD(r.t) + ' ' + ccHM(r.t), agent: r.agent, job: r.job || '?', state: r.status === 'stopped' ? 'failed' : r.status, why: String(r.reason || '').replace(/^\/\S*\/realms\/\S+ is empty$/, 'realm empty'), n: 1 })
   })
   const gb = mb => Math.round((mb || 0) / 1024)
   const box = {
     gpu: g.name || 'GPU', gpuPct: Math.round(Number(g.util_pct ?? b.gpu_util_pct) || 0), tempC: Math.round(Number(g.temp_c ?? b.gpu_temp_c) || 0),
-    cores: hl.cores || '—', load: Array.isArray(hl.load) ? hl.load.map(x => fmt(x, 2)) : [fmt(b.load1, 2)],
+    cores: Number.isFinite(+hl.cores) ? +hl.cores : '—', load: Array.isArray(hl.load) ? hl.load.map(x => fmt(x, 2)) : [fmt(b.load1, 2)],
     memTotal: mem ? gb(mem.total_mb) : '—', memUsed: mem ? gb(mem.total_mb - mem.available_mb) : '—', memFree: mem ? gb(mem.available_mb) : '—',
     memPct: mem ? ((mem.total_mb - mem.available_mb) / mem.total_mb) * 100 : 0,
-    diskPct: b.disk_pct ?? '—', uptimeDays: hl.uptime_s ? Math.floor(hl.uptime_s / 86400) : '—',
+    diskPct: Number.isFinite(+b.disk_pct) && b.disk_pct !== null ? Math.round(+b.disk_pct) : '—', uptimeDays: hl.uptime_s ? Math.floor(hl.uptime_s / 86400) : '—',
     checks: ck.total ? (ck.total - failing) + '/' + ck.total + ' ' + String(ck.status || 'checks').toLowerCase() : 'checks —',
-    models: (models.loaded || []).map(m => ({ id: m.name, gb: m.size_gb, loaded: true })), onDisk: models.on_disk ?? null,
-    hermes: models.hermes || {}, timers: tmr.map(t => ({ id: t.name, every: ccEvery(t.every), next: t.next })), nightly,
+    models: (models.loaded || []).map(m => ({ id: m.name, gb: Number.isFinite(+m.size_gb) ? +m.size_gb : '?', loaded: true })), onDisk: Number.isFinite(+models.on_disk) && models.on_disk !== null ? +models.on_disk : null,
+    hermes: { version: (models.hermes || {}).version, skills: Number.isFinite(+(models.hermes || {}).skills) ? +(models.hermes || {}).skills : null }, timers: tmr.map(t => ({ id: t.name, every: ccEvery(t.every), next: t.next })), nightly,
     error: data && data.box && data.box.error
   }
-  const proposals = (data && data.proposals && Array.isArray(data.proposals.items) ? data.proposals.items : [])
+  const proposals = (data && data.proposals && Array.isArray(data.proposals.items) ? data.proposals.items : []).filter(p => p && p.owner && p.title)
     .map((p, k) => ({ id: 'p' + k, owner: p.owner, title: p.title, why: p.why, about: p.about, date: p.date }))
   const answer = lv && lv.answer ? lv.answer : null
   return { today, cards, doneCards, order, AG, rooms, box, proposals, lv, answer, derived: (ny.derived || []).length,
@@ -2412,7 +2448,7 @@ function ccRender(M, route, answerOn) {
     } else if (route.v === 'battlefield') {
       l = `<span class="live"><i></i>Battlefield</span><span class="cb-sum">everyone · ${Object.keys(AG).length} agents · ${M.rooms.length} rooms · ${M.cards.length} cards · <b class="cnt${tk()}">${NEED()}</b></span>`
     } else {
-      l = `<span class="live"><i></i>Live</span><span class="cb-sum">${M.cards.length} open · <b class="cnt${tk()}">${NEED()}</b> · ${M.cards.filter(c => c.parked).length} parked · <span class="pp">${seated}/${OWN.length} owners in a pane${M.session && M.session.line ? ' · session ' + ccEsc(M.session.line) + ' answered today' : ''}${answerOn ? ' · answering on this page is ON' : ''}</span></span>`
+      l = `<span class="live"><i></i>Live</span><span class="cb-sum">${M.cards.length} open · <b class="cnt${tk()}">${NEED()}</b> · ${M.cards.filter(c => c.parked).length} parked · <span class="pp" title="${answerOn ? 'answering on this page is ON' : 'this page writes nothing'}">${seated}/${OWN.length} owners in a pane${M.session && M.session.line ? ' · ' + ccEsc(M.session.line) + ' answered today' : ''}</span></span>`
     }
     let rr = ''
     if (route.v === 'live') rr += `<div class="seg"><button class="${CS.view === 'gallery' ? 'on' : ''}" data-act="view" data-v="gallery">Gallery</button><button class="${CS.view === 'speaker' ? 'on' : ''}" data-act="view" data-v="speaker">Speaker</button></div>`
@@ -2467,7 +2503,7 @@ function ccRender(M, route, answerOn) {
     const g = AG[a], rm = o.room
     const cs = rm ? roomCards(rm).filter(c => c.owner === a) : cardsOf(a)
     const s = g.state === 'failed' ? 'failed' : (stOf(cs) || 'idle'), hit = fxHas(cs)
-    const where = rm ? (g.seat ? 'Hermes Bot · native' + (g.where === 'mac' ? ' · pane ' + ccEsc(g.pane.where || '') : '') : ROOMWHERE[g.kind]) : whereOf(a)
+    const where = rm ? (g.seat ? 'Hermes Bot · native' + (g.where === 'mac' ? ' · pane ' + (g.pane.where || '') : '') : ROOMWHERE[g.kind]) : whereOf(a)
     return `<div class="tile${o.cls || ''}${speaking() === a ? ' speaking' : ''}${g.state === 'away' ? ' away' : ''}" style="--h:${ccHue(a)}" data-act="tile" data-a="${ccEsc(a)}" data-s="${s}"><div class="where">${ccEsc(where)}</div>${handEl(a, cs, o.hcls)}<div class="t-face">${ccFace(a, g.kind)}</div><div class="t-body"><div class="t-name">${ccEsc(g.name)}${g.where === 'mac' ? CC_KG.claude : CC_KG[g.kind]}</div><div class="t-cap${hit ? ' cap-in' : ''}">${cs.length ? capHTML(a, cs) : ccEsc(g.lane)}</div><div class="t-st">${stLine(a, cs, Boolean(rm))}</div>${folds(a, cs, o.max)}</div></div>`
   }
   const hostTile = cls => {
@@ -2486,7 +2522,7 @@ function ccRender(M, route, answerOn) {
   }
   const stage = () => {
     if (route.v === 'battlefield') return bf()
-    if (route.v === 'room') { const rm = ROOM[route.id]; return `<div class="grid ${rm.agents.length + 1 <= 4 ? 'g2' : 'g3'}">${rm.agents.map(a => tile(a, { room: rm })).join('')}${youTile(rm)}</div>` }
+    if (route.v === 'room') { const rm = ROOM[route.id]; const byHands = rm.agents.slice().sort((x, y) => roomCards(rm).filter(c => c.owner === y && isN(c)).length - roomCards(rm).filter(c => c.owner === x && isN(c)).length || x.localeCompare(y)); return `<div class="grid ${rm.agents.length + 1 <= 4 ? 'g2' : 'g3'}">${byHands.map(a => tile(a, { room: rm })).join('')}${youTile(rm)}</div>` }
     if (route.v === 'chat') return speakerV(route.id)
     if (CS.view === 'speaker') return speakerV(speaking() || OWN[0])
     return `<div class="grid g5">${OWN.map(a => tile(a)).join('')}${hostTile(' span2')}</div>`
@@ -2577,11 +2613,11 @@ ${!c.shipped && !(AG[c.owner] && AG[c.owner].pane) ? '<div class="tr-lint">no ag
   const cell = a => {
     const g = AG[a], s = agentState(a) || '', n = hands(a)
     const lab = s ? LBL[s] : ccEsc(g.state === 'away' ? 'not in a pane' : g.state) + (g.seat ? '' : ' · no card')
-    return `<button class="evr" style="--h:${ccHue(a)}" data-act="go" data-h="/live?chat=${encodeURIComponent(a)}">${F(a, 34)}<span class="rw"><b>${ccEsc(g.name)}${g.where === 'mac' ? CC_KG.claude : CC_KG[g.kind]}</b><small><span class="${s && s !== 'needs' ? 'c-' + s : ''}">${lab}</span></small></span>${n ? `<span class="hand sm">${CC_HAND}${n}</span>` : ''}</button>`
+    return `<button class="evr" style="--h:${ccHue(a)}" data-act="go" data-h="/live?chat=${encodeURIComponent(a)}" title="${ccEsc(g.name + ' — ' + g.lane)}">${F(a, 34)}<span class="rw"><b><span class="nm">${ccEsc(g.name)}</span>${g.where === 'mac' ? CC_KG.claude : CC_KG[g.kind]}</b><small><span class="${s && s !== 'needs' ? 'c-' + s : ''}">${lab}</span></small></span>${n ? `<span class="hand sm">${CC_HAND}${n}</span>` : ''}</button>`
   }
   const bf = () => {
     const n = need(), k = s => M.cards.concat(M.doneCards).filter(c => st(c.id) === s).length
-    const fa = Object.values(AG).filter(a => a.state === 'failed').length
+    const fa = M.box.nightly.filter(x => x.state === 'failed').reduce((t, x) => t + x.n, 0)
     const all = Object.values(AG)
     const mac = all.filter(a => a.where === 'mac'), box = all.filter(a => a.where !== 'mac')
     const working = all.filter(a => a.state === 'working').length
@@ -2673,9 +2709,10 @@ function makeCStage(bfRoute) {
     const lk = loc.path + '?' + P.toString()
     if (CS.applied !== lk) {
       CS.applied = lk
-      CS.pop = P.get('pop') || null
-      CS.sheet = P.get('sheet') || null
+      CS.pop = P.get('pop') === 'rooms' ? 'rooms' : null
+      CS.sheet = P.get('sheet') === 'props' || P.get('sheet') === 'leave' ? P.get('sheet') : null
       if (P.get('left') === '1') CS.left = true
+      if (P.get('left') === '0') CS.left = false
       if (P.get('view') === 'speaker' || P.get('view') === 'gallery') CS.view = P.get('view')
       CS.trayOpen = P.get('tray') === '1'
       CS.pick = null
@@ -2712,6 +2749,8 @@ function makeCStage(bfRoute) {
       const m0 = el.querySelector('.cc-panel .msgs')
       const pk = route.v + '/' + (route.id || '')
       const keepTop = m0 && CS.pk === pk ? m0.scrollTop : null
+      if (el.__ccHtml === html && el.dataset.r === route.v) { CS.fx = null; CS.last = null; return }
+      el.__ccHtml = html
       el.innerHTML = html
       el.dataset.r = route.v
       const m1 = el.querySelector('.cc-panel .msgs')
@@ -2788,7 +2827,7 @@ function makeCStage(bfRoute) {
         case 'batch': { if (!R) break; const b = +t.dataset.b; const id = R.Q.find(x => R.BATCH[x] === b); if (id) { CS.focus = id; CS.pick = null } rer(); break }
         case 'totray': CS.want = t.dataset.id; CS.pop = null; CS.sheet = null; navigate('/live'); break
         case 'view': CS.view = t.dataset.v; rer(); break
-        case 'pop': { const p = t.dataset.p; CS.pop = CS.pop === p ? null : p; rer(); break }
+        case 'pop': { const p = t.dataset.p === 'rooms' ? 'rooms' : null; CS.pop = CS.pop === p ? null : p; rer(); break }
         case 'close': CS.pop = null; CS.sheet = null; rer(); break
         case 'sheet': CS.sheet = t.dataset.s; CS.pop = null; rer(); break
         case 'ovbg': if (e.target === t) { CS.sheet = null; rer() } break
@@ -2855,10 +2894,10 @@ function CcSide() {
   const need = M ? M.order.filter(id => M.cards.some(c => c.id === id && !c.parked)).length + M.derived : null
   const pill = n => (n === null ? '' : `<span class="need${n ? '' : ' zero'}">${n} need you</span>`)
   const onLive = loc.path === '/live' && !P.get('room')
-  const failed = M ? M.box.nightly.filter(x => x.state === 'failed').length : 0
+  const failed = M ? M.box.nightly.filter(x => x.state === 'failed').reduce((t, x) => t + x.n, 0) : 0
   let html = `<div class="sh"><span>Fleet</span></div>`
   html += `<button class="row${onLive ? ' on' : ''}" data-h="/live">${CC_IC.live}<span class="rw"><b>Live</b></span>${pill(need)}</button>`
-  html += `<button class="row${loc.path === '/battlefield' ? ' on' : ''}" data-h="/battlefield">${CC_IC.bf}<span class="rw"><b>Battlefield</b><small${failed ? ' class="c-failed"' : ''}>${M ? Object.keys(M.AG).length + ' agents · ' + M.rooms.length + ' rooms' + (failed ? ' · ' + failed + ' failed last night' : '') : 'sampling…'}</small></span></button>`
+  html += `<button class="row${loc.path === '/battlefield' ? ' on' : ''}" data-h="/battlefield">${CC_IC.bf}<span class="rw"><b>Battlefield</b><small>${M ? Object.keys(M.AG).length + ' agents · ' + M.rooms.length + ' rooms' + (failed ? ' · <span class="c-failed">' + failed + ' failed last night</span>' : '') : 'sampling…'}</small></span></button>`
   html += `<button class="row" data-h="/live?sheet=props">${CC_IC.prop}<span class="rw"><b>Proposals</b><small>not questions · no count</small></span></button>`
   html += `<div class="sh sub"><span>Rooms</span></div>`
   if (M) {
@@ -2923,7 +2962,9 @@ function CcStatus({ side }) {
   useEffect(() => { injectCC() }, [])
   const M = s.data ? ccModel(s.data, null) : null
   if (!M) return null
-  if (side === 'right') return h('span', { className: 'ccs cc-sbar' }, 'sampled ' + M.sampled)
+  if (side === 'right') return h('span', { className: 'ccs cc-sbar' },
+    h('button', { type: 'button', className: 'sbtn', onClick: () => navigate('/command-center'), title: 'Hermes’s own Command Center — ⌘.' }, 'Command Center ', h('kbd', null, '⌘.')),
+    h('span', null, 'sampled ' + M.sampled))
   const Q = M.order.filter(id => M.cards.some(c => c.id === id && !c.parked))
   const n = Q.length + M.derived
   const nb = Math.max(1, Math.ceil(Q.length / BATCH))
@@ -2941,7 +2982,7 @@ function ccBootToStage() {
   if (typeof performance !== 'undefined' && performance.now() > 60000) return // a hot reload mid-session: never yank the view
   setTimeout(() => {
     const p = ccLoc().path
-    if (!ccOurs(p) && !/^\/(settings|command-center|today|fleet|monitor|call)\b/.test(p)) navigate('/live')
+    if (!ccOurs(p) && !/^\/(settings|command-center|today|fleet|monitor|call|live-classic)\b/.test(p)) navigate('/live')
     try { if (SDK.host && typeof SDK.host.revealPane === 'function') SDK.host.revealPane('hermes-bots:pane') } catch { /* no Bots pane */ }
   }, 1200)
 }
@@ -3443,6 +3484,9 @@ const plugin = {
         data: { codicon: 'home', label: 'Today', path: '/today' } },
       { id: 'live-page', area: ROUTES_AREA, data: { path: '/live' },
         render: () => h(Boundary, { name: 'Live' }, h(CStageLive)) },
+      // the pre-C Live, kept reachable (additive rule, 09-03): /live-classic
+      { id: 'live-classic-page', area: ROUTES_AREA, data: { path: '/live-classic' },
+        render: () => h(Boundary, { name: 'Live (classic)' }, h(LivePage)) },
       { id: 'battlefield-page', area: ROUTES_AREA, data: { path: '/battlefield' },
         render: () => h(Boundary, { name: 'Battlefield' }, h(CStageBF)) },
       { id: 'battlefield-nav', area: SIDEBAR_NAV_AREA, order: 6.5,

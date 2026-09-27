@@ -28,9 +28,11 @@ import glob
 import json
 import os
 import re
+import shlex
 import statistics
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -1181,7 +1183,6 @@ def rooms(_gateway=None, _fallback: Optional[Path] = None) -> Dict[str, Any]:
 # whole proposal rather than a redacted half of it.
 # --------------------------------------------------------------------------- #
 COUNCIL_DIR = BRAIN / "captures" / "council"
-DEFAULT_SEATS = ("commander", "my-big-game", "showcase", "bill-clerk", "mail-triage")
 PROPOSALS_CAP = 12
 _NBA_RE = re.compile(r"^#{2,4}\s*next best action\s*:?\s*$", re.I)
 _NBA_INLINE_RE = re.compile(r"^\**next best action\**\s*[:—-]\s*(.+)$", re.I)
@@ -1201,7 +1202,14 @@ def _secretish(s: str) -> bool:
 
 
 def _seats() -> List[str]:
-    seats = list(DEFAULT_SEATS)
+    """The seats are data, never code: every card `agent` in the queue, plus every Bot profile."""
+    seats: List[str] = []
+    try:
+        for pf in sorted(HERMES_PROFILES.iterdir()):
+            if pf.is_dir() and re.fullmatch(r"[a-z0-9][a-z0-9-]{1,40}", pf.name) and pf.name not in seats:
+                seats.append(pf.name)
+    except Exception:
+        pass
     try:
         for i in _read_json(QUEUE_FILE).get("items", []):
             a = i.get("agent")
@@ -1247,8 +1255,28 @@ def _split_title_why(para: str) -> tuple:
     return title.strip(), rest
 
 
+_PROPOSALS_CACHE: Dict[str, Any] = {}
+
+
 def proposals(_dir: Optional[Path] = None, _seats_list: Optional[List[str]] = None,
               cap: int = PROPOSALS_CAP) -> Dict[str, Any]:
+    """Cached for 60 s against the report folder's newest write: /today polls every 15 s."""
+    if _dir is not None or _seats_list is not None:
+        return _proposals(_dir, _seats_list, cap)
+    try:
+        stamp = max((p.stat().st_mtime for p in COUNCIL_DIR.glob("cc-*.md")), default=0.0)
+    except Exception:
+        stamp = -1.0
+    hit = _PROPOSALS_CACHE.get("v")
+    if hit and hit[0] == stamp and time.time() - hit[1] < 60:
+        return hit[2]
+    out = _proposals(None, None, cap)
+    _PROPOSALS_CACHE["v"] = (stamp, time.time(), out)
+    return out
+
+
+def _proposals(_dir: Optional[Path] = None, _seats_list: Optional[List[str]] = None,
+               cap: int = PROPOSALS_CAP) -> Dict[str, Any]:
     """``{sampled_at, source, items: [{owner, title, why, about, file, date}], skipped_secretish}``.
     ``about`` is the report's own H1 (which card or pass it is), because a proposal like
     "Karl says done." means nothing without it.
@@ -1256,7 +1284,7 @@ def proposals(_dir: Optional[Path] = None, _seats_list: Optional[List[str]] = No
     d = _dir or COUNCIL_DIR
     out: Dict[str, Any] = {"sampled_at": _now(), "source": _rel(d) + "/cc-*-<seat>-*.md", "items": [],
                            "skipped_secretish": 0}
-    seats = sorted(_seats_list or _seats(), key=len, reverse=True)   # longest first: my-big-game before my
+    seats = sorted(_seats_list or _seats(), key=len, reverse=True)   # longest first: big-seat before big
     cands = []
     for p in d.glob("cc-*.md"):
         m = _FILE_DATE_RE.match(p.name)
@@ -1264,6 +1292,10 @@ def proposals(_dir: Optional[Path] = None, _seats_list: Optional[List[str]] = No
             continue
         owner = next((s for s in seats if m.group(2) == s or m.group(2).startswith(s + "-")), None)
         if not owner:
+            continue
+        # A proposal is an owner's own idea from a PASS report. A per-card report's "next best
+        # action" is an ask of Karl about that card — a question, and questions live in the queue.
+        if "pass" not in m.group(2)[len(owner):]:
             continue
         try:
             mt = p.stat().st_mtime
@@ -1281,7 +1313,7 @@ def proposals(_dir: Optional[Path] = None, _seats_list: Optional[List[str]] = No
         if not para:
             continue
         title, why = _split_title_why(para)
-        if not title:
+        if not title or re.match(r"(?i)karl\b", title):   # "Karl pastes…" is a question, not a proposal
             continue
         if _secretish(title) or _secretish(why):
             out["skipped_secretish"] += 1
@@ -1504,7 +1536,7 @@ def timers(_list=None, _show=None) -> Dict[str, Any]:
     if not names:
         return out
     props = _show(names) if _show else _sh(
-        "systemctl --user show " + " ".join(names)
+        "systemctl --user show " + " ".join(shlex.quote(n) for n in names)
         + " -p Id -p TimersCalendar -p TimersMonotonic -p ActiveState --no-pager", timeout=10)
     by_id = {b.get("Id"): b for b in _parse_show(props)}
     for r in rows:
@@ -1780,27 +1812,29 @@ def _selftest() -> int:
                                     + f"{heading}\n\n{nba}\n\n## Commands run\n\nx\n"))
         rep("cc-2026-09-26-alpha-pass-1.md", "Do the first thing. Because it unblocks two.")
         rep("cc-2026-09-27-alpha-pass-2.md", "Do the **first** thing. Again, later.")          # same (owner, title): dropped
-        rep("cc-2026-09-27-my-big-game-card-x.md", "Ship the build. The card id `task-blocked-headless-claude-drop-the-unused-mcp-floor` stays.")
-        rep("cc-2026-09-27-my-pass.md", "Seat my.")                                             # seat 'my' is not 'my-big-game'
-        rep("cc-2026-09-27-alpha-leak.md", "Paste token: " + "Zx9" * 8 + " into the box.")
-        rep("cc-2026-09-27-alpha-leak2.md", "Use " + "aB3" * 15 + " as the key.")
+        rep("cc-2026-09-27-alpha-card-y.md", "Other idea. A card report, not a pass.")
+        rep("cc-2026-09-27-beta-pass-9.md", "Karl says done. An ask of Karl is a question.")
+        rep("cc-2026-09-27-big-seat-pass-1.md", "Ship the build. The card id `task-blocked-example-card-with-a-long-id-for-the-test` stays.")
+        rep("cc-2026-09-27-big-pass.md", "Seat big.")                                           # seat 'big' is not 'big-seat'
+        rep("cc-2026-09-27-alpha-pass-leak.md", "Paste token: " + "Zx9" * 8 + " into the box.")
+        rep("cc-2026-09-27-alpha-pass-leak2.md", "Use " + "aB3" * 15 + " as the key.")
         rep("cc-2026-09-25-alpha-none.md", "", heading="## Something else")
         rep("cc-2026-09-22-builder.md", "Not a seat.")
-        for k, n in enumerate(["cc-2026-09-27-alpha-pass-2.md", "cc-2026-09-27-my-pass.md", "cc-2026-09-27-my-big-game-card-x.md"]):
+        for k, n in enumerate(["cc-2026-09-27-alpha-pass-2.md", "cc-2026-09-27-big-pass.md", "cc-2026-09-27-big-seat-pass-1.md"]):
             os.utime(cd / n, (1_790_000_000 + k, 1_790_000_000 + k))   # same day: the later write first
-        rep("cc-2026-09-24-beta-old.md", "An older one. From its front matter.", date="2026-09-20")
-        pr = proposals(_dir=cd, _seats_list=["alpha", "my-big-game", "my", "beta"])
+        rep("cc-2026-09-24-beta-pass-old.md", "An older one. From its front matter.", date="2026-09-20")
+        pr = proposals(_dir=cd, _seats_list=["alpha", "big-seat", "big", "beta"])
         ok([(p["owner"], p["title"]) for p in pr["items"]] ==
-           [("my-big-game", "Ship the build."), ("my", "Seat my."), ("alpha", "Do the first thing."),
+           [("big-seat", "Ship the build."), ("big", "Seat big."), ("alpha", "Do the first thing."),
             ("beta", "An older one.")],
            "proposals: newest first, one per (owner, title), longest seat wins, non-seats ignored")
         ok(pr["items"][2]["why"] == "Again, later." and pr["items"][2]["file"].endswith("cc-2026-09-27-alpha-pass-2.md")
-           and pr["items"][3]["date"] == "2026-09-20" and "unused-mcp-floor" in pr["items"][0]["why"],
+           and pr["items"][3]["date"] == "2026-09-20" and "long-id-for-the-test" in pr["items"][0]["why"],
            "proposals: the newer report wins a repeat; why, file, date from front matter; a card id is not a key")
         ok(pr["items"][0]["about"] == "R", "proposals: about is the report's H1")
         ok(pr["skipped_secretish"] == 2 and not any("token" in p["title"] for p in pr["items"]),
            "proposals: a value- or key-looking line drops the proposal")
-        ok(len(proposals(_dir=cd, _seats_list=["alpha", "my-big-game", "my", "beta"], cap=1)["items"]) == 1, "proposals: capped")
+        ok(len(proposals(_dir=cd, _seats_list=["alpha", "big-seat", "big", "beta"], cap=1)["items"]) == 1, "proposals: capped")
         empty = Path(td) / "empty"
         empty.mkdir()
         ok(proposals(_dir=empty, _seats_list=["alpha"])["items"] == [], "proposals: none is an empty list, not an error")
