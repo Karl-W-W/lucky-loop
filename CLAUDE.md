@@ -285,6 +285,11 @@ Sources of truth, and where the code lives:
   clockout writes together and reported 100 %; it now measures the queue and reads 0.
 - The page is READ-ONLY like `/war` and the Fleet page before it. Hermes stays
   interface and chat runtime; nothing on this page starts, stops, closes or sends.
+  **One exception, Karl's word 2026-09-27 (card `cc2-verb-a-answer-on-page`):** verb (a),
+  `POST /answer` in `answer_api.py` — Karl's own word on one open card, one card per
+  click, tier 3 needs a second click, every call logged on the box, handed to the same
+  writer `decide` uses. It ships OFF behind two flags (a flag file on the box, a const in
+  `plugin.js`); both must be on before the page can write anything.
 
 ## Style
 
