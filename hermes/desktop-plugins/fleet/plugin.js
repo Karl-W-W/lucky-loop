@@ -23,8 +23,8 @@
  * VERB (a), OFF. With ANSWER_ON_PAGE below false (the default) the page writes
  * nothing — `decide` in a terminal is the one answer place. See ANSWER_ON_PAGE.
  *
- * MONITOR (/monitor) is B's board with lanes by room, behind a flag that is OFF
- * by default (MONITOR_ON); its rooms are a stub until the box's gateway has them.
+ * MONITOR (/monitor) is B's board with lanes by room, behind a flag that is ON
+ * (MONITOR_ON); its rooms are the box gateway's, read live by today_api.py.
  *
  * Pure SDK-consumer work, same shape as before: a `/fleet` route + a sidebar row,
  * data from the Fleet plugin's REST router through `ctx.rest`. Plain ESM, no
@@ -61,25 +61,44 @@ const h = React.createElement
 const POLL_MS = 15000
 const IDLE_POLL_MS = 60000 // when only the status bar is listening
 const BATCH = 5
-/* VERB (a) — answer on the page. KEEP IT OFF until a channel exists that only the page
- * holds (any process on the box can read the session token and post; see answer_api.py).
- * It is on only when all three are on:
+/* VERB (a) — answer on the page. ON since slice 3 (2026-09-27): the page's channel exists.
+ * The Desktop's main process attaches X-Fleet-Answer-Key, a secret held only on the Mac (its
+ * remote-connection headers), to every request to the box; the box keeps only its sha256, so a
+ * box process holding the session token cannot answer (see answer_api.py). On only when all three are on:
  *   here:        ANSWER_ON_PAGE = true, then install this file (atomically) on the Mac;
  *   on the box:  echo on > ~/.config/lucky-loop/fleet-answer-verb  (read per request);
- *   on the box:  the page's Origin declared in ~/.config/lucky-loop/fleet-answer-origins.
- * Page flag off: no send button. Box flag off: POST /answer is 404. No Origin declared: 403.
+ *   both sides:  the page key, set by hermes/tools/answer-channel-rotate (run on the Mac).
+ * Page flag off: no send button. Box flag off: POST /answer is 404. No page key: 403.
  * Only Karl's click on that card's own button sends an answer: one card per click, and
  * a tier-3 word only after a second click that shows the card's title and the word.
  * The route takes an open card id and one word from that card's options, or `later`,
  * and nothing else. It logs time, card and word; the verifier reads that log at
  * clock-out. No key sends: the keys still only pick a word and copy its decide line. */
-const ANSWER_ON_PAGE = false
+const ANSWER_ON_PAGE = true
 let answerInFlight = false // one answer at a time, across every view: a click while one is out is dropped
+/* The page key's state as the box saw THIS Desktop's request: match | missing | wrong | no-verifier.
+ * Asked at most every 10 min (and again after a refused send); Send is drawn only on match. */
+let pageKey = null
+let pageKeyAt = 0
+function probePageKey() {
+  if (!restFn || Date.now() - pageKeyAt < 600000) return
+  pageKeyAt = Date.now()
+  restFn('/answer/channel')
+    .then(r => { pageKey = (r && r.page_key) || 'unknown' })
+    .catch(() => { pageKey = 'unreachable'; pageKeyAt = Date.now() - 540000 })
+}
+function pageKeyNote() {
+  return ANSWER_ON_PAGE && pageKey && pageKey !== 'match'
+    ? '; Send is off — the box says page key ' + pageKey + ' (hermes/tools/answer-channel-rotate --check)'
+    : '; this page writes nothing'
+}
 /* The one POST this page can make. Null when another answer is still out (the click is dropped). */
 function postAnswer(body) {
   if (answerInFlight || !restFn) return null
   answerInFlight = true
-  return restFn('/answer', { method: 'POST', body }).finally(() => { answerInFlight = false; sample() })
+  return restFn('/answer', { method: 'POST', body })
+    .catch(err => { pageKeyAt = 0; throw err }) // a refusal re-asks the key's state on the next render
+    .finally(() => { answerInFlight = false; sample() })
 }
 const STYLE_ID = 'fleet-plugin-style'
 
@@ -1462,7 +1481,7 @@ function Tray({ q, hue, pos, batch, bi, nb, qLen, pane, pick, copied, derivedN, 
         h('div', { className: 'lv-ow' }, line
           ? [h('span', { key: 'l', className: 'lv-dl' }, line),
               done ? ' — copied; paste it now' : ' — paste it in a terminal']
-          : 'pick a word — ↵ copies its decide line' + (send ? '; Send records it from here' : '; this page writes nothing')),
+          : 'pick a word — ↵ copies its decide line' + (send ? '; Send records it from here' : pageKeyNote())),
         st && st.state !== 'sending' ? h('div', { className: cls('lv-sent', st.state === 'bad' && 'lv-bad') },
           armed ? ['Tier 3 — “', h('b', { key: 't' }, keep(st.title || topic(q))), '” → ', h('b', { key: 'w' }, word),
             '. Click Confirm to send it; nothing is written until you do.']
@@ -1570,7 +1589,8 @@ function LivePage() {
       .catch(() => { /* not copied: the button keeps saying Copy */ })
   }
   // The same word again copies: at once by key, and by click only past 350 ms (a double-click is not two answers).
-  const answerOn = ANSWER_ON_PAGE && Boolean(lv && lv.answer && lv.answer.enabled)
+  if (ANSWER_ON_PAGE && lv && lv.answer && lv.answer.enabled) probePageKey()
+  const answerOn = ANSWER_ON_PAGE && Boolean(lv && lv.answer && lv.answer.enabled) && pageKey === 'match'
   const offer = answerOn && q ? (lv.answer.offers || {})[q.id] || null : null
   // verb (a): one card per click; a click while one is in flight is dropped; a tier-3 confirm
   // counts only past 400 ms after it was armed (a double-click is not two clicks).
@@ -1685,22 +1705,23 @@ function LivePage() {
 /* replace. READ-ONLY: a chip opens /live, a member's copy button copies its   */
 /* attach or status line. Nothing here starts, stops, closes or sends.         */
 /*                                                                            */
-/* FLAG, default OFF — the route, the sidebar row and the palette entry exist  */
-/* only when it is on. Switch it on by setting MONITOR_ON = true below (the     */
+/* FLAG, ON since 2026-09-27 — the route, the sidebar row and the palette entry */
+/* exist only when it is on. Switch it off by setting MONITOR_ON = false (the   */
 /* hot reload picks it up), or, without editing the file, run                   */
 /*   localStorage.setItem('fleet.monitor', 'on')                               */
 /* in the Desktop's devtools and reload the plugin. Off again: false / remove. */
 /* ------------------------------------------------------------------------ */
-const MONITOR_ON = false
+const MONITOR_ON = true
 function monitorOn() {
   if (MONITOR_ON) return true
   try { return window.localStorage.getItem('fleet.monitor') === 'on' } catch { return false }
 }
 
-/* ROOMS: STUB. The rooms do not exist yet — they arrive with the box's gateway  */
-/* (slice 2). Until then a fixed owner→room map groups the REAL agents, panes,  */
-/* units, runs and cards the page already samples, and the page says "rooms:    */
-/* stub" wherever a lane is drawn. An id matches a member exactly or as its      */
+/* ROOM_STUB: the LAST fallback. The rooms are the box gateway's (hosted Group  */
+/* Chats, created 2026-09-27), read live by today_api.py; this fixed owner→room */
+/* map is used only when the payload carries no readable rooms block, and the   */
+/* page then says "rooms: stub" wherever a lane is drawn.                      */
+/* Either way, an id matches a member exactly or as its                       */
 /* prefix ("foreman" holds "foreman-verify"); "name@host" counts as "name".      */
 /* Anything the map does not name lands in the "No room" lane, never dropped.   */
 const ROOM_STUB = [
@@ -1711,17 +1732,19 @@ const ROOM_STUB = [
   { id: 'vault', name: 'The vault', members: ['gardener'] }
 ]
 
-/* THE SOURCE — the one thing that changes when the gateway's rooms exist.     */
-/* Expected real shape (a proposal; the gateway is the one authority for rooms): */
-/*   { source: 'gateway', sampled_at: '<ISO>',                                  */
-/*     rooms: [ { id: 'r-…', name: '<the task, in words>',                      */
-/*                members: ['<agent id>', …],        // 2–6; the owner is implied */
-/*                cards:   ['<needs-you id>', …] } ] } // optional: absent, a    */
-/*                                                   // card joins its agent's  */
-/*                                                   // first room              */
-/* e.g. read it from the backend: restFn('/rooms'), into the same shape.        */
-function roomSource() {
-  return { source: 'stub', sampled_at: null, rooms: ROOM_STUB }
+/* THE SOURCE. today_api.py's `rooms` block, from the same /today sample:        */
+/*   { source: 'gateway' | 'rooms.json' | 'none', sampled_at: '<ISO>',          */
+/*     rooms: [ { id, name, members: ['<profile id>', …] } ], bots: {id: title} } */
+/* 'gateway' is the live hosted-room store (the authority); 'rooms.json' is the   */
+/* vault's copy, read only when the gateway could not be; either is used as it    */
+/* comes. Names are the box's, never this file's. With no rooms block at all (an  */
+/* older backend) or source 'none', the lanes fall back to ROOM_STUB, labelled.   */
+function roomSource(data) {
+  const rm = data && data.rooms
+  if (rm && (rm.source === 'gateway' || rm.source === 'rooms.json') && Array.isArray(rm.rooms)) {
+    return { source: rm.source, sampled_at: rm.sampled_at || null, rooms: rm.rooms, error: rm.error || null }
+  }
+  return { source: 'stub', sampled_at: null, rooms: ROOM_STUB, error: (rm && rm.error) || null }
 }
 
 const idOf = s => String(s || '').split('@')[0].trim().split(/\s/)[0]
@@ -1733,7 +1756,7 @@ const later = (a, b) => (!a ? b : !b ? a : Date.parse(b.at) > Date.parse(a.at) ?
 
 /* THE ADAPTER. Every room fact the page draws comes through here, as one view */
 /* model; the member states come from the real sample whatever the room source. */
-function getRooms(data, src = roomSource()) {
+function getRooms(data, src = roomSource(data)) {
   const ny = (data && data.needs_you) || {}
   const { today, live, parked, derived } = splitNeeds(ny)
   const panes = (data && data.agents_now && data.agents_now.rows) || []
@@ -1780,7 +1803,7 @@ function getRooms(data, src = roomSource()) {
   parked.forEach(i => place(i, 'parked'))
   const order = (a, b) => STATE_RANK[b.state] - STATE_RANK[a.state] || a.id.localeCompare(b.id)
   rooms.concat(none).forEach(r => r.members.sort(order))
-  return { source: src.source, sampled_at: src.sampled_at || (data && data.sampled_at) || null, today,
+  return { source: src.source, srcError: src.error || null, sampled_at: src.sampled_at || (data && data.sampled_at) || null, today,
     rooms, none, derivedN: derived.length, members: [...seen.keys()].sort() }
 }
 
@@ -1837,7 +1860,9 @@ function MonitorPage() {
     h('div', { className: 'lv-cb' },
       h('div', { className: 'lv-cb-l' },
         h('span', { className: 'lv-live' }, 'Monitor'),
-        stub ? h('span', { className: 'mn-tag', title: 'Rooms come from a fixed owner→room map in plugin.js until the gateway has rooms.' }, 'rooms: stub') : null,
+        stub ? h('span', { className: 'mn-tag', title: 'The box gave no readable rooms' + (v.srcError ? ' (' + v.srcError + ')' : '') + ', so the lanes use the fixed owner→room map in plugin.js.' }, 'rooms: stub')
+          : v && v.source === 'rooms.json' ? h('span', { className: 'mn-tag', title: 'The gateway could not be read' + (v.srcError ? ' (' + v.srcError + ')' : '') + '; these rooms are the vault’s copy (tools/deploy/rooms.json), not the live list.' }, 'rooms: vault copy')
+          : v ? h('span', { className: 'lv-stamp', title: 'Read live from the box gateway’s hosted-room store.' }, 'rooms: gateway · ' + hhmm(v.sampled_at)) : null,
         v ? h('span', { className: 'lv-sum' },
           v.rooms.length + ' rooms · ' + v.members.length + ' agents · ',
           h('b', null, (n ?? '?') + ' need you'), ' · ' + parkedN + ' parked',
@@ -1860,10 +1885,205 @@ function MonitorPage() {
             n === 0 ? h('div', { className: 'mn-empty' }, 'Nothing needs you. Every lane is quiet.')
               : n === null ? h('div', { className: 'mn-empty lv-warn' }, 'The queue could not be read — the needs-you counts on this page are unknown, not zero.') : null),
     h('p', { className: 'mn-note' },
-      stub ? 'Rooms: stub — the lanes group the real agents, panes, units, runs and cards of this sample by a fixed owner→room map ' +
-        'in plugin.js (ROOM_STUB). The box’s gateway replaces it; only roomSource() changes. ' : '',
+      stub ? 'Rooms: stub — the box gave no readable rooms, so the lanes group the real agents, panes, units, runs and cards of this sample ' +
+        'by a fixed owner→room map in plugin.js (ROOM_STUB). ' : v && v.source === 'rooms.json'
+        ? 'Rooms: the vault’s copy (tools/deploy/rooms.json) — the gateway could not be read, so these may not match the live rooms. ' : '',
       'States: a pane or unit reports working, blocked or failed; a run that failed or blocked in the last 24 h counts; ' +
       'a claimed board row is working; the worst wins. Read-only — a card opens Live, where the decide line is; copy buttons copy an attach or status line.'))
+}
+
+/* ------------------------------------------------------------------------ */
+/* CALL (/call) — the decision call (slice 3, Karl 2026-09-27). ONE card at  */
+/* a time, in the queue's order (the server's live block when it has one),  */
+/* with its why, its words and what each is for, its default. "Start the    */
+/* call" opens a Hermes chat with the `decision-call` profile, primed with   */
+/* `call <id>`: that agent presents the card, discusses its effects (the     */
+/* card and read-only vault context), reads Karl's word back, and records it */
+/* only when his next message names that word (tier 3: names it twice). The */
+/* recording is the agent's one narrow tool, enforced in code there          */
+/* (hermes/plugins/decision-call), through the vault's one writer, doneBy    */
+/* "karl — call <word>". THIS PAGE WRITES NOTHING: it opens a chat, or       */
+/* copies a line. Voice: in the chat, the composer's voice button (Ctrl+B)   */
+/* starts a spoken call; the profile hears with local Whisper and speaks     */
+/* with Edge TTS, so a call spends nothing.                                  */
+/* ------------------------------------------------------------------------ */
+const CALL_PROFILE = 'decision-call'
+const CALL_STYLE_ID = 'fleet-call-style'
+const CALL_CSS = `
+.cl-root{padding:22px 28px 64px;max-width:860px;font-size:14px;line-height:1.5}
+.cl-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.cl-head h1{font-size:28px;font-weight:650;margin:0;letter-spacing:-.015em}
+.cl-meta{font-size:11.5px;opacity:.55;font-variant-numeric:tabular-nums}
+.cl-card{border:1px solid rgba(128,128,128,.3);border-radius:12px;padding:18px 20px;margin-top:14px;
+  background:rgba(128,128,128,.05)}
+.cl-pos{font-size:12px;opacity:.6;font-variant-numeric:tabular-nums;display:flex;gap:10px;flex-wrap:wrap}
+.cl-tier{padding:0 7px;border-radius:999px;font-weight:600;background:rgba(128,128,128,.18)}
+.cl-tier.cl-t3{background:#e26d5c;color:#fff}
+.cl-ask{font-size:21px;font-weight:620;margin:8px 0 4px;letter-spacing:-.01em}
+.cl-title{font-size:12.5px;opacity:.6;margin-bottom:10px}
+.cl-sec{margin-top:12px}
+.cl-sec b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.55;margin-bottom:2px}
+.cl-sec p{margin:0;max-width:78ch;opacity:.88;white-space:pre-wrap}
+.cl-words{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.cl-word{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;padding:3px 9px;
+  border-radius:6px;border:1px solid rgba(128,128,128,.35)}
+.cl-word.cl-noop{border-style:dashed}
+.cl-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:18px}
+.cl-start{font:inherit;font-size:14px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer;
+  border:0;background:#2f7d5b;color:#fff}
+.cl-start[disabled]{opacity:.5;cursor:default}
+.cl-btn{font:inherit;font-size:12px;padding:6px 11px;border-radius:7px;cursor:pointer;
+  border:1px solid rgba(128,128,128,.35);background:rgba(128,128,128,.08);color:inherit}
+.cl-note{font-size:12px;opacity:.62;margin-top:14px;max-width:78ch}
+.cl-state{font-size:12.5px;margin-top:10px}
+.cl-bad{color:#e26d5c}
+`
+function injectCallStyle() {
+  const old = document.getElementById(CALL_STYLE_ID)
+  if (old && old.textContent === CALL_CSS) return
+  if (old) old.remove()
+  const el = document.createElement('style')
+  el.id = CALL_STYLE_ID
+  el.textContent = CALL_CSS
+  document.head.appendChild(el)
+}
+
+/* The route that serves the decision-call profile on a connection this Desktop knows, or null.
+ * The profile must live where the Desktop's BACKEND runs: on this Mac that is the box (the Desktop
+ * dials 127.0.0.1:9119, a tunnel to the box's hermes-serve), so install.sh --box, not a Mac install.
+ * The 2026-09-27 proof: with the profile only on the Mac, session.create failed ("Profile
+ * 'decision-call' does not exist") and the old fallback opened a generic draft in the default profile. */
+async function callRoute(host) {
+  if (typeof host.profileRoutes !== 'function') return null
+  try {
+    const routes = await host.profileRoutes()
+    const mine = (routes || []).filter(r => r && r.connectionId && (r.targetProfile || r.profile) === CALL_PROFILE)
+    return mine.find(r => r.mode === 'local') || mine[0] || null
+  } catch { return null }
+}
+
+/* Open a fresh decision-call chat primed with `call <id>`, through the profile's own route — the
+ * same door Bot Mode uses: session.create → session.title → openSession → prompt.submit. When the
+ * profile or any step is missing it opens NOTHING (a plain new chat would land in whatever profile is
+ * active, which is not the call) and says why; the id line is offered for a chat Karl opens himself. */
+async function startCall(card) {
+  const host = SDK.host
+  const line = 'call ' + card.id
+  const fail = why => ({ ok: false, msg: why + ' Nothing was opened or written.' })
+  if (!host || typeof host.requestProfile !== 'function' || typeof host.openSession !== 'function') {
+    return fail('This Desktop cannot open a primed chat from a plugin.')
+  }
+  const route = await callRoute(host)
+  if (!route) {
+    return fail('The ' + CALL_PROFILE + ' profile is not on the Desktop\'s backend (install it there: ' +
+      'hermes/profiles/decision-call/install.sh --box).')
+  }
+  const req = (method, params) => host.requestProfile(route, method, params, undefined, { spawnPriority: 'foreground' })
+  const title = 'Call · ' + String(card.ask || card.title || card.id).slice(0, 60)
+  let res
+  try {
+    res = await req('session.create', { profile: route.targetProfile || route.profile, title, follow_profile_config: true })
+  } catch (e) {
+    return fail('The ' + CALL_PROFILE + ' backend refused the session (' + String((e && e.message) || e).slice(0, 120) + ').')
+  }
+  const sid = res && typeof res.stored_session_id === 'string' ? res.stored_session_id : null
+  const runtime = res && typeof res.session_id === 'string' ? res.session_id : null
+  if (!sid || !runtime) return fail('The ' + CALL_PROFILE + ' backend did not return a session.')
+  try { await req('session.title', { session_id: runtime, title }) } catch { /* the first prompt persists the row */ }
+  const open = () => host.openSession(sid, { route, profile: route.profile, intent: 'main',
+    keepAllProfilesScope: true, tabTitle: title })
+  let opened = false
+  try { await open(); opened = true } catch { /* the row may not exist until the first prompt; retried below */ }
+  await new Promise(r => setTimeout(r, 400))
+  try {
+    await req('prompt.submit', { session_id: runtime, text: line })
+  } catch (e) {
+    return { ok: false, msg: 'The chat "' + title + '" was opened, but "' + line + '" could not be sent (' +
+      String((e && e.message) || e).slice(0, 100) + '). Type it there yourself.' }
+  }
+  if (!opened) { try { await open() } catch { /* it is in the Sessions list under its title */ } }
+  return { ok: true, msg: 'The call is open: the tab "' + title + '", profile ' + CALL_PROFILE + '. Press Ctrl+B there to talk.' }
+}
+
+function CallPage() {
+  const s = useToday(true)
+  const [focus, setFocus] = useState(null) // card id this view shows; null = the queue's first
+  const [st, setSt] = useState(null) // { busy } | { ok, msg } — this view only
+  useEffect(() => { injectStyle(); injectCallStyle() }, [])
+  const data = s.data
+  const { live } = splitNeeds((data && data.needs_you) || {})
+  const lv = data && data.live && !data.live.error && Array.isArray(data.live.order) ? data.live : null
+  const Q = lv ? lv.order.map(id => live.find(i => i.id === id)).filter(Boolean)
+    .concat(live.filter(i => !lv.order.includes(i.id)).sort(byQueue)) : live.slice().sort(byQueue)
+  let qi = focus ? Q.findIndex(c => c.id === focus) : 0
+  if (qi < 0) qi = 0 // the card left the queue (its word was recorded): the queue's first is next
+  const q = Q[qi] || null
+  const words = q ? wordsOf(q) : []
+  const tier = q ? Number(q.tier) || null : null
+  const plain = q && SAFE_ID.test(String(q.id))
+  const step = d => { const to = Q[Math.max(0, Math.min(Q.length - 1, qi + d))]; if (to) { setFocus(to.id); setSt(null) } }
+  const go = () => {
+    if (!q || !plain || (st && st.busy)) return
+    setSt({ busy: true })
+    startCall(q).then(r => setSt(r)).catch(e => setSt({ ok: false, msg: String(e) }))
+  }
+  const sec = (label, text) => text ? h('div', { className: 'cl-sec' }, h('b', null, label), h('p', null, String(text))) : null
+
+  return h('div', { className: 'cl-root' },
+    h('div', { className: 'cl-head' },
+      h('h1', null, 'The call'),
+      data ? h('span', { className: 'cl-meta' },
+        (Q.length ? Q.length + ' card' + (Q.length === 1 ? '' : 's') + ' in the queue’s order' : 'nothing needs you') +
+        ' · sampled ' + hhmm(data.sampled_at) + (s.err ? ' · STALE: ' + s.err : '')) : null),
+    !data ? h('div', { className: 'tdy-empty' }, s.err ? 'Could not sample: ' + s.err : 'Sampling the box…')
+      : !q ? h('div', { className: 'tdy-empty' }, 'Nothing needs you. Parked cards come back on their day.')
+        : h('div', { className: 'cl-card' },
+          h('div', { className: 'cl-pos' },
+            h('span', null, 'card ' + (qi + 1) + ' of ' + Q.length),
+            tier ? h('span', { className: cls('cl-tier', tier === 3 && 'cl-t3') }, 'tier ' + tier + (tier === 3 ? ' · name the word twice' : '')) : null,
+            q.ask_kind ? h('span', null, q.ask_kind) : null,
+            h('span', null, who(q)),
+            q.expiry ? h('span', null, 'expires ' + q.expiry) : null),
+          h('div', { className: 'cl-ask' }, q.ask || q.title),
+          q.ask ? h('div', { className: 'cl-title' }, q.title) : null,
+          sec('Why', q.why),
+          sec('What it takes', q.steps),
+          sec('If you say nothing', q.default),
+          h('div', { className: 'cl-sec' }, h('b', null, 'The words'),
+            h('div', { className: 'cl-words' },
+              words.map((w, n) => h('span', { key: w, className: cls('cl-word', n === 0 && tier === 3 && 'cl-noop') }, w)),
+              plain ? h('span', { key: 'later', className: 'cl-word cl-noop', title: 'parks it until tomorrow; it stays open' }, 'later') : null)),
+          h('div', { className: 'cl-actions' },
+            h('button', { type: 'button', className: 'cl-start', disabled: !plain || Boolean(st && st.busy), onClick: go,
+              title: 'Opens a ' + CALL_PROFILE + ' chat primed with this card. Nothing is answered here.' },
+            st && st.busy ? 'Opening the call…' : 'Start the call'),
+            h('button', { type: 'button', className: 'cl-btn', disabled: qi <= 0, onClick: () => step(-1) }, '← previous'),
+            h('button', { type: 'button', className: 'cl-btn', disabled: qi >= Q.length - 1, onClick: () => step(1) }, 'next →'),
+            h('button', { type: 'button', className: 'cl-btn', onClick: () => copy('call ' + q.id).catch(() => {}),
+              title: 'For a chat you already have open with the ' + CALL_PROFILE + ' profile' }, 'Copy “call <id>”')),
+          st && !st.busy ? h('div', { className: cls('cl-state', !st.ok && 'cl-bad') }, st.msg) : null),
+    h('p', { className: 'cl-note' },
+      'In the call the agent presents this card, talks through what each word does, and reads your word back. ' +
+      'It records only when your next message names that word itself (a bare yes is not enough) — a tier-3 card asks you to name it twice — ' +
+      'through the same writer as decide, marked “karl — call <word>”. It has no shell and sends nothing. ' +
+      'To talk instead of type, press Ctrl+B in the chat (local Whisper hears, Edge TTS speaks; nothing is spent). ' +
+      'This page writes nothing; decide in a terminal still works.'))
+}
+
+/* Registration for /call, kept apart so the other lanes' registration edits do not collide with it. */
+function callContributions() {
+  const out = [
+    { id: 'call-page', area: ROUTES_AREA, data: { path: '/call' },
+      render: () => h(Boundary, { name: 'Call' }, h(CallPage)) },
+    { id: 'call-nav', area: SIDEBAR_NAV_AREA, order: 8,
+      data: { codicon: 'unmute', label: 'Call', path: '/call' } }
+  ]
+  if (PALETTE_AREA) {
+    out.push({ id: 'open-call', area: PALETTE_AREA,
+      data: { id: 'fleet.open-call', label: 'Open the call — one decision card, talked through', keywords: ['call', 'decide', 'voice', 'card'],
+        run: () => navigate('/call') } })
+  }
+  return out
 }
 
 /* ------------------------------------------------------------------------ */
@@ -2012,6 +2232,7 @@ const plugin = {
             detail: needDetail, run: () => navigate('/monitor') } })
       }
     }
+    contributions.push(...callContributions())
     ctx.registerMany(contributions)
   }
 }
