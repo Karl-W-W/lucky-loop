@@ -1633,7 +1633,7 @@ const ROOM_STUB = [
 /* Expected real shape (a proposal; the gateway is the one authority for rooms): */
 /*   { source: 'gateway', sampled_at: '<ISO>',                                  */
 /*     rooms: [ { id: 'r-…', name: '<the task, in words>',                      */
-/*                members: ['<agent id>', …],        // 2–6; Karl is implied     */
+/*                members: ['<agent id>', …],        // 2–6; the owner is implied */
 /*                cards:   ['<needs-you id>', …] } ] } // optional: absent, a    */
 /*                                                   // card joins its agent's  */
 /*                                                   // first room              */
@@ -1712,7 +1712,7 @@ function MemberRow({ m, hue }) {
       m.last ? ' · ' + ago(m.last.at) + ' — ' + m.last.what : ' · no activity in this sample'))
 }
 
-function RoomLane({ r, stub, hueOf }) {
+function RoomLane({ r, stub, hueOf, unread }) {
   const n = r.live.length
   const isNone = r.id === null
   const meta = isNone ? 'agents and cards no room holds'
@@ -1729,7 +1729,7 @@ function RoomLane({ r, stub, hueOf }) {
         key: i.id, type: 'button', className: 'mn-chip', onClick: () => navigate('/live'),
         title: (i.agent || 'no agent yet') + ' · ' + (i.ask || i.title || i.id) + ' — answer it on Live'
       }, h('span', { className: 'mn-t' }, topic(i)), i.expiry ? h('span', { className: 'mn-x' }, md(i.expiry)) : null))
-        : h('div', { className: 'mn-e' }, 'nothing needs you here')),
+        : h('div', { className: 'mn-e' }, unread ? 'the queue could not be read' : 'nothing needs you here')),
     h('div', { className: 'mn-cell mn-pkc', 'data-l': 'parked' },
       r.parked.length ? r.parked.map(i => h('div', { key: i.id, className: 'mn-pk', title: i.ask || i.title || i.id },
         h('span', { className: 'lv-mono' }, 'until ' + md(i.parked.until)), topic(i)))
@@ -1774,8 +1774,9 @@ function MonitorPage() {
               h('div', { className: cls('mn-nyh', n && 'mn-hot') }, h('span', { className: 'mn-eb' }, 'Needs you'), h('span', { className: 'mn-n' }, String(n ?? '?'))),
               h('div', { className: 'mn-pkh' }, h('span', { className: 'mn-eb' }, 'Parked'), h('span', { className: 'mn-n' }, String(parkedN)))),
             !v.rooms.length ? h('div', { className: 'mn-empty' }, 'No rooms yet. Every agent and card below waits in “No room” until one exists.') : null,
-            lanes.map(r => h(RoomLane, { key: r.id || '~none', r, stub, hueOf })),
-            !n ? h('div', { className: 'mn-empty' }, 'Nothing needs you. Every lane is quiet.') : null),
+            lanes.map(r => h(RoomLane, { key: r.id || '~none', r, stub, hueOf, unread: n === null })),
+            n === 0 ? h('div', { className: 'mn-empty' }, 'Nothing needs you. Every lane is quiet.')
+              : n === null ? h('div', { className: 'mn-empty lv-warn' }, 'The queue could not be read — the needs-you counts on this page are unknown, not zero.') : null),
     h('p', { className: 'mn-note' },
       stub ? 'Rooms: stub — the lanes group the real agents, panes, units, runs and cards of this sample by a fixed owner→room map ' +
         'in plugin.js (ROOM_STUB). The box’s gateway replaces it; only roomSource() changes. ' : '',
