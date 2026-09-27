@@ -61,25 +61,44 @@ const h = React.createElement
 const POLL_MS = 15000
 const IDLE_POLL_MS = 60000 // when only the status bar is listening
 const BATCH = 5
-/* VERB (a) — answer on the page. KEEP IT OFF until a channel exists that only the page
- * holds (any process on the box can read the session token and post; see answer_api.py).
- * It is on only when all three are on:
+/* VERB (a) — answer on the page. ON since slice 3 (2026-09-27): the page's channel exists.
+ * The Desktop's main process attaches X-Fleet-Answer-Key, a secret held only on the Mac (its
+ * remote-connection headers), to every request to the box; the box keeps only its sha256, so a
+ * box process holding the session token cannot answer (see answer_api.py). On only when all three are on:
  *   here:        ANSWER_ON_PAGE = true, then install this file (atomically) on the Mac;
  *   on the box:  echo on > ~/.config/lucky-loop/fleet-answer-verb  (read per request);
- *   on the box:  the page's Origin declared in ~/.config/lucky-loop/fleet-answer-origins.
- * Page flag off: no send button. Box flag off: POST /answer is 404. No Origin declared: 403.
+ *   both sides:  the page key, set by hermes/tools/answer-channel-rotate (run on the Mac).
+ * Page flag off: no send button. Box flag off: POST /answer is 404. No page key: 403.
  * Only Karl's click on that card's own button sends an answer: one card per click, and
  * a tier-3 word only after a second click that shows the card's title and the word.
  * The route takes an open card id and one word from that card's options, or `later`,
  * and nothing else. It logs time, card and word; the verifier reads that log at
  * clock-out. No key sends: the keys still only pick a word and copy its decide line. */
-const ANSWER_ON_PAGE = false
+const ANSWER_ON_PAGE = true
 let answerInFlight = false // one answer at a time, across every view: a click while one is out is dropped
+/* The page key's state as the box saw THIS Desktop's request: match | missing | wrong | no-verifier.
+ * Asked at most every 10 min (and again after a refused send); Send is drawn only on match. */
+let pageKey = null
+let pageKeyAt = 0
+function probePageKey() {
+  if (!restFn || Date.now() - pageKeyAt < 600000) return
+  pageKeyAt = Date.now()
+  restFn('/answer/channel')
+    .then(r => { pageKey = (r && r.page_key) || 'unknown' })
+    .catch(() => { pageKey = 'unreachable'; pageKeyAt = Date.now() - 540000 })
+}
+function pageKeyNote() {
+  return ANSWER_ON_PAGE && pageKey && pageKey !== 'match'
+    ? '; Send is off — the box says page key ' + pageKey + ' (hermes/tools/answer-channel-rotate --check)'
+    : '; this page writes nothing'
+}
 /* The one POST this page can make. Null when another answer is still out (the click is dropped). */
 function postAnswer(body) {
   if (answerInFlight || !restFn) return null
   answerInFlight = true
-  return restFn('/answer', { method: 'POST', body }).finally(() => { answerInFlight = false; sample() })
+  return restFn('/answer', { method: 'POST', body })
+    .catch(err => { pageKeyAt = 0; throw err }) // a refusal re-asks the key's state on the next render
+    .finally(() => { answerInFlight = false; sample() })
 }
 const STYLE_ID = 'fleet-plugin-style'
 
@@ -1462,7 +1481,7 @@ function Tray({ q, hue, pos, batch, bi, nb, qLen, pane, pick, copied, derivedN, 
         h('div', { className: 'lv-ow' }, line
           ? [h('span', { key: 'l', className: 'lv-dl' }, line),
               done ? ' — copied; paste it now' : ' — paste it in a terminal']
-          : 'pick a word — ↵ copies its decide line' + (send ? '; Send records it from here' : '; this page writes nothing')),
+          : 'pick a word — ↵ copies its decide line' + (send ? '; Send records it from here' : pageKeyNote())),
         st && st.state !== 'sending' ? h('div', { className: cls('lv-sent', st.state === 'bad' && 'lv-bad') },
           armed ? ['Tier 3 — “', h('b', { key: 't' }, keep(st.title || topic(q))), '” → ', h('b', { key: 'w' }, word),
             '. Click Confirm to send it; nothing is written until you do.']
@@ -1570,7 +1589,8 @@ function LivePage() {
       .catch(() => { /* not copied: the button keeps saying Copy */ })
   }
   // The same word again copies: at once by key, and by click only past 350 ms (a double-click is not two answers).
-  const answerOn = ANSWER_ON_PAGE && Boolean(lv && lv.answer && lv.answer.enabled)
+  if (ANSWER_ON_PAGE && lv && lv.answer && lv.answer.enabled) probePageKey()
+  const answerOn = ANSWER_ON_PAGE && Boolean(lv && lv.answer && lv.answer.enabled) && pageKey === 'match'
   const offer = answerOn && q ? (lv.answer.offers || {})[q.id] || null : null
   // verb (a): one card per click; a click while one is in flight is dropped; a tier-3 confirm
   // counts only past 400 ms after it was armed (a double-click is not two clicks).
