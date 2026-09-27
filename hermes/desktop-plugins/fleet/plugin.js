@@ -192,96 +192,145 @@ const CSS = `
 .tdy-chip{font:inherit;font-size:11px;padding:0 8px;border-radius:999px;cursor:pointer;white-space:nowrap;
   border:1px solid rgba(128,128,128,.35);background:transparent;color:inherit;opacity:.8}
 .tdy-chip.tdy-hot{background:#d95926;border-color:#d95926;color:#fff;opacity:1}
-/* --- live: the stage. Its own dark tokens, so the call looks the same under any app theme --- */
-.lv-stage{--st-bg:#121315;--st-surface:#1b1c1f;--st-raise:#232428;--st-line:rgba(255,255,255,.09);
-  --st-ink:#ecebe7;--st-ink2:#a3a29d;--st-ink3:#72716d;--st-hot:#e8612c;--st-bad:#e2705e;--st-warn:#d9a441;
-  background:var(--st-bg);color:var(--st-ink);min-height:100vh;box-sizing:border-box;padding:18px 22px 48px;
-  font-size:13.5px;line-height:1.45;color-scheme:dark}
-.lv-stage .tdy-body{max-width:none}
-.lv-stage kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;border:1px solid var(--st-line);border-bottom-width:2px;
-  border-radius:4px;padding:0 5px;margin:0 2px;color:var(--st-ink);background:var(--st-raise)}
-.lv-stage pre{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;margin:0;white-space:pre-wrap;word-break:break-word}
-.lv-stage .tdy-btn{color:var(--st-ink);border-color:var(--st-line);background:var(--st-raise)}
-.lv-dim{color:var(--st-ink2)}
-.lv-small{font-size:12px;margin-top:6px}
-.lv-bad{color:var(--st-bad)}
-.lv-warn{color:var(--st-warn)}
-.lv-cap{font:10.5px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em;text-transform:uppercase;color:var(--st-ink2)}
-.lv-tag{display:inline-block;margin-left:7px;padding:0 6px;border:1px solid var(--st-line);border-radius:4px;
-  font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--st-ink2)}
-.lv-btn{font:inherit;font-size:12.5px;padding:5px 12px;border-radius:7px;cursor:pointer;color:var(--st-ink);
-  border:1px solid var(--st-line);background:var(--st-surface)}
-.lv-btn:hover{background:var(--st-raise)}
-.lv-link{font:inherit;font-size:12px;background:none;border:0;color:var(--st-ink2);cursor:pointer;padding:0;margin-left:auto}
-.lv-link:hover{color:var(--st-ink)}
-.lv-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:14px}
-.lv-top b{color:var(--st-ink)}
-.lv-live{font-weight:650}
-.lv-stamp{font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace;margin-left:auto}
-.lv-gallery{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
-.lv-tile{position:relative;border:1px solid var(--st-line);border-radius:12px;padding:10px 13px 12px;background:var(--st-surface);
-  text-align:left;font:inherit;color:inherit;cursor:pointer;min-height:176px;display:flex;flex-direction:column;gap:3px}
-.lv-tile:hover{background:var(--st-raise)}
-.lv-tile.lv-on{border-color:rgba(255,255,255,.55)}
-.lv-where{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--st-ink2);padding-right:48px;
+/* --- live: the call as plan C draws it (c-stage.html). Its own dark tokens, so it looks the same under any app theme --- */
+.lv-stage{--surface:#161615;--surface-3:#292927;--stage:#0a0a0a;--chrome:#121211;--ink:#f4f3ee;--ink-2:#c3c2b7;--ink-3:#898781;
+  --ink-4:#63625d;--grid:#2c2c2a;--line:rgba(255,255,255,.09);--line-2:rgba(255,255,255,.15);--blue:#3987e5;--orange:#d95926;
+  --good:#3fbf3f;--danger:#e66767;--warn:#d9a441;--sans:ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;--e:cubic-bezier(.2,.7,.2,1);
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:calc(100vh - 72px);min-height:560px;
+  background:var(--stage);color:var(--ink);font:14px/1.45 var(--sans);text-align:left;color-scheme:dark;
+  container-type:inline-size;-webkit-font-smoothing:antialiased}
+.lv-stage *,.lv-stage *::before,.lv-stage *::after{box-sizing:border-box}
+:where(.lv-stage) button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit}
+:where(.lv-stage) kbd{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 4px;border-radius:5px;
+  background:var(--surface-3);border:1px solid var(--line-2);font:500 10.5px/1 var(--mono);color:var(--ink-2)}
+.lv-mono{font-family:var(--mono)}
+.lv-dim{color:var(--ink-3)}
+.lv-warn{color:var(--warn)}
+.lv-c-failed{color:var(--danger)}
+.lv-c-working{color:var(--blue)}
+.lv-c-done{color:var(--good)}
+.lv-msg{padding:22px 16px;color:var(--ink-2)}
+.lv-cb{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 16px;min-width:0;
+  border-bottom:1px solid var(--line);background:var(--chrome)}
+.lv-cb-l{display:flex;align-items:center;gap:12px;min-width:0}
+.lv-live{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;flex:none}
+.lv-live i{width:7px;height:7px;border-radius:50%;background:var(--ink)}
+.lv-sum{font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.lv-sum b{color:var(--ink);font-weight:600}
+.lv-pp{color:var(--ink-3)}
+.lv-pp0{color:var(--ink-2)}
+.lv-cb-r{display:flex;align-items:center;gap:12px;flex:none}
+.lv-stamp{font:11px/1 var(--mono);color:var(--ink-3);white-space:nowrap}
+.lv-cbtn{height:28px;padding:0 11px;border-radius:8px;border:1px solid var(--line-2);font-size:12.5px;color:var(--ink-2);
+  display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.02);white-space:nowrap}
+.lv-cbtn:hover{color:var(--ink);border-color:rgba(255,255,255,.28)}
+.lv-cbtn.lv-leave{color:var(--ink);border-color:rgba(255,255,255,.26)}
+.lv-cbtn svg{width:15px;height:15px;flex:none}
+.lv-st{min-height:0;overflow:auto;padding:14px 16px}
+.lv-grid{height:100%;min-height:0;display:grid;gap:12px;grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:minmax(150px,1fr)}
+.lv-quiet .lv-tile{background:#131312}
+.lv-tile{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;padding:11px 14px 12px;border-radius:14px;
+  border:1px solid var(--line);overflow:hidden;cursor:pointer;color:var(--ink);transition:border-color .2s var(--e);
+  background:radial-gradient(85% 65% at 50% 36%,hsl(var(--h,220) 42% 52% / .12),transparent 72%),#161615}
+.lv-tile:hover{border-color:rgba(255,255,255,.2)}
+.lv-tile.lv-speaking{border-color:rgba(244,243,238,.72)}
+.lv-away .lv-face svg{filter:saturate(.8) drop-shadow(0 8px 16px rgba(0,0,0,.5));opacity:.5}
+.lv-tile[data-s=parked]{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.028) 0 6px,transparent 6px 12px)}
+.lv-where{font:10.5px/16px var(--mono);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:46px}
+.lv-face{flex:1 1 0;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:36px}
+.lv-face svg{display:block;height:100%;width:auto;max-height:76px;filter:drop-shadow(0 8px 16px rgba(0,0,0,.5))}
+.lv-name{display:flex;align-items:center;gap:7px;font-size:15.5px;font-weight:600;letter-spacing:-.01em;line-height:1.3;min-width:0}
+.lv-name span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-kg{width:14px;height:14px;color:var(--ink-3);flex:none}
+.lv-cap{margin-top:3px;font-size:13px;line-height:1.42;color:var(--ink-2);min-height:37px;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.lv-cap b{color:var(--ink);font-weight:500}
+.lv-tst{margin-top:7px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden}
+.lv-sl{display:inline-flex;align-items:center;gap:6px;font-weight:500}
+.lv-sl.lv-nd{color:var(--ink-2)}
+.lv-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.lv-dot.lv-parkdot{background:none;border:1.5px dashed var(--ink-3)}
+.lv-fold{margin-top:3px;font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-hand{position:absolute;top:9px;right:10px;z-index:2;display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px 0 8px;
+  border-radius:999px;background:var(--orange);color:var(--ink);font-size:13px;font-weight:600;line-height:1;
+  font-variant-numeric:tabular-nums;box-shadow:0 6px 18px -5px rgba(217,89,38,.6)}
+.lv-hand svg{width:15px;height:15px;flex:none}
+.lv-host{grid-column:span 2;cursor:default;background:linear-gradient(180deg,#171716,#131312)}
+.lv-host:hover{border-color:var(--line)}
+.lv-host.lv-wide{grid-column:span 3}
+.lv-hhd{display:flex;align-items:center;gap:8px;white-space:nowrap;min-width:0}
+.lv-hname{font-size:15.5px;font-weight:600}
+.lv-tag{font:500 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line-2);
+  border-radius:4px;padding:3px 5px}
+.lv-ok{margin-left:auto;font:11px/1.2 var(--mono);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis}
+.lv-hgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:20px;margin-top:12px;flex:none}
+.lv-hsub{font:500 10px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin:0 0 5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lv-hand{position:absolute;top:8px;right:9px;background:var(--st-hot);color:#fff;border-radius:999px;padding:1px 9px;
-  font-size:12.5px;font-weight:650;font-variant-numeric:tabular-nums}
-.lv-facewrap{display:flex;justify-content:center;margin:6px 0 4px}
-.lv-face{display:block;border-radius:50%}
-.lv-facefb{background:#8b7fd6}
-.lv-tname{font:600 14.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--st-ink)}
-.lv-quote{font-size:12.5px;color:var(--st-ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.lv-quote b{font-weight:600}
-.lv-tfoot{font-size:12.5px;margin-top:auto;padding-top:6px}
-.lv-tnote{font-size:11.5px;color:var(--st-ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lv-box{grid-column:span 2;cursor:default;min-width:0}
-.lv-box:hover{background:var(--st-surface)}
-.lv-boxhead{display:flex;align-items:center;gap:4px;margin-bottom:8px}
-.lv-boxok{margin-left:auto;font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--st-ink2)}
-.lv-boxgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:18px}
-.lv-gpu{font-size:40px;font-weight:600;line-height:1.05;font-variant-numeric:tabular-nums;margin-top:2px}
-.lv-gpu small{font-size:14px;color:var(--st-ink2);margin-left:2px}
-.lv-boxstat{font-size:12px;color:var(--st-ink2);margin-top:3px}
-.lv-meter{height:5px;border-radius:3px;background:var(--st-raise);margin:7px 0 3px;overflow:hidden}
-.lv-meter span{display:block;height:100%;background:var(--st-ink)}
-.lv-night{font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lv-timers{display:flex;align-items:center;margin-top:10px}
-.lv-tray{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,.8fr);gap:22px;margin-top:14px;
-  border-top:1px solid var(--st-line);padding:18px 4px 6px}
-.lv-q{display:flex;gap:14px;align-items:flex-start}
-.lv-qmeta{font-size:12.5px;color:var(--st-ink2)}
-.lv-qmeta b{color:var(--st-ink)}
-.lv-kind{font:10.5px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}
-.lv-tray h2{font-size:21px;font-weight:650;margin:3px 0 6px;line-height:1.25;letter-spacing:-.01em}
-.lv-qbody{font-size:13.5px;margin-top:4px}
-.lv-qif{font-size:12.5px;margin-top:10px}
-.lv-paste{display:flex;align-items:flex-start;gap:8px;margin-top:8px}
-.lv-paste pre{flex:1;background:var(--st-raise);border:1px solid var(--st-line);border-radius:6px;padding:6px 8px}
-.lv-opts{display:flex;flex-wrap:wrap;gap:8px}
-.lv-opt{font:inherit;font-size:13.5px;padding:6px 12px;border-radius:8px;cursor:pointer;color:var(--st-ink);
-  border:1px solid var(--st-line);background:var(--st-surface)}
-.lv-opt kbd{margin:0 7px 0 0}
-.lv-opt:hover{background:var(--st-raise)}
-.lv-opt.lv-on{border-color:var(--st-hot);background:rgba(232,97,44,.16)}
-.lv-later{display:block;font:inherit;font-size:12px;text-align:left;background:none;border:0;padding:0;margin:12px 0 0;
-  color:var(--st-ink);cursor:pointer}
-.lv-later u{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-right:4px}
-.lv-later.lv-on u{color:var(--st-hot)}
-.lv-line{margin-top:12px !important;padding:6px 8px;border:1px dashed var(--st-line);border-radius:6px}
-.lv-copy{font:inherit;font-size:13.5px;padding:6px 14px;border-radius:8px;margin-top:10px;cursor:not-allowed;
-  color:var(--st-ink3);border:1px solid var(--st-line);background:var(--st-surface)}
-.lv-copy.lv-ready{cursor:pointer;color:#fff;background:var(--st-hot);border-color:var(--st-hot)}
-.lv-prog{border-left:1px solid var(--st-line);padding-left:18px}
-.lv-progh{font-weight:600;font-size:13px}
-.lv-bars{display:flex;gap:4px;margin:8px 0 6px}
-.lv-bars span{flex:1;height:4px;border-radius:2px;background:var(--st-raise);cursor:pointer}
-.lv-bars span.lv-done{background:var(--st-ink3)}
-.lv-bars span.lv-cur{background:var(--st-ink)}
-.lv-keys{font-size:12px;color:var(--st-ink2);margin-top:12px;display:grid;gap:5px}
-.lv-navs{display:flex;gap:6px;margin-top:12px}
-.lv-foot{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;margin-top:22px;
-  border-top:1px solid var(--st-line);padding-top:14px}
+.lv-gpu{display:flex;align-items:center;gap:10px;margin-top:8px}
+.lv-big{font:500 30px/1 var(--mono);letter-spacing:-.04em;flex:none}
+.lv-big small{font-size:15px;color:var(--ink-3)}
+.lv-bar{height:6px;border-radius:3px;background:var(--grid);margin:12px 0 5px;overflow:hidden}
+.lv-bar i{display:block;height:100%;background:var(--ink-2);border-radius:3px}
+.lv-hl{font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-hl .lv-mono{color:var(--ink-2)}
+.lv-fl{font-size:11.5px;line-height:1.55;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-fl .lv-mono{color:var(--ink-3);margin-right:4px}
+.lv-tmr{margin-top:auto;padding-top:10px;font-size:11.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-tmr .lv-hsub{display:inline;margin-right:8px}
+.lv-tmr i{font-style:normal;color:var(--ink-4);margin:0 5px}
+.lv-tray{border-top:1px solid var(--line);background:var(--chrome);padding:14px 18px 15px;display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,330px) 236px;gap:22px;align-items:start}
+.lv-trq{display:flex;gap:14px;min-width:0}
+.lv-tface{width:44px;height:44px;flex:none;margin-top:3px}
+.lv-tface svg{display:block;width:44px;height:44px}
+.lv-trmeta{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-trmeta b{color:var(--ink-2);font-weight:500}
+.lv-trtitle{margin-top:2px;font-size:20px;font-weight:600;letter-spacing:-.018em;line-height:1.28;color:var(--ink);overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.lv-trask{margin-top:4px;font-size:14px;line-height:1.45;color:var(--ink-2);max-width:72ch;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.lv-trdef{margin-top:7px;font-size:12.5px;color:var(--ink-3);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.lv-trdef b{color:var(--ink-2);font-weight:500}
+.lv-picks{display:flex;flex-wrap:wrap;gap:6px}
+.lv-pk{height:34px;display:inline-flex;align-items:center;gap:8px;padding:0 13px 0 7px;border-radius:9px;border:1px solid var(--line-2);
+  background:var(--surface);font-size:13.5px;font-weight:500;color:var(--ink);white-space:nowrap}
+.lv-pk:hover{border-color:rgba(255,255,255,.3)}
+.lv-pk.lv-on{border-color:var(--ink);background:var(--surface-3)}
+.lv-pk.lv-on kbd{background:var(--ink);border-color:var(--ink);color:#121211}
+.lv-echo{margin-top:9px;font-size:12.5px;color:var(--ink-2);min-height:37px}
+.lv-echo b{color:var(--ink);font-weight:600}
+.lv-never{margin-top:8px;display:flex;gap:7px;font-size:12px;line-height:1.45;color:var(--ink-3)}
+.lv-never svg{width:13px;height:13px;flex:none;margin-top:2px}
+.lv-latr{margin-top:8px;font-size:11.5px;color:var(--ink-4)}
+.lv-lat{font:500 12px/1.2 var(--mono);color:var(--ink-3);border-bottom:1px dashed var(--ink-4);margin-right:7px}
+.lv-lat:hover,.lv-lat.lv-on{color:var(--ink)}
+.lv-conf{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
+.lv-confirm{height:34px;padding:0 9px 0 14px;border-radius:9px;background:var(--ink);color:#121211;font-size:13.5px;font-weight:600;
+  display:inline-flex;align-items:center;gap:8px;flex:none}
+.lv-confirm kbd{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.18);color:#121211}
+.lv-confirm:disabled{background:var(--surface-3);color:var(--ink-4);cursor:default}
+.lv-confirm:disabled kbd{background:transparent;border-color:var(--line-2);color:var(--ink-4)}
+.lv-ow{font-size:12px;color:var(--ink-3);min-width:0;flex:1 1 100%;min-height:35px}
+.lv-dl{font-family:var(--mono);color:var(--ink-2);overflow-wrap:anywhere}
+.lv-tb{border-left:1px solid var(--line);padding-left:18px;font-size:12px;color:var(--ink-3);line-height:1.45;min-width:0}
+.lv-tbh{font-size:13px;color:var(--ink);font-weight:500}
+.lv-pips{display:flex;gap:4px;margin:9px 0}
+.lv-pip{flex:1;height:5px;border-radius:3px;background:var(--grid)}
+.lv-pip.lv-cur{background:var(--ink)}
+.lv-dim2{color:var(--ink-4);margin-top:3px}
+.lv-navs{display:flex;gap:6px;margin-top:8px}
+.lv-nav{height:26px;padding:0 10px;border-radius:7px;border:1px solid var(--line-2);font-size:12px;color:var(--ink-2)}
+.lv-nav:hover{color:var(--ink);border-color:rgba(255,255,255,.28)}
+.lv-tbk{margin-top:9px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:11.5px}
+.lv-zero{grid-column:1/-1;display:flex;align-items:center;gap:16px;min-height:62px}
+.lv-handoff{width:34px;height:34px;border-radius:50%;border:1px solid var(--line-2);display:grid;place-items:center;color:var(--ink-3);flex:none}
+.lv-handoff svg{width:16px;height:16px}
+.lv-tzt{font-size:22px;font-weight:600}
+.lv-tzs{font-size:13px;color:var(--ink-3)}
+@container (max-width:1100px){.lv-tray{grid-template-columns:minmax(0,1fr) minmax(0,280px) 200px;gap:18px}}
+@container (max-width:880px){.lv-grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(200px,1fr)}
+  .lv-tray{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.lv-trq{grid-column:1/-1}}
 .tdy-chip.tdy-title{font-size:12px;padding:1px 10px;font-weight:600}
 `
 
@@ -418,9 +467,12 @@ const byAgent = (a, b) =>
   String(a.agent || '~').localeCompare(String(b.agent || '~')) ||
   String(a.group || '').localeCompare(String(b.group || '')) ||
   (a.priority ?? 99) - (b.priority ?? 99) || String(a.since || '').localeCompare(String(b.since || ''))
-const byCall = (a, b) =>
+/* The queue's own order, as the mockup sorts it: priority, then expiry, then
+ * age. The tray asks in this order, five to a batch. */
+const byQueue = (a, b) =>
+  (a.priority ?? 99) - (b.priority ?? 99) ||
   String(a.expiry || '9999').localeCompare(String(b.expiry || '9999')) ||
-  (a.priority ?? 99) - (b.priority ?? 99) || String(a.since || '').localeCompare(String(b.since || ''))
+  String(a.since || '').localeCompare(String(b.since || '')) || String(a.id).localeCompare(String(b.id))
 
 /* A render error in one page shows here instead of blanking the Desktop pane. */
 class Boundary extends React.Component {
@@ -1006,247 +1058,476 @@ function makeTodayPage(rest) {
 }
 
 /* ------------------------------------------------------------------------ */
-/* Live — the call. The agents' tiles around one tray; the tray holds at most */
-/* five cards, soonest expiry first. Every control here changes the VIEW only; */
-/* the answer is a `decide` line Karl copies into a terminal (one answer place).*/
+/* Live — the call, as plan C draws it (docs/design/2026-09-22-command-center/ */
+/* c-stage.html). The owners' tiles fill the stage; the tray on the floor asks */
+/* ONE question, five to a batch, in the queue's own order (byQueue). Every    */
+/* control here changes the VIEW only; the answer is a `decide` line Karl      */
+/* copies into a terminal (one answer place).                                  */
 /* ------------------------------------------------------------------------ */
-function silenceCopy(i) {
-  if (i.tier === 3) return 'Silence changes nothing: this card waits for your word.'
-  const dflt = i.default ? '“' + String(i.default).split(/\s+/)[0] + '”' : 'none'
-  return 'Tier 1. Its default is ' + dflt + ', but nothing applies defaults today (the applier is off), so silence also waits.'
-}
-
 const who = i => i.agent || 'no agent yet'
-const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s }
-
-/* The agent's face. Blobatar is in the SDK of the running Desktop; if a build   */
-/* drops it, a plain disc stands in rather than the page failing.               */
-function Face({ name, size }) {
-  const B = SDK.Blobatar
-  return B
-    ? h(B, { name, width: size, height: size, alt: '', className: 'lv-face' })
-    : h('span', { className: 'lv-face lv-facefb', style: { width: size, height: size } })
+const md = iso => String(iso || '').slice(5, 10) // 2026-09-29 -> 09-29
+const pad2 = n => String(n).padStart(2, '0')
+function stamp(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return String(iso || '—')
+  return pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes())
 }
-
-/* A raised hand: how many open cards wait on Karl's word for this agent. */
-const Hand = ({ n }) => h('span', { className: 'lv-hand', title: n + ' raised hand' + (n === 1 ? '' : 's') }, '✋︎ ' + n)
-
-function AgentTile({ a, mine, parkedN, on, failedRow, today, onPick }) {
-  const first = mine.slice().sort(byCall)[0]
-  const groups = [...new Set(mine.map(i => i.group).filter(Boolean))]
-  const expired = mine.some(i => i.expiry && i.expiry < today)
-  return h('button', { type: 'button', className: cls('lv-tile', on && 'lv-on'), onClick: onPick,
-    title: on ? 'Showing only ' + a + ' in the tray. Click again: everyone.' : 'Show only ' + a + ' in the tray' },
-    h('div', { className: 'lv-where' }, clip(groups.join(' · ') || '—', 34)),
-    h(Hand, { n: mine.length }),
-    h('div', { className: 'lv-facewrap' }, h(Face, { name: a, size: 58 })),
-    h('div', { className: 'lv-tname' }, a),
-    first ? h('div', { className: 'lv-quote' },
-      h('b', null, clip(first.title || first.ask, 60)),
-      first.ask && first.title && first.ask !== first.title ? ' — “' + clip(first.ask, 80) + '”' : null) : null,
-    h('div', { className: 'lv-tfoot' },
-      failedRow ? h('span', { className: 'lv-bad' }, '● failed ') : null,
-      h('span', null, 'needs you ' + mine.length),
-      parkedN ? h('span', { className: 'lv-dim' }, ' · ' + parkedN + ' parked') : null,
-      expired ? h('span', { className: 'lv-warn' }, ' · some expired') : null),
-    mine.some(i => i.agent_shipped === false)
-      ? h('div', { className: 'lv-tnote lv-warn' }, 'not shipped — nothing runs on its cards yet') : null,
-    failedRow ? h('div', { className: 'lv-tnote' }, 'failed ' + when(failedRow.t) + ' — ' + (failedRow.job || '?')) : null)
+function hhmm(iso) {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : pad2(d.getHours()) + ':' + pad2(d.getMinutes())
 }
-
-/* The box, as its own tile. "Last night" never folds: failed and blocked rows */
-/* stay on screen until a run replaces them.                                    */
-function BoxTile({ box: d, rows }) {
-  if (!d || d.error) return h('div', { className: 'lv-tile lv-box' }, h('div', { className: 'lv-tname' }, 'the box'),
-    h('div', { className: 'lv-bad' }, 'Could not sample: ' + ((d && d.error) || 'no data')))
-  const ck = d.checks || {}
-  const passing = (ck.total || 0) - ((ck.failing || []).length)
-  const units = d.failed_units || []
-  const bad = rows.filter(r => r.status === 'failed' || r.status === 'stopped' || r.status === 'blocked')
-  return h('div', { className: 'lv-tile lv-box' },
-    h('div', { className: 'lv-boxhead' },
-      h('span', { className: 'lv-tname' }, 'the box'),
-      h('span', { className: 'lv-tag' }, d.host || 'host'),
-      h('span', { className: cls('lv-boxok', !d.ok && 'lv-bad') },
-        passing + '/' + (ck.total || 0) + ' ' + (d.ok ? 'healthy' : 'look') + ' · written ' + ago(ck.checked_at))),
-    h('div', { className: 'lv-boxgrid' },
-      h('div', null,
-        h('div', { className: 'lv-cap' }, 'GPU'),
-        h('div', { className: 'lv-gpu' }, fmt(d.gpu_util_pct, 0), h('small', null, '%')),
-        h('div', { className: 'lv-boxstat' }, 'hottest ' + fmt(d.hottest_c, 1) + ' °C · load ' + fmt(d.load1, 2)),
-        h('div', { className: 'lv-meter' }, h('span', { style: { width: Math.min(100, Number(d.gpu_util_pct) || 0) + '%' } })),
-        h('div', { className: cls('lv-boxstat', units.length && 'lv-bad') },
-          units.length ? units.length + ' failed unit' + (units.length === 1 ? '' : 's') + ': ' +
-            units.map(u => u.replace('.service', '')).join(', ') : 'no failed units'),
-        (ck.failing || []).length ? h('div', { className: 'lv-boxstat lv-bad' }, 'failing: ' + ck.failing.join(', ')) : null),
-      h('div', null,
-        h('div', { className: 'lv-cap' }, 'Last night · never folds'),
-        bad.length
-          ? bad.slice(0, 6).map((r, k) => h('div', { key: k, className: 'lv-night' },
-              h('span', { className: 'lv-dim' }, when(r.t) + ' '),
-              h('span', { className: r.status === 'blocked' ? 'lv-warn' : 'lv-bad' }, r.status), ' · ',
-              clip((r.agent ? r.agent + ' ' : '') + (r.job || '?'), 34)))
-          : h('div', { className: 'lv-night lv-dim' }, 'nothing failed or blocked'),
-        bad.length > 6 ? h('div', { className: 'lv-night lv-dim' }, '+ ' + (bad.length - 6) + ' more on Today') : null)),
-    h('div', { className: 'lv-timers' },
-      h('span', { className: 'lv-cap' }, 'Timers · ' + (d.timers ?? '—')),
-      h('button', { type: 'button', className: 'lv-link', onClick: () => navigate('/fleet') }, 'the full box on Fleet →')))
+const lastNight = iso => Date.now() - Date.parse(iso) < 864e5 // "last night" = the last 24 hours
+/* A card's topic: its title up to the first dash, bracket or semicolon. */
+const topic = i => String(i.title || i.ask || i.id || '').split(/ [—–] | \(|; /)[0]
+/* A tile's short lead: the topic up to its colon, cut at a word near 36 characters. */
+function lead(i) {
+  const t = topic(i)
+  const c = t.indexOf(': ')
+  const head = c > 0 && c <= 36 ? t.slice(0, c) : t
+  if (head.length <= 36) return head
+  const cut = head.lastIndexOf(' ', 34)
+  return head.slice(0, cut > 12 ? cut : 34) + '…'
 }
+/* Display only: a hyphen between digits (09-27) becomes a non-breaking one. */
+const keep = t => String(t || '').replace(/(\d)-(?=\d)/g, '$1\u2011')
 
-/* The tray: ONE question at a time. Keys 1–9 pick a word, L picks later, ↵ copies */
-/* the decide line, ← → step, Esc un-picks (then steps back). Copying is the only */
-/* thing a key does outside this page's view: the answer is still typed by Karl.  */
-function Tray({ batch, pg, pages, pool, today, onPage }) {
-  const [q, setQ] = useState(0)
-  const [pick, setPick] = useState(null)
-  const [copied, setCopied] = useState({}) // id -> word, this view only
-  const k = Math.min(q, Math.max(0, batch.length - 1))
-  const i = batch[k]
-  const words = i ? [...(i.options || []), 'later'] : []
-  const line = i && pick !== null ? 'decide ' + i.id + ' ' + words[pick] : null
-
-  const step = d => { setPick(null); setQ(x => Math.max(0, Math.min(batch.length - 1, x + d))) }
-  const doCopy = () => {
-    if (!line) return
-    copy(line).then(() => {
-      setCopied(c => ({ ...c, [i.id]: words[pick] }))
-      setTimeout(() => { if (k < batch.length - 1) step(1) }, 700)
-    })
+/* Faces, ported from the mockup's generator: one deterministic blob per seat.   */
+/* The shape comes from the seat's name; the hue is handed in, spread over the   */
+/* mockup's cool range (176–268) by the seats' alphabetical order, so no two     */
+/* owners on stage share a colour. A tile's tint and its face use the same hue.  */
+const hsh = s => { let x = 2166136261; for (let k = 0; k < s.length; k++) { x ^= s.charCodeAt(k); x = Math.imul(x, 16777619) >>> 0 } return x }
+const rnd = a => () => {
+  a |= 0; a = a + 0x6D2B79F5 | 0
+  let q = Math.imul(a ^ a >>> 15, 1 | a)
+  q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q
+  return ((q ^ q >>> 14) >>> 0) / 4294967296
+}
+function hueFor(seat, seats) {
+  const names = seats.slice().sort()
+  const k = names.indexOf(seat)
+  return names.length < 2 || k < 0 ? 222 : Math.round(176 + (92 * k) / (names.length - 1))
+}
+const f1 = n => n.toFixed(1)
+const faces = new Map()
+function faceOf(id, hue) {
+  const key = id + '|' + hue
+  if (faces.has(key)) return faces.get(key)
+  const r = rnd(hsh(id))
+  r() // the mockup draws its hue here; the stage hands one in instead
+  const sat = Math.round(34 + r() * 16), lit = Math.round(58 + r() * 8)
+  const p = []
+  for (let k = 0; k < 7; k++) {
+    const q = (k / 7) * Math.PI * 2 + (r() - 0.5) * 0.35 - Math.PI / 2, rr = 34 + r() * 8
+    p.push([50 + rr * Math.cos(q), 52 + rr * Math.sin(q)])
   }
+  let body = 'M' + f1(p[0][0]) + ' ' + f1(p[0][1])
+  for (let k = 0; k < 7; k++) {
+    const p0 = p[(k + 6) % 7], p1 = p[k], p2 = p[(k + 1) % 7], p3 = p[(k + 2) % 7]
+    body += 'C' + [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6,
+      p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, p2[0], p2[1]].map(f1).join(' ')
+  }
+  const ey = 49, sp = 9 + r() * 4, ox = (r() - 0.5) * 6, hx = (r() - 0.5) * 1.6, mw = 5 + r() * 4, my = ey + 12
+  const f = {
+    fill: 'hsl(' + hue + ' ' + sat + '% ' + lit + '%)', body: body + 'Z', ey, hx,
+    eyes: [-1, 1].map(k => 50 + ox + k * sp),
+    mouth: 'M' + f1(50 + ox - mw) + ' ' + my + ' Q' + f1(50 + ox) + ' ' + f1(my + 3 + r() * 3) + ' ' + f1(50 + ox + mw) + ' ' + my
+  }
+  faces.set(key, f)
+  return f
+}
+function Face({ id, hue }) {
+  const f = faceOf(id, hue)
+  return h('svg', { viewBox: '0 0 100 100', 'aria-hidden': true },
+    h('path', { d: f.body, fill: f.fill }),
+    h('ellipse', { cx: 36, cy: f.ey - 17, rx: 9, ry: 5, fill: '#fff', fillOpacity: 0.16, transform: 'rotate(-22 36 ' + (f.ey - 17) + ')' }),
+    f.eyes.map(x => [
+      h('ellipse', { key: 'e' + x, cx: f1(x), cy: f.ey, rx: 4.3, ry: 5.4, fill: '#131315' }),
+      h('circle', { key: 'g' + x, cx: f1(x + 1.3 + f.hx), cy: f.ey - 2, r: 1.5, fill: '#fff' })]),
+    h('path', { d: f.mouth, fill: 'none', stroke: '#131315', strokeWidth: 2.3, strokeLinecap: 'round' }))
+}
+
+const svgIcon = (sw, kids, className) => h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: sw,
+  strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, className }, kids)
+const HAND_PATHS = ['M18 11V6a2 2 0 0 0-4 0', 'M14 10V4a2 2 0 0 0-4 0v2', 'M10 10.5V6a2 2 0 0 0-4 0v8',
+  'M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-6-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15']
+const HandIcon = () => svgIcon(2.2, HAND_PATHS.map(d => h('path', { key: d, d })))
+const LockIcon = () => svgIcon(1.8, [h('rect', { key: 'r', x: 5, y: 11, width: 14, height: 10, rx: 2 }),
+  h('path', { key: 'p', d: 'M8 11V8a4 4 0 0 1 8 0v3' })])
+const LeaveIcon = () => svgIcon(1.8, h('path', { d: 'M2.5 14.2c5.3-5 13.7-5 19 0l-2.1 2.8-4-1.5v-2.6a12 12 0 0 0-6.8 0v2.6l-4 1.5z' }))
+const PromptGlyph = () => svgIcon(1.8, h('path', { d: 'M4 17l6-5-6-5M12 19h8' }), 'lv-kg')
+
+/* A seat is on stage when a herdr pane carries its name (herdr agent rename). */
+const paneOf = (rows, seat) => rows.find(r => r.name === seat) || null
+const placeOf = r => (r.host === 'box' ? 'the box' : 'the Mac') + (r.detail ? ' · ' + r.detail : '') + (r.where ? ' · ' + r.where : '')
+const PANE_TONE = { working: 'lv-c-working', active: 'lv-c-working', done: 'lv-c-done', blocked: 'lv-c-failed', failed: 'lv-c-failed' }
+
+/* What silence does. A tier-3 card closes only by Karl's word, so its date is  */
+/* when he wanted it by; a tier-1 card has a default, but nothing applies        */
+/* defaults today (the applier is off), so it waits as well.                     */
+function Silence({ i, today }) {
+  const [word, ...rest] = String(i.default || '').split(/\s+[—–-]\s+/)
+  const late = Boolean(i.expiry) && i.expiry < today
+  const t3 = i.tier === 3 || !word
+  const due = t3 ? 'wanted by ' : 'default due '
+  return h('div', { className: 'lv-trdef' }, 'If you don’t answer: ',
+    t3 ? h('b', null, 'it waits for your word')
+      : [h('b', { key: 'w' }, 'it waits'), ' — its default “' + word + '” is not applied today'],
+    i.expiry
+      ? [' · ', late ? h('b', { key: 'x' }, due + md(i.expiry) + ' — still open')
+        : [due, h('span', { key: 'x', className: 'lv-mono' }, md(i.expiry))]]
+      : null,
+    // the card's own words, as filed: they can lag behind its ask, so they are marked as such
+    t3 && rest.length ? ' — as filed: ' + rest.join(' — ') : null)
+}
+
+/* "Sun 2026-09-27 16:45:00 CEST 9min 12s Sun …" -> "9min 12s", systemd's LEFT. */
+const WEEKDAY = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/
+function timerLeft(raw) {
+  const t = String(raw || '').split(/\s+/)
+  if (!WEEKDAY.test(t[0] || '')) return ''
+  const out = []
+  for (let k = 4; k < t.length && !WEEKDAY.test(t[k]) && t[k] !== 'n/a' && t[k] !== '-'; k++) out.push(t[k])
+  return out.join(' ')
+}
+
+/* The box, as its own tile. Last night's failed and blocked runs never fold:   */
+/* they stay until a run replaces them, and a job that broke twice shows once, */
+/* ×2. Older ones are counted here and listed on Today. /overview adds what     */
+/* /today leaves out (GPU name, cores, memory, uptime, the timers by name).     */
+function HostTile({ box, ov, rows, wide }) {
+  const b = box && !box.error ? box : {}
+  const hl = ov && ov.health && !ov.health.error ? ov.health : {}
+  const g = hl.gpu && !hl.gpu.error ? hl.gpu : {}
+  const mem = hl.memory && !hl.memory.error && hl.memory.total_mb ? hl.memory : null
+  const ck = b.checks || {}
+  const failing = (ck.failing || []).length
+  const broke = rows.filter(r => r.status === 'failed' || r.status === 'stopped' || r.status === 'blocked')
+  const night = []
+  broke.filter(r => lastNight(r.t)).forEach(r => {
+    const same = night.find(x => x.agent === r.agent && x.job === r.job && x.status === r.status)
+    if (same) same.n += 1
+    else night.push({ ...r, n: 1 })
+  })
+  const older = broke.length - night.reduce((a, r) => a + r.n, 0)
+  const timers = ((ov && ov.jobs && !ov.jobs.error && ov.jobs.timers) || []).filter(t => t.scope === 'user')
+  const load = Array.isArray(hl.load) ? hl.load : b.load1 !== undefined ? [b.load1] : null
+  const used = mem ? mem.total_mb - mem.available_mb : 0
+  const gb = mb => String(Math.round((mb || 0) / 1024))
+  return h('div', { className: cls('lv-tile lv-host', wide && 'lv-wide') },
+    h('div', { className: 'lv-hhd' },
+      h('span', { className: 'lv-hname' }, 'the box'),
+      h('span', { className: 'lv-tag' }, 'host'),
+      h('span', { className: cls('lv-ok', ((box && box.error) || b.ok === false) && 'lv-c-failed') },
+        box && box.error ? 'could not sample: ' + box.error
+          : (ck.total ? (ck.total - failing) + '/' + ck.total + ' ' + String(ck.status || 'checks').toLowerCase() : 'checks —') +
+            (hl.uptime_s ? ' · up ' + Math.floor(hl.uptime_s / 86400) + ' d' : ''))),
+    h('div', { className: 'lv-hgrid' },
+      h('div', { style: { minWidth: 0 } },
+        h('div', { className: 'lv-hsub' }, 'GPU' + (g.name ? ' · ' + g.name : '')),
+        h('div', { className: 'lv-gpu' },
+          h('span', { className: 'lv-big' }, fmt(g.util_pct ?? b.gpu_util_pct, 0), h('small', null, '%')),
+          h('div', { className: 'lv-hl' },
+            fmt(g.temp_c ?? b.gpu_temp_c, 0) + ' °C' + (hl.cores ? ' · ' + hl.cores + ' cores' : ''), h('br'),
+            'load ', h('span', { className: 'lv-mono' }, load ? load.map(x => fmt(x, 2)).join(' ') : '—'))),
+        h('div', { className: 'lv-bar' }, h('i', { style: { width: mem ? Math.round((100 * used) / mem.total_mb) + '%' : 0 } })),
+        h('div', { className: 'lv-hl' }, mem
+          ? [h('span', { key: 'u', className: 'lv-mono' }, gb(used)), ' of ', h('span', { key: 't', className: 'lv-mono' }, gb(mem.total_mb)),
+              ' GB used · ', h('span', { key: 'f', className: 'lv-mono' }, gb(mem.available_mb)), ' free']
+          : 'memory: ' + (ov && ov.error ? 'could not sample' : 'sampling…'))),
+      h('div', { style: { minWidth: 0 } },
+        h('div', { className: 'lv-hsub' }, 'last night · never folds'),
+        night.length
+          ? night.slice(0, 5).map((r, k) => h('div', {
+              key: k, className: 'lv-fl', title: stamp(r.t) + ' ' + r.status + ' · ' + (r.job || '?') + (r.reason ? ' — ' + r.reason : '')
+            },
+              h('span', { className: 'lv-mono' }, hhmm(r.t)),
+              h('span', { className: r.status === 'blocked' ? null : 'lv-c-failed' }, r.status),
+              ' · ' + (r.job || '?') + (r.n > 1 ? ' ×' + r.n : ''),
+              r.reason ? h('span', { className: 'lv-dim' }, ' — ' + r.reason) : null))
+          : h('div', { className: 'lv-fl lv-dim' }, 'nothing failed or blocked last night'),
+        night.length > 5 ? h('div', { className: 'lv-fl lv-dim' }, '+ ' + (night.length - 5) + ' more on Today') : null,
+        older ? h('div', { className: 'lv-fl lv-dim' }, 'earlier: ' + older + ' more failed or blocked — on Today') : null)),
+    h('div', { className: 'lv-tmr' },
+      h('span', { className: 'lv-hsub' }, 'timers · ' + (timers.length || b.timers || '—')),
+      timers.map((t, k) => h('span', { key: t.name }, k ? h('i', null, '·') : null, t.name.replace(/\.timer$/, ''),
+        timerLeft(t.raw) ? h('span', { className: 'lv-dim' }, ' in ' + timerLeft(t.raw)) : null))))
+}
+
+/* One owner's tile: its face, its raised hands, the first question it holds,   */
+/* and one folded line — the fact that matters most about it right now. An      */
+/* owner that no pane carries is drawn away from the call: its face is dimmed.  */
+function SeatTile({ seat, hue, mine, parked, pane, gone, failedRow, today, speaking, onFocus }) {
+  const top = mine[0]
+  const noAgent = mine.concat(parked).some(i => i.agent_shipped === false)
+  const late = mine.filter(i => i.expiry && i.expiry < today).length
+  const left = gone[gone.length - 1]
+  const parkFold = !failedRow && !noAgent && parked.length > 0 // the fold says it; the status line need not
+  const fold = failedRow ? [h('span', { key: 'f', className: 'lv-c-failed' }, 'failed ' + stamp(failedRow.t)), ' — ' + (failedRow.job || '?')]
+    : noAgent ? 'no agent for this seat yet'
+      : parked.length ? 'parked · until ' + md(parked[0].parked.until) + ' — ' + lead(parked[0])
+        : left ? 'left the queue ' + ago(left.seenGoneAt) + ' — ' + lead(left)
+          : top && top.expiry ? 'wanted by ' + md(top.expiry) : null
+  return h('div', {
+    className: cls('lv-tile', speaking && 'lv-speaking', !pane && 'lv-away'), 'data-s': mine.length ? 'needs' : 'parked',
+    style: { '--h': String(hue) }, onClick: top ? onFocus : undefined,
+    title: top ? 'Put ' + seat + '’s first question in the tray' : undefined
+  },
+    h('div', { className: 'lv-where' }, pane ? placeOf(pane) : 'not in a pane yet'),
+    mine.length ? h('button', {
+      type: 'button', className: 'lv-hand', title: mine.length + ' raised hand' + (mine.length === 1 ? '' : 's') + ' — ask the first',
+      onClick: e => { e.stopPropagation(); onFocus() }
+    }, h(HandIcon), String(mine.length)) : null,
+    h('div', { className: 'lv-face' }, h(Face, { id: seat, hue })),
+    h('div', { className: 'lv-name' }, h('span', null, seat), pane ? h(PromptGlyph) : null),
+    h('div', { className: 'lv-cap' }, top
+      ? [h('b', { key: 'b' }, lead(top)), ' — “' + (top.ask || top.title) + '”']
+      : 'Nothing needs you; ' + parked.length + ' parked.'),
+    h('div', { className: 'lv-tst' },
+      failedRow ? h('span', { className: 'lv-sl lv-c-failed' }, h('i', { className: 'lv-dot' }), 'failed') : null,
+      mine.length ? h('span', { className: 'lv-sl lv-nd' }, 'needs you ' + mine.length) : null,
+      late ? h('span', { className: 'lv-sl lv-nd' }, late + ' expired') : null,
+      pane ? h('span', { className: cls('lv-sl', PANE_TONE[pane.state]) }, h('i', { className: 'lv-dot' }), pane.state) : null,
+      parked.length && !parkFold ? h('span', { className: 'lv-sl' }, h('i', { className: 'lv-dot lv-parkdot' }),
+        'parked' + (parked.length > 1 ? ' ' + parked.length : '')) : null),
+    fold ? h('div', { className: 'lv-fold' }, fold) : null)
+}
+
+const NEVER = 'You type the value in the pane that needs it — it never shows on this page.'
+/* Only a plain id and plain words go into a line Karl pastes into a shell: the */
+/* writer's own WORD shape. Anything else is left out, and the tray says so.    */
+const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/
+const SAFE_WORD = /^[a-z0-9][a-z0-9-]{0,39}$/
+const wordsOf = q => (SAFE_ID.test(String(q.id)) ? (q.options || []).filter(o => SAFE_WORD.test(String(o))) : [])
+
+/* The tray: ONE question. 1–9 pick a word, L later; the same key again or ↵    */
+/* copies the decide line; Esc un-picks; ← → step. Copying is the only thing a */
+/* key does outside this view, and the answer is still typed by Karl. Every     */
+/* word answers and closes the card (decide v2); only later keeps it open.      */
+function Tray({ q, hue, pos, batch, bi, nb, qLen, pane, pick, copied, derivedN, today, onPick, onCopy, onJump }) {
+  if (!q) {
+    return h('div', { className: 'lv-tray' },
+      h('div', { className: 'lv-zero' },
+        h('span', { className: 'lv-handoff' }, h(HandIcon)),
+        h('div', null,
+          h('div', { className: 'lv-tzt' }, 'no hands up'),
+          h('div', { className: 'lv-tzs' }, derivedN
+            ? derivedN + ' derived item(s) still wait — nobody typed them; see Today.'
+            : 'Nothing waits on your word. A question lands here when an owner raises it.'))))
+  }
+  const opts = wordsOf(q)
+  const plain = SAFE_ID.test(String(q.id))
+  const dropped = (q.options || []).length - opts.length
+  const word = pick !== null ? opts.concat('later')[pick] : null
+  const line = word ? 'decide ' + q.id + ' ' + word : null
+  const done = Boolean(word) && copied[q.id] === word
+  const behind = []
+  for (let b = bi + 1; b < nb; b++) behind.push(Math.min(BATCH, qLen - b * BATCH) + ' in batch ' + (b + 1))
+  return h('div', { className: 'lv-tray' },
+    h('div', { className: 'lv-trq' },
+      h('div', { className: 'lv-tface' }, h(Face, { id: who(q), hue })),
+      h('div', { style: { minWidth: 0 } },
+        h('div', { className: 'lv-trmeta' }, h('b', null, who(q)),
+          (pane ? ' · ' + placeOf(pane) : '') + ' · p' + (q.priority ?? '?') + ' · ' + (q.ask_kind || '?') +
+          (q.tier === 3 ? ' · tier 3' : '') + (q.since ? ' · filed ' + md(q.since) : '') +
+          (q.agent_shipped === false ? ' · no agent for this seat yet' : '')),
+        h('div', { className: 'lv-trtitle', title: q.title || '' }, keep(topic(q))),
+        q.ask && q.ask !== topic(q) ? h('div', { className: 'lv-trask' }, keep(q.ask)) : null,
+        h(Silence, { i: q, today }))),
+    h('div', { style: { minWidth: 0 } },
+      opts.length
+        ? h('div', { className: 'lv-picks' }, opts.map((o, n) => h('button', {
+            key: o, type: 'button', className: cls('lv-pk', pick === n && 'lv-on'), onClick: e => onPick(n, e.timeStamp)
+          }, h('kbd', null, String(n + 1)), o)))
+        : h('div', { className: 'lv-echo lv-warn' }, !plain ? 'This card’s id is not a plain id — answer it with decide in a terminal.'
+          : dropped ? 'Its words are not plain words — answer it with decide in a terminal.'
+            : 'No options yet — nothing can answer this card; the chair adds them.'),
+      h('div', { className: 'lv-echo' }, word
+        ? ['→ ', h('b', { key: 'w' }, word), word === 'later' ? ' parks it until tomorrow; it stays open' : ' answers it and closes the card',
+            ' — press ', h('kbd', { key: 'k' }, pick === opts.length ? 'L' : String(pick + 1)), ' again or ', h('kbd', { key: 'e' }, '↵'),
+            ' to copy its decide line']
+        : 'Any word answers the card and closes it.' + (dropped && opts.length ? ' ' + dropped + ' of its words is not plain — use decide in a terminal for it.' : '')),
+      q.ask_kind === 'PASTE' ? h('div', { className: 'lv-never' }, h(LockIcon), NEVER) : null,
+      plain ? h('div', { className: 'lv-latr' },
+        h('button', { type: 'button', className: cls('lv-lat', pick === opts.length && 'lv-on'), onClick: e => onPick(opts.length, e.timeStamp) }, 'later'),
+        'its line parks the card until tomorrow; the card stays open') : null,
+      h('div', { className: 'lv-conf' },
+        h('button', { type: 'button', className: 'lv-confirm', disabled: !line, onClick: onCopy }, done ? 'Copied' : 'Copy', h('kbd', null, '↵')),
+        h('div', { className: 'lv-ow' }, line
+          ? [h('span', { key: 'l', className: 'lv-dl' }, line),
+              done ? ' — copied; paste it now' : ' — paste it in a terminal']
+          : 'pick a word — ↵ copies its decide line; this page writes nothing'))),
+    h('div', { className: 'lv-tb' },
+      h('div', { className: 'lv-tbh' }, 'question ' + (pos + 1) + ' of ' + batch.length + ' · batch ' + (bi + 1) + ' of ' + nb),
+      h('div', { className: 'lv-pips' }, batch.map((c, n) => h('button', {
+        key: c.id, type: 'button', title: topic(c), onClick: () => onJump(c.id), className: cls('lv-pip', n === pos && 'lv-cur')
+      }))),
+      h('div', null, behind.length ? 'queued behind it: ' + behind.join(' · ') : 'the last batch — nothing queued behind it'),
+      h('div', { className: 'lv-dim2' }, 'nothing opens on its own: the next batch waits for your click' +
+        (derivedN ? ' · ' + derivedN + ' derived item(s) wait on Today' : '')),
+      h('div', { className: 'lv-navs' },
+        bi > 0 ? h('button', { type: 'button', className: 'lv-nav', onClick: () => onJump(null, bi - 1) }, 'Back five') : null,
+        bi < nb - 1 ? h('button', { type: 'button', className: 'lv-nav', onClick: () => onJump(null, bi + 1) }, 'Next five') : null),
+      // the legend offers only the keys that do something on this card
+      h('div', { className: 'lv-tbk' },
+        opts.length ? [h('kbd', { key: 'a' }, '1'), '–', h('kbd', { key: 'b' }, String(opts.length)), 'pick ·'] : null,
+        plain ? [h('kbd', { key: 'l' }, 'L'), 'later ·', h('kbd', { key: 'e' }, '↵'), 'copy the decide line ·'] : null,
+        h('kbd', null, 'esc'), 'back')))
+}
+
+/* The box tile's second source: /overview, re-read on every Today tick. A    */
+/* failed read keeps the last good sample and says it could not refresh.      */
+function useOverview(tickKey) {
+  const [ov, setOv] = useState(null)
+  useEffect(() => {
+    if (!restFn) return undefined
+    let dead = false
+    restFn('/overview')
+      .then(d => { if (!dead) setOv(d || null) })
+      .catch(e => { if (!dead) setOv(o => (o && !o.error ? o : { error: String(e) })) })
+    return () => { dead = true }
+  }, [tickKey])
+  return ov
+}
+
+/* The call fills its pane, as the mockup's does: the stage runs from where it  */
+/* starts to the bottom of the pane that scrolls it, so the tray sits on the    */
+/* floor. Measured on mount and on window resize; the CSS height is the fallback.*/
+function useFitHeight(el) {
+  const [px, setPx] = useState(null)
+  React.useLayoutEffect(() => {
+    if (!el) return undefined
+    let box = el.parentElement
+    while (box && box !== document.body && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+    const scroller = box && box !== document.body ? box : null
+    const measure = () => {
+      const top = el.getBoundingClientRect().top + (scroller ? scroller.scrollTop : 0)
+      const bottom = scroller
+        ? Math.min(window.innerHeight, scroller.getBoundingClientRect().bottom - (parseFloat(getComputedStyle(scroller).paddingBottom) || 0))
+        : window.innerHeight
+      setPx(Math.max(560, Math.floor(bottom - top)))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [el])
+  return px
+}
+
+function LivePage() {
+  const s = useToday(true)
+  const ov = useOverview(s.tickKey)
+  const [stageEl, setStageEl] = useState(null) // a callback ref: the stage element once mounted
+  const height = useFitHeight(stageEl)
+  const [focus, setFocus] = useState({ id: null, idx: 0 }) // the card in the tray, and where it stood
+  const [picked, setPicked] = useState(null) // { id, n, at } — this view only
+  const [copied, setCopied] = useState({}) // id -> word — this view only
   const keyRef = React.useRef(null)
-  useEffect(() => { keyRef.current = e => {
-    if (!i || e.metaKey || e.ctrlKey || e.altKey) return
-    const t = e.target
-    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''))) return
-    if (/^[1-9]$/.test(e.key) && Number(e.key) <= words.length - 1) { setPick(Number(e.key) - 1); e.preventDefault() }
-    else if (e.key === 'l' || e.key === 'L') { setPick(words.length - 1); e.preventDefault() }
-    else if (e.key === 'Enter') { if (line) { doCopy(); e.preventDefault() } }
-    else if (e.key === 'Escape') { if (pick !== null) setPick(null); else step(-1); e.preventDefault() }
-    else if (e.key === 'ArrowRight') { step(1); e.preventDefault() }
-    else if (e.key === 'ArrowLeft') { step(-1); e.preventDefault() }
-  } })
+  useEffect(() => { injectStyle() }, [])
   useEffect(() => {
     const on = e => keyRef.current && keyRef.current(e)
     window.addEventListener('keydown', on)
     return () => window.removeEventListener('keydown', on)
   }, [])
 
-  if (!i) return h('div', { className: 'lv-tray' }, h('p', { className: 'lv-dim' }, 'Nothing is waiting on you.'))
-  const expired = Boolean(i.expiry) && i.expiry < today
-  const behind = pool.length - (pg * BATCH + batch.length)
-  return h('div', { className: 'lv-tray' },
-    h('div', { className: 'lv-q' },
-      h(Face, { name: who(i), size: 44 }),
-      h('div', { style: { minWidth: 0 } },
-        h('div', { className: 'lv-qmeta' },
-          h('b', null, who(i)), i.group ? ' · ' + i.group : '', ' · p' + (i.priority ?? '?'),
-          ' · ', h('span', { className: 'lv-kind' }, i.ask_kind || '?'),
-          i.tier === 3 ? h('span', { className: 'lv-tag' }, 'tier 3') : null,
-          i.agent_shipped === false ? h('span', { className: 'lv-tag lv-warn' }, 'agent not shipped') : null),
-        h('h2', null, i.ask || i.title),
-        i.ask && i.title && i.ask !== i.title ? h('div', { className: 'lv-qbody' }, i.title) : null,
-        i.why ? h('div', { className: 'lv-qbody lv-dim' }, i.why) : null,
-        i.steps ? h('div', { className: 'lv-qbody' }, h('span', { className: 'lv-cap' }, 'Do '), i.steps) : null,
-        i.command ? h('div', { className: 'lv-paste' },
-          h('span', { className: 'lv-cap' }, 'Paste'), h('pre', null, i.command), h(CopyBtn, { text: i.command, small: true })) : null,
-        h('div', { className: 'lv-qif' },
-          h('span', { className: 'lv-dim' }, 'If you don’t answer: '), silenceCopy(i),
-          i.expiry ? h('span', { className: expired ? 'lv-warn' : 'lv-dim' },
-            ' · ' + (expired ? 'expired ' + i.expiry + ' — still open, still yours' : 'expires ' + i.expiry)) : null))),
-    h('div', { className: 'lv-pick' },
-      h('div', { className: 'lv-opts' },
-        (i.options || []).length
-          ? i.options.map((o, n) => h('button', { key: o, type: 'button', className: cls('lv-opt', pick === n && 'lv-on'),
-              onClick: () => setPick(n) }, h('kbd', null, String(n + 1)), o))
-          : h('div', { className: 'lv-warn' }, 'No options yet — nothing can answer this card; the chair adds them.')),
-      h('button', { type: 'button', className: cls('lv-later', pick === words.length - 1 && 'lv-on'),
-        onClick: () => setPick(words.length - 1) },
-        h('u', null, 'later'), h('span', { className: 'lv-dim' }, ' parks the card — decide v2 takes it on every card')),
-      h('pre', { className: cls('lv-line', !line && 'lv-dim') }, line || 'decide ' + i.id + ' <pick a word>'),
-      h('button', { type: 'button', className: cls('lv-copy', line && 'lv-ready'), disabled: !line, onClick: doCopy },
-        copied[i.id] && line && copied[i.id] === words[pick] ? 'Copied' : 'Copy', ' ', h('kbd', null, '↵')),
-      h('div', { className: 'lv-dim lv-small' },
-        copied[i.id] ? 'Copied “' + copied[i.id] + '” — paste it in a terminal; the card stays open until decide runs.'
-          : 'Pick a word — ↵ copies its decide line; this page writes nothing.')),
-    h('div', { className: 'lv-prog' },
-      h('div', { className: 'lv-progh' }, 'question ' + (k + 1) + ' of ' + batch.length + ' · batch ' + (pg + 1) + ' of ' + pages),
-      h('div', { className: 'lv-bars' }, batch.map((x, n) => h('span', { key: x.id,
-        className: cls(n === k && 'lv-cur', copied[x.id] && 'lv-done'), onClick: () => { setPick(null); setQ(n) } }))),
-      h('div', { className: 'lv-dim lv-small' },
-        behind > 0 ? behind + ' more queued behind this batch, soonest expiry first.' : 'Nothing queued behind this batch.'),
-      h('div', { className: 'lv-keys' },
-        h('div', null, h('kbd', null, '1'), '–', h('kbd', null, String(Math.max(1, words.length - 1))), ' pick · ', h('kbd', null, 'L'), ' later'),
-        h('div', null, h('kbd', null, '↵'), ' copy the decide line'),
-        h('div', null, h('kbd', null, '←'), h('kbd', null, '→'), ' question · ', h('kbd', null, 'esc'), ' back')),
-      h('div', { className: 'lv-navs' },
-        pg > 0 ? h('button', { type: 'button', className: 'lv-btn', onClick: () => onPage(pg - 1) }, 'Back five') : null,
-        pg < pages - 1 ? h('button', { type: 'button', className: 'lv-btn', onClick: () => onPage(pg + 1) }, 'Next five') : null)))
-}
+  const data = s.data
+  const { today, live, parked, derived } = splitNeeds((data && data.needs_you) || {})
+  const Q = live.slice().sort(byQueue)
+  // A card that left the queue (its decide ran) hands the tray to the one after it.
+  let qi = focus.id ? Q.findIndex(c => c.id === focus.id) : -1
+  if (qi < 0) qi = Math.min(focus.idx, Math.max(0, Q.length - 1))
+  const q = Q[qi] || null
+  const bi = Math.floor(qi / BATCH)
+  const nb = Math.max(1, Math.ceil(Q.length / BATCH))
+  const batch = Q.slice(bi * BATCH, bi * BATCH + BATCH)
+  const pos = qi - bi * BATCH
+  const opts = q ? wordsOf(q) : []
+  const plain = Boolean(q) && SAFE_ID.test(String(q.id))
+  const pick = q && picked && picked.id === q.id ? picked.n : null
+  const word = pick !== null ? opts.concat('later')[pick] : null
 
-function LivePage() {
-  const { data, err, loading, lastOkAt, errAt, receipts, since } = useToday(true)
-  const [agent, setAgent] = useState(null)
-  const [page, setPage] = useState(0)
-  const gone = receipts || []
-  useEffect(() => { injectStyle() }, [])
+  const focusOn = id => { if (id) { setFocus({ id, idx: Q.findIndex(c => c.id === id) }); setPicked(null) } }
+  // Copying does not move on: the clipboard holds one line, so the next copy would replace it.
+  const doCopy = () => {
+    if (!q || !word) return
+    const id = q.id
+    copy('decide ' + id + ' ' + word)
+      .then(() => setCopied(c => ({ ...c, [id]: word })))
+      .catch(() => { /* not copied: the button keeps saying Copy */ })
+  }
+  // The same word again copies: at once by key, and by click only past 350 ms (a double-click is not two answers).
+  const choose = (n, at) => {
+    if (!q) return
+    if (pick === n && (at === null || at - picked.at > 350)) { doCopy(); return }
+    setPicked({ id: q.id, n, at: at ?? 0 })
+  }
+  useEffect(() => {
+    keyRef.current = e => {
+      if (!q || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
+      const el = stageEl
+      if (!el || !el.isConnected || !el.getClientRects().length) return // another route is in front
+      const t = e.target
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''))) return
+      const k = e.key
+      const n = /^[1-9]$/.test(k) && Number(k) <= opts.length ? Number(k) - 1 : (k === 'l' || k === 'L') && plain ? opts.length : -1
+      if (n >= 0) { choose(n, null); e.preventDefault() }
+      else if (k === 'Enter' && word && !(t && t.tagName === 'BUTTON')) { doCopy(); e.preventDefault() }
+      else if (k === 'Escape' && pick !== null) { setPicked(null); e.preventDefault() }
+      else if ((k === 'ArrowRight' || k === 'ArrowLeft') && (!t || t === document.body || el.contains(t))) {
+        const to = Q[Math.max(0, Math.min(Q.length - 1, qi + (k === 'ArrowRight' ? 1 : -1)))]
+        if (to) focusOn(to.id)
+        e.preventDefault()
+      }
+    }
+  })
 
-  if (loading && !data) return h('div', { className: 'lv-stage' }, h('p', null, 'Sampling the box…'))
-  if (err && !data) return h('div', { className: 'lv-stage' }, h(Err, { msg: err }))
-
-  const stale = Boolean(err && data)
-  const iso = t => (t ? new Date(t).toISOString() : null)
-  const ny = data.needs_you || {}
-  const { today, live, parked, derived } = splitNeeds(ny)
-  const n = needCount(data)
-  const rows = (data.agents || {}).items || []
+  const rows = (data && data.agents && data.agents.items) || []
   const failed = rows.filter(r => r.status === 'failed' || r.status === 'stopped')
-  const byLoad = (a, b) => live.filter(i => who(i) === b).length - live.filter(i => who(i) === a).length || a.localeCompare(b)
-  const agents = [...new Set(live.map(who))].sort(byLoad)
-  const pool = live.filter(i => !agent || who(i) === agent).sort(byCall)
-  const pages = Math.max(1, Math.ceil(pool.length / BATCH))
-  const pg = Math.min(page, pages - 1)
-  const batch = pool.slice(pg * BATCH, pg * BATCH + BATCH)
+  const panes = (data && data.agents_now && data.agents_now.rows) || []
+  const all = live.concat(parked)
+  const hands = x => live.filter(i => who(i) === x).length
+  const held = x => all.filter(i => who(i) === x).length
+  const seats = [...new Set(all.map(who))].sort((a, b) => hands(b) - hands(a) || held(b) - held(a) || a.localeCompare(b))
+  const onStage = seats.filter(x => paneOf(panes, x)).length
+  const gone = s.receipts || []
+  const n = needCount(data)
+  const iso = t => (t ? new Date(t).toISOString() : null)
 
-  return h('div', { className: cls('lv-stage', stale && 'tdy-stale') },
-    stale ? h('div', { className: 'tdy-stalebar', role: 'alert' },
-      'STALE — the last refresh failed ' + ago(iso(errAt)) +
-      '. Everything below was sampled ' + ago(iso(lastOkAt)) + ' and is NOT current.',
-      h('small', null, 'Error: ' + err)) : null,
-    h('div', { className: 'tdy-body' },
-      h('header', { className: 'lv-top' },
-        h('span', { className: 'lv-live' }, '● Live'),
-        h('span', null, (live.length + parked.length) + ' open · ', h('b', null, (n ?? '?') + ' need you'),
-          parked.length ? ' · ' + parked.length + ' parked' : ''),
-        failed.length ? h('span', { className: 'lv-bad' }, ' · ' + failed.length + ' failed last night') : null,
-        h('span', { className: 'lv-dim lv-stamp' }, 'sampled ' + clock(data.sampled_at) +
-          (ny.updated_at ? ' · queue updated ' + ago(ny.updated_at) : '') + ' · every ' + Math.round(POLL_MS / 1000) + 's'),
-        h('button', { type: 'button', className: 'lv-btn', title: 'Closes this view only. Nothing is answered or parked.',
-          onClick: () => navigate('/today') }, 'Leave the call')),
-      h('div', { className: 'lv-gallery' },
-        agents.map(a => h(AgentTile, { key: a, a, today, on: agent === a,
-          mine: live.filter(i => who(i) === a),
-          parkedN: parked.filter(i => who(i) === a).length,
-          failedRow: failed.find(r => r.agent === a),
-          onPick: () => { setAgent(agent === a ? null : a); setPage(0) } })),
-        h(BoxTile, { box: data.box, rows })),
-      // keyed by the batch: a new batch starts at question 1 with nothing picked
-      h(Tray, { key: batch.map(x => x.id).join(','), batch, pg, pages, pool, today, onPage: setPage }),
-      derived.length ? h('p', { className: 'lv-dim lv-small' },
-        derived.length + ' derived item(s) also wait — nobody typed them; see Today → Needs you.') : null,
-      h('div', { className: 'lv-foot' },
-        h('section', null,
-          h('div', { className: 'lv-cap' }, 'Receipts · ' + gone.length + (since ? ' since ' + clock(since) : '')),
-          gone.length
-            ? gone.map(i => h('div', { key: i.id, className: 'lv-night' },
-                h('b', null, i.agent || '—'), ' · ', i.ask || i.title,
-                h('span', { className: 'lv-dim' }, ' · left the queue ' + ago(i.seenGoneAt))))
-            : h('div', { className: 'lv-dim lv-small' }, 'No card has left the queue since the Desktop loaded this page.'),
-          h('div', { className: 'lv-dim lv-small' },
-            'The word and who gave it are in the queue record, not on this page yet: the box serves open cards only.')),
-        parked.length ? h('section', null,
-          h('div', { className: 'lv-cap' }, 'Parked · ' + parked.length),
-          parked.map(i => h('div', { key: i.id, className: 'lv-night lv-dim' },
-            (i.agent ? i.agent + ' · ' : '') + (i.ask || i.title) + ' — until ' + i.parked.until))) : null)))
+  return h('div', { ref: setStageEl, className: 'lv-stage', style: height ? { height: height + 'px' } : undefined },
+    h('div', null,
+      s.err && data ? h('div', { className: 'tdy-stalebar', role: 'alert' },
+        'STALE — the last refresh failed ' + ago(iso(s.errAt)) +
+        '. Everything below was sampled ' + ago(iso(s.lastOkAt)) + ' and is NOT current.',
+        h('small', null, 'Error: ' + s.err)) : null,
+      h('div', { className: 'lv-cb' },
+        h('div', { className: 'lv-cb-l' },
+          h('span', { className: 'lv-live' }, h('i'), 'Live'),
+          data ? h('span', { className: 'lv-sum' },
+            all.length + ' open · ', h('b', null, (n ?? '?') + ' need you'), ' · ' + parked.length + ' parked · ',
+            h('span', { className: cls('lv-pp', !onStage && 'lv-pp0') },
+              onStage ? onStage + ' of ' + seats.length + ' owners in a pane' : 'no owner is in a pane yet'),
+            gone.length ? h('span', { className: 'lv-pp' }, ' · ' + gone.length + ' left the queue since ' + hhmm(s.since)) : null) : null),
+        h('div', { className: 'lv-cb-r' },
+          data ? h('span', { className: 'lv-stamp' }, 'sampled ' + hhmm(data.sampled_at)) : null,
+          h('button', {
+            type: 'button', className: 'lv-cbtn lv-leave', title: 'Closes this view only. Nothing is answered or parked.',
+            onClick: () => navigate('/today')
+          }, h(LeaveIcon), 'Leave the call')))),
+    !data
+      ? h('div', { className: 'lv-msg' }, s.err ? 'Could not sample: ' + s.err : 'Sampling the box…')
+      : h('div', { className: 'lv-st' },
+          h('div', { className: cls('lv-grid', !Q.length && 'lv-quiet') },
+            seats.map(x => h(SeatTile, {
+              key: x, seat: x, hue: hueFor(x, seats), today, speaking: Boolean(q) && who(q) === x,
+              mine: Q.filter(i => who(i) === x), parked: parked.filter(i => who(i) === x),
+              pane: paneOf(panes, x), gone: gone.filter(i => who(i) === x), failedRow: failed.find(r => r.agent === x),
+              onFocus: () => { const t = Q.find(i => who(i) === x); if (t) focusOn(t.id) }
+            })),
+            h(HostTile, { box: data.box, ov, rows, wide: seats.length % 5 === 0 }))),
+    data ? h(Tray, {
+      q, hue: q ? hueFor(who(q), seats) : 222, pos, batch, bi, nb, qLen: Q.length, pane: q ? paneOf(panes, who(q)) : null,
+      pick, copied, derivedN: derived.length, today, onPick: choose, onCopy: doCopy,
+      onJump: (id, b) => focusOn(id || (Q[b * BATCH] || {}).id)
+    }) : null)
 }
 
 /* ------------------------------------------------------------------------ */
@@ -1317,13 +1598,14 @@ function makeFleetPage(rest) {
   }
 }
 
+// The mockup's tokens (c-stage.html): page, chrome, surfaces, ink, the one orange.
 const CC_DARK = {
-  background: '#121315', foreground: '#ecebe7', card: '#1b1c1f', cardForeground: '#ecebe7',
-  muted: '#232428', mutedForeground: '#a3a29d', popover: '#1b1c1f', popoverForeground: '#ecebe7',
-  primary: '#e8612c', primaryForeground: '#ffffff', secondary: '#232428', secondaryForeground: '#ecebe7',
-  accent: '#2a2b30', accentForeground: '#ecebe7', border: 'rgba(255,255,255,0.09)', input: 'rgba(255,255,255,0.12)',
-  ring: '#e8612c', destructive: '#e2705e', destructiveForeground: '#ffffff',
-  sidebarBackground: '#161719', sidebarBorder: 'rgba(255,255,255,0.07)'
+  background: '#0d0d0d', foreground: '#f4f3ee', card: '#161615', cardForeground: '#f4f3ee',
+  muted: '#1f1f1d', mutedForeground: '#898781', popover: '#161615', popoverForeground: '#f4f3ee',
+  primary: '#d95926', primaryForeground: '#f4f3ee', secondary: '#292927', secondaryForeground: '#f4f3ee',
+  accent: '#1f1f1d', accentForeground: '#f4f3ee', border: 'rgba(255,255,255,0.09)', input: 'rgba(255,255,255,0.15)',
+  ring: '#d95926', destructive: '#e66767', destructiveForeground: '#f4f3ee',
+  sidebarBackground: '#121211', sidebarBorder: 'rgba(255,255,255,0.09)'
 }
 const COMMAND_CENTER_THEME = {
   name: 'command-center', label: 'Command Center',
