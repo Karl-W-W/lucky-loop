@@ -21,6 +21,11 @@ Usage:
     answer-channel-rotate            rotate both sides (old key stops working at once)
     answer-channel-rotate --check    compare the Mac's key, the Desktop's header and the box's hash
     answer-channel-rotate --dry-run  say what would change, change nothing
+    answer-channel-rotate --prune    only when --check passes: delete key backups whose one difference
+                                     from the live file is a retired key (each body is read first)
+
+After a rotate that checks out, the same prune runs by itself: the backups exist for a failed
+rotate, and once the new key works they are only an old key in plaintext.
 
 Env: ANSWER_CHANNEL_HOST (default dgx-remote), ANSWER_CHANNEL_URL (default
 http://127.0.0.1:9119), HERMES_DESKTOP_DATA (default ~/Library/Application Support/Hermes).
@@ -176,7 +181,61 @@ def rotate(dry: bool) -> int:
         die(f"the box's verifier was NOT written (ssh exit {p.returncode}); the Mac holds the new key, "
             "so answers are refused until this is re-run", 1)
     key = None
-    return check()
+    rc = check()
+    if rc == 0:
+        prune_key_backups()
+    return rc
+
+
+def _strip_key(obj: object) -> object:
+    """The JSON with every X-Fleet-Answer-Key header removed (to compare a backup with the live file)."""
+    if isinstance(obj, dict):
+        return {k: _strip_key(v) for k, v in obj.items()
+                if not (k == HEADER and isinstance(v, (dict, str)))}
+    if isinstance(obj, list):
+        return [_strip_key(v) for v in obj]
+    return obj
+
+
+def _holds_key(obj: object) -> bool:
+    if isinstance(obj, dict):
+        return any(k == HEADER or _holds_key(v) for k, v in obj.items())
+    if isinstance(obj, list):
+        return any(_holds_key(v) for v in obj)
+    return False
+
+
+def prune_key_backups() -> int:
+    """After a rotate that checked out: delete the backups that hold an OLD page key in plaintext.
+
+    Each backup's BODY is read first. It is deleted only when (a) it parses, (b) it holds a page
+    key header, and (c) with every page-key header removed it is identical to the live file with
+    its header removed -- i.e. the only thing it preserves is a dead key. A backup that differs in
+    anything else, or holds no key, or does not parse, is kept and named for a human. Returns the
+    number deleted.
+    """
+    gone = 0
+    for live in (REGISTRY, V1):
+        try:
+            cur = _strip_key(json.loads(live.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+        for bak in sorted(live.parent.glob(live.name + ".bak-*")):
+            try:
+                body = json.loads(bak.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                print(f"kept {bak.name}: unreadable; look at it by hand")
+                continue
+            if not _holds_key(body):
+                continue  # a pre-channel backup: no key in it, not ours to remove
+            if _strip_key(body) != cur:
+                print(f"kept {bak.name}: holds an old key AND differs from {live.name} in more than the key; "
+                      "look at it by hand before deleting")
+                continue
+            bak.unlink()
+            gone += 1
+            print(f"deleted {bak.name}: its only difference from {live.name} was a retired key")
+    return gone
 
 
 if __name__ == "__main__":
@@ -186,4 +245,6 @@ if __name__ == "__main__":
         sys.exit(0)
     if "--check" in args:
         sys.exit(check())
+    if "--prune" in args:
+        sys.exit(0 if check() == 0 and prune_key_backups() >= 0 else 1)
     sys.exit(rotate("--dry-run" in args))
