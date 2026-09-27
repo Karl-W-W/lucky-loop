@@ -319,8 +319,10 @@ Sources of truth, and where the code lives:
   **One exception, Karl's word 2026-09-27 (card `cc2-verb-a-answer-on-page`):** verb (a),
   `POST /answer` in `answer_api.py` — Karl's own word on one open card, one card per
   click, tier 3 needs a second click, every call logged on the box, handed to the same
-  writer `decide` uses. It ships OFF behind two flags (a flag file on the box, a const in
-  `plugin.js`); both must be on before the page can write anything.
+  writer `decide` uses. Two flags (a flag file on the box, a const in `plugin.js`) and a
+  page-only key: the Desktop sends `X-Fleet-Answer-Key` from its Mac-side connection
+  config, the box holds only its sha256, so the box's session token alone gets 403. ON
+  since 2026-09-27 (Karl's 22:25 brief). Rotate with `hermes/tools/answer-channel-rotate`.
 
 ## Style
 
