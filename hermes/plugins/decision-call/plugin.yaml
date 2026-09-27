@@ -1,0 +1,14 @@
+name: decision-call
+version: "1.0"
+description: >-
+  The decision call (Command Center slice 3). Three tools and nothing else: read one
+  needs-you card, read Karl's word back to him, and record it through the vault's one
+  writer only after he said an explicit yes in a LATER turn (tier 3: a second yes).
+  No shell, no send, no push of code, no spend.
+author: lucky-loop
+provides_tools:
+  - call_card
+  - call_readback
+  - call_record
+hooks:
+  - pre_tool_call
