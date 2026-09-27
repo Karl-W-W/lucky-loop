@@ -43,6 +43,8 @@ import React, { useEffect, useState } from 'react'
 const { ROUTES_AREA, SIDEBAR_NAV_AREA } = SDK
 const STATUSBAR_RIGHT = SDK.STATUSBAR_AREAS ? SDK.STATUSBAR_AREAS.right : null
 const PALETTE_AREA = SDK.PALETTE_AREA || null
+const TITLEBAR_RIGHT = SDK.TITLEBAR_AREAS ? SDK.TITLEBAR_AREAS.right : null
+const THEMES_AREA = SDK.THEMES_AREA || null
 function navigate(path) {
   try { if (SDK.host && typeof SDK.host.navigate === 'function') SDK.host.navigate(path) } catch { /* no-op */ }
 }
@@ -190,25 +192,97 @@ const CSS = `
 .tdy-chip{font:inherit;font-size:11px;padding:0 8px;border-radius:999px;cursor:pointer;white-space:nowrap;
   border:1px solid rgba(128,128,128,.35);background:transparent;color:inherit;opacity:.8}
 .tdy-chip.tdy-hot{background:#d95926;border-color:#d95926;color:#fff;opacity:1}
-/* --- live: the call --- */
-.lv-band{border:1px solid rgba(226,109,92,.55);background:rgba(226,109,92,.1);border-radius:8px;
-  padding:9px 12px;margin:12px 0 0;font-size:13px}
-.lv-band b{color:#e26d5c}
-.lv-tiles{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));margin:16px 0}
-.lv-tile{border:1px solid rgba(128,128,128,.26);border-radius:9px;padding:9px 12px;cursor:pointer;
-  background:rgba(128,128,128,.04);text-align:left;font:inherit;color:inherit}
-.lv-tile:hover{background:rgba(128,128,128,.1)}
-.lv-tile.lv-on{border-color:#d95926}
-.lv-tname{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;font-weight:600}
-.lv-tcount{font-size:12px;opacity:.65;margin-top:2px;font-variant-numeric:tabular-nums}
-.lv-tray{border:1px solid rgba(128,128,128,.35);border-radius:12px;padding:14px 16px;background:rgba(128,128,128,.06)}
-.lv-trayhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.lv-trayhead h2{font-size:17px;margin:0;font-weight:650}
-.lv-card{border-top:1px solid rgba(128,128,128,.2);padding:11px 0 9px}
-.lv-card:first-of-type{border-top:0}
-.lv-silence{font-size:12px;opacity:.62;margin-top:6px;max-width:84ch}
-.lv-expired{color:#d9a441}
-.lv-receipt{font-size:12.5px;padding:5px 0;border-bottom:1px solid rgba(128,128,128,.14)}
+/* --- live: the stage. Its own dark tokens, so the call looks the same under any app theme --- */
+.lv-stage{--st-bg:#121315;--st-surface:#1b1c1f;--st-raise:#232428;--st-line:rgba(255,255,255,.09);
+  --st-ink:#ecebe7;--st-ink2:#a3a29d;--st-ink3:#72716d;--st-hot:#e8612c;--st-bad:#e2705e;--st-warn:#d9a441;
+  background:var(--st-bg);color:var(--st-ink);min-height:100vh;box-sizing:border-box;padding:18px 22px 48px;
+  font-size:13.5px;line-height:1.45;color-scheme:dark}
+.lv-stage .tdy-body{max-width:none}
+.lv-stage kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;border:1px solid var(--st-line);border-bottom-width:2px;
+  border-radius:4px;padding:0 5px;margin:0 2px;color:var(--st-ink);background:var(--st-raise)}
+.lv-stage pre{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;margin:0;white-space:pre-wrap;word-break:break-word}
+.lv-stage .tdy-btn{color:var(--st-ink);border-color:var(--st-line);background:var(--st-raise)}
+.lv-dim{color:var(--st-ink2)}
+.lv-small{font-size:12px;margin-top:6px}
+.lv-bad{color:var(--st-bad)}
+.lv-warn{color:var(--st-warn)}
+.lv-cap{font:10.5px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em;text-transform:uppercase;color:var(--st-ink2)}
+.lv-tag{display:inline-block;margin-left:7px;padding:0 6px;border:1px solid var(--st-line);border-radius:4px;
+  font:10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--st-ink2)}
+.lv-btn{font:inherit;font-size:12.5px;padding:5px 12px;border-radius:7px;cursor:pointer;color:var(--st-ink);
+  border:1px solid var(--st-line);background:var(--st-surface)}
+.lv-btn:hover{background:var(--st-raise)}
+.lv-link{font:inherit;font-size:12px;background:none;border:0;color:var(--st-ink2);cursor:pointer;padding:0;margin-left:auto}
+.lv-link:hover{color:var(--st-ink)}
+.lv-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:14px}
+.lv-top b{color:var(--st-ink)}
+.lv-live{font-weight:650}
+.lv-stamp{font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace;margin-left:auto}
+.lv-gallery{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
+.lv-tile{position:relative;border:1px solid var(--st-line);border-radius:12px;padding:10px 13px 12px;background:var(--st-surface);
+  text-align:left;font:inherit;color:inherit;cursor:pointer;min-height:176px;display:flex;flex-direction:column;gap:3px}
+.lv-tile:hover{background:var(--st-raise)}
+.lv-tile.lv-on{border-color:rgba(255,255,255,.55)}
+.lv-where{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--st-ink2);padding-right:48px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-hand{position:absolute;top:8px;right:9px;background:var(--st-hot);color:#fff;border-radius:999px;padding:1px 9px;
+  font-size:12.5px;font-weight:650;font-variant-numeric:tabular-nums}
+.lv-facewrap{display:flex;justify-content:center;margin:6px 0 4px}
+.lv-face{display:block;border-radius:50%}
+.lv-facefb{background:#8b7fd6}
+.lv-tname{font:600 14.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--st-ink)}
+.lv-quote{font-size:12.5px;color:var(--st-ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lv-quote b{font-weight:600}
+.lv-tfoot{font-size:12.5px;margin-top:auto;padding-top:6px}
+.lv-tnote{font-size:11.5px;color:var(--st-ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-box{grid-column:span 2;cursor:default;min-width:0}
+.lv-box:hover{background:var(--st-surface)}
+.lv-boxhead{display:flex;align-items:center;gap:4px;margin-bottom:8px}
+.lv-boxok{margin-left:auto;font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--st-ink2)}
+.lv-boxgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:18px}
+.lv-gpu{font-size:40px;font-weight:600;line-height:1.05;font-variant-numeric:tabular-nums;margin-top:2px}
+.lv-gpu small{font-size:14px;color:var(--st-ink2);margin-left:2px}
+.lv-boxstat{font-size:12px;color:var(--st-ink2);margin-top:3px}
+.lv-meter{height:5px;border-radius:3px;background:var(--st-raise);margin:7px 0 3px;overflow:hidden}
+.lv-meter span{display:block;height:100%;background:var(--st-ink)}
+.lv-night{font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv-timers{display:flex;align-items:center;margin-top:10px}
+.lv-tray{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,.8fr);gap:22px;margin-top:14px;
+  border-top:1px solid var(--st-line);padding:18px 4px 6px}
+.lv-q{display:flex;gap:14px;align-items:flex-start}
+.lv-qmeta{font-size:12.5px;color:var(--st-ink2)}
+.lv-qmeta b{color:var(--st-ink)}
+.lv-kind{font:10.5px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}
+.lv-tray h2{font-size:21px;font-weight:650;margin:3px 0 6px;line-height:1.25;letter-spacing:-.01em}
+.lv-qbody{font-size:13.5px;margin-top:4px}
+.lv-qif{font-size:12.5px;margin-top:10px}
+.lv-paste{display:flex;align-items:flex-start;gap:8px;margin-top:8px}
+.lv-paste pre{flex:1;background:var(--st-raise);border:1px solid var(--st-line);border-radius:6px;padding:6px 8px}
+.lv-opts{display:flex;flex-wrap:wrap;gap:8px}
+.lv-opt{font:inherit;font-size:13.5px;padding:6px 12px;border-radius:8px;cursor:pointer;color:var(--st-ink);
+  border:1px solid var(--st-line);background:var(--st-surface)}
+.lv-opt kbd{margin:0 7px 0 0}
+.lv-opt:hover{background:var(--st-raise)}
+.lv-opt.lv-on{border-color:var(--st-hot);background:rgba(232,97,44,.16)}
+.lv-later{display:block;font:inherit;font-size:12px;text-align:left;background:none;border:0;padding:0;margin:12px 0 0;
+  color:var(--st-ink);cursor:pointer}
+.lv-later u{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-right:4px}
+.lv-later.lv-on u{color:var(--st-hot)}
+.lv-line{margin-top:12px !important;padding:6px 8px;border:1px dashed var(--st-line);border-radius:6px}
+.lv-copy{font:inherit;font-size:13.5px;padding:6px 14px;border-radius:8px;margin-top:10px;cursor:not-allowed;
+  color:var(--st-ink3);border:1px solid var(--st-line);background:var(--st-surface)}
+.lv-copy.lv-ready{cursor:pointer;color:#fff;background:var(--st-hot);border-color:var(--st-hot)}
+.lv-prog{border-left:1px solid var(--st-line);padding-left:18px}
+.lv-progh{font-weight:600;font-size:13px}
+.lv-bars{display:flex;gap:4px;margin:8px 0 6px}
+.lv-bars span{flex:1;height:4px;border-radius:2px;background:var(--st-raise);cursor:pointer}
+.lv-bars span.lv-done{background:var(--st-ink3)}
+.lv-bars span.lv-cur{background:var(--st-ink)}
+.lv-keys{font-size:12px;color:var(--st-ink2);margin-top:12px;display:grid;gap:5px}
+.lv-navs{display:flex;gap:6px;margin-top:12px}
+.lv-foot{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;margin-top:22px;
+  border-top:1px solid var(--st-line);padding-top:14px}
+.tdy-chip.tdy-title{font-size:12px;padding:1px 10px;font-weight:600}
 `
 
 function injectStyle() {
@@ -366,14 +440,14 @@ class Boundary extends React.Component {
 }
 
 /* Status bar, right: the same N, one click to the call. */
-function NeedChip() {
+function NeedChip({ title }) {
   const s = useToday(false)
   const n = needCount(s.data)
   const parked = s.data && s.data.needs_you ? splitNeeds(s.data.needs_you).parked.length : 0
   const label = n === null ? (s.loading ? 'needs you …' : 'needs you ?') : n + ' need you'
   return h('button', {
     type: 'button',
-    className: cls('tdy-chip', n > 0 && 'tdy-hot'),
+    className: cls('tdy-chip', n > 0 && 'tdy-hot', title && 'tdy-title'),
     title: needLine(n, parked) + (s.err ? ' Last refresh failed — this count is STALE.' : '') + ' Click: open Live.',
     onClick: () => navigate('/live')
   }, label + (s.err && s.data ? ' · stale' : ''))
@@ -942,23 +1016,171 @@ function silenceCopy(i) {
   return 'Tier 1. Its default is ' + dflt + ', but nothing applies defaults today (the applier is off), so silence also waits.'
 }
 
-function LiveCard({ i, today }) {
+const who = i => i.agent || 'no agent yet'
+const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s }
+
+/* The agent's face. Blobatar is in the SDK of the running Desktop; if a build   */
+/* drops it, a plain disc stands in rather than the page failing.               */
+function Face({ name, size }) {
+  const B = SDK.Blobatar
+  return B
+    ? h(B, { name, width: size, height: size, alt: '', className: 'lv-face' })
+    : h('span', { className: 'lv-face lv-facefb', style: { width: size, height: size } })
+}
+
+/* A raised hand: how many open cards wait on Karl's word for this agent. */
+const Hand = ({ n }) => h('span', { className: 'lv-hand', title: n + ' raised hand' + (n === 1 ? '' : 's') }, '✋︎ ' + n)
+
+function AgentTile({ a, mine, parkedN, on, failedRow, today, onPick }) {
+  const first = mine.slice().sort(byCall)[0]
+  const groups = [...new Set(mine.map(i => i.group).filter(Boolean))]
+  const expired = mine.some(i => i.expiry && i.expiry < today)
+  return h('button', { type: 'button', className: cls('lv-tile', on && 'lv-on'), onClick: onPick,
+    title: on ? 'Showing only ' + a + ' in the tray. Click again: everyone.' : 'Show only ' + a + ' in the tray' },
+    h('div', { className: 'lv-where' }, clip(groups.join(' · ') || '—', 34)),
+    h(Hand, { n: mine.length }),
+    h('div', { className: 'lv-facewrap' }, h(Face, { name: a, size: 58 })),
+    h('div', { className: 'lv-tname' }, a),
+    first ? h('div', { className: 'lv-quote' },
+      h('b', null, clip(first.title || first.ask, 60)),
+      first.ask && first.title && first.ask !== first.title ? ' — “' + clip(first.ask, 80) + '”' : null) : null,
+    h('div', { className: 'lv-tfoot' },
+      failedRow ? h('span', { className: 'lv-bad' }, '● failed ') : null,
+      h('span', null, 'needs you ' + mine.length),
+      parkedN ? h('span', { className: 'lv-dim' }, ' · ' + parkedN + ' parked') : null,
+      expired ? h('span', { className: 'lv-warn' }, ' · some expired') : null),
+    mine.some(i => i.agent_shipped === false)
+      ? h('div', { className: 'lv-tnote lv-warn' }, 'not shipped — nothing runs on its cards yet') : null,
+    failedRow ? h('div', { className: 'lv-tnote' }, 'failed ' + when(failedRow.t) + ' — ' + (failedRow.job || '?')) : null)
+}
+
+/* The box, as its own tile. "Last night" never folds: failed and blocked rows */
+/* stay on screen until a run replaces them.                                    */
+function BoxTile({ box: d, rows }) {
+  if (!d || d.error) return h('div', { className: 'lv-tile lv-box' }, h('div', { className: 'lv-tname' }, 'the box'),
+    h('div', { className: 'lv-bad' }, 'Could not sample: ' + ((d && d.error) || 'no data')))
+  const ck = d.checks || {}
+  const passing = (ck.total || 0) - ((ck.failing || []).length)
+  const units = d.failed_units || []
+  const bad = rows.filter(r => r.status === 'failed' || r.status === 'stopped' || r.status === 'blocked')
+  return h('div', { className: 'lv-tile lv-box' },
+    h('div', { className: 'lv-boxhead' },
+      h('span', { className: 'lv-tname' }, 'the box'),
+      h('span', { className: 'lv-tag' }, d.host || 'host'),
+      h('span', { className: cls('lv-boxok', !d.ok && 'lv-bad') },
+        passing + '/' + (ck.total || 0) + ' ' + (d.ok ? 'healthy' : 'look') + ' · written ' + ago(ck.checked_at))),
+    h('div', { className: 'lv-boxgrid' },
+      h('div', null,
+        h('div', { className: 'lv-cap' }, 'GPU'),
+        h('div', { className: 'lv-gpu' }, fmt(d.gpu_util_pct, 0), h('small', null, '%')),
+        h('div', { className: 'lv-boxstat' }, 'hottest ' + fmt(d.hottest_c, 1) + ' °C · load ' + fmt(d.load1, 2)),
+        h('div', { className: 'lv-meter' }, h('span', { style: { width: Math.min(100, Number(d.gpu_util_pct) || 0) + '%' } })),
+        h('div', { className: cls('lv-boxstat', units.length && 'lv-bad') },
+          units.length ? units.length + ' failed unit' + (units.length === 1 ? '' : 's') + ': ' +
+            units.map(u => u.replace('.service', '')).join(', ') : 'no failed units'),
+        (ck.failing || []).length ? h('div', { className: 'lv-boxstat lv-bad' }, 'failing: ' + ck.failing.join(', ')) : null),
+      h('div', null,
+        h('div', { className: 'lv-cap' }, 'Last night · never folds'),
+        bad.length
+          ? bad.slice(0, 6).map((r, k) => h('div', { key: k, className: 'lv-night' },
+              h('span', { className: 'lv-dim' }, when(r.t) + ' '),
+              h('span', { className: r.status === 'blocked' ? 'lv-warn' : 'lv-bad' }, r.status), ' · ',
+              clip((r.agent ? r.agent + ' ' : '') + (r.job || '?'), 34)))
+          : h('div', { className: 'lv-night lv-dim' }, 'nothing failed or blocked'),
+        bad.length > 6 ? h('div', { className: 'lv-night lv-dim' }, '+ ' + (bad.length - 6) + ' more on Today') : null)),
+    h('div', { className: 'lv-timers' },
+      h('span', { className: 'lv-cap' }, 'Timers · ' + (d.timers ?? '—')),
+      h('button', { type: 'button', className: 'lv-link', onClick: () => navigate('/fleet') }, 'the full box on Fleet →')))
+}
+
+/* The tray: ONE question at a time. Keys 1–9 pick a word, L picks later, ↵ copies */
+/* the decide line, ← → step, Esc un-picks (then steps back). Copying is the only */
+/* thing a key does outside this page's view: the answer is still typed by Karl.  */
+function Tray({ batch, pg, pages, pool, today, onPage }) {
+  const [q, setQ] = useState(0)
+  const [pick, setPick] = useState(null)
+  const [copied, setCopied] = useState({}) // id -> word, this view only
+  const k = Math.min(q, Math.max(0, batch.length - 1))
+  const i = batch[k]
+  const words = i ? [...(i.options || []), 'later'] : []
+  const line = i && pick !== null ? 'decide ' + i.id + ' ' + words[pick] : null
+
+  const step = d => { setPick(null); setQ(x => Math.max(0, Math.min(batch.length - 1, x + d))) }
+  const doCopy = () => {
+    if (!line) return
+    copy(line).then(() => {
+      setCopied(c => ({ ...c, [i.id]: words[pick] }))
+      setTimeout(() => { if (k < batch.length - 1) step(1) }, 700)
+    })
+  }
+  const keyRef = React.useRef(null)
+  useEffect(() => { keyRef.current = e => {
+    if (!i || e.metaKey || e.ctrlKey || e.altKey) return
+    const t = e.target
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''))) return
+    if (/^[1-9]$/.test(e.key) && Number(e.key) <= words.length - 1) { setPick(Number(e.key) - 1); e.preventDefault() }
+    else if (e.key === 'l' || e.key === 'L') { setPick(words.length - 1); e.preventDefault() }
+    else if (e.key === 'Enter') { if (line) { doCopy(); e.preventDefault() } }
+    else if (e.key === 'Escape') { if (pick !== null) setPick(null); else step(-1); e.preventDefault() }
+    else if (e.key === 'ArrowRight') { step(1); e.preventDefault() }
+    else if (e.key === 'ArrowLeft') { step(-1); e.preventDefault() }
+  } })
+  useEffect(() => {
+    const on = e => keyRef.current && keyRef.current(e)
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  }, [])
+
+  if (!i) return h('div', { className: 'lv-tray' }, h('p', { className: 'lv-dim' }, 'Nothing is waiting on you.'))
   const expired = Boolean(i.expiry) && i.expiry < today
-  return h('div', { className: 'lv-card' },
-    h('div', { className: 'tdy-sub', style: { marginTop: 0, marginBottom: 3 } },
-      h('span', { className: 'tdy-agent' }, i.agent || 'no agent yet'),
-      i.group ? ' · ' + i.group : '',
-      i.expiry ? h('span', { className: expired ? 'lv-expired' : null },
-        ' · ' + (expired ? 'expired ' + i.expiry + ' — still open, still yours' : 'expires ' + i.expiry)) : null),
-    h(AskHead, { i }),
-    i.why ? h('div', { className: 'tdy-why' }, i.why) : null,
-    i.steps ? h('div', { className: 'tdy-steps' }, h('span', { className: 'tdy-lbl' }, 'Do'), i.steps) : null,
-    i.command ? h('div', { className: 'tdy-cmdrow' },
-      h('span', { className: 'tdy-lbl' }, 'Paste'), h('pre', { className: 'tdy-cmd' }, i.command),
-      h(CopyBtn, { text: i.command, small: true })) : null,
-    h('div', { className: 'tdy-cmdrow' },
-      h('span', { className: 'tdy-lbl' }, 'Answer'), h('div', { style: { flex: 1 } }, h(DecideLines, { i }))),
-    h('div', { className: 'lv-silence' }, silenceCopy(i)))
+  const behind = pool.length - (pg * BATCH + batch.length)
+  return h('div', { className: 'lv-tray' },
+    h('div', { className: 'lv-q' },
+      h(Face, { name: who(i), size: 44 }),
+      h('div', { style: { minWidth: 0 } },
+        h('div', { className: 'lv-qmeta' },
+          h('b', null, who(i)), i.group ? ' · ' + i.group : '', ' · p' + (i.priority ?? '?'),
+          ' · ', h('span', { className: 'lv-kind' }, i.ask_kind || '?'),
+          i.tier === 3 ? h('span', { className: 'lv-tag' }, 'tier 3') : null,
+          i.agent_shipped === false ? h('span', { className: 'lv-tag lv-warn' }, 'agent not shipped') : null),
+        h('h2', null, i.ask || i.title),
+        i.ask && i.title && i.ask !== i.title ? h('div', { className: 'lv-qbody' }, i.title) : null,
+        i.why ? h('div', { className: 'lv-qbody lv-dim' }, i.why) : null,
+        i.steps ? h('div', { className: 'lv-qbody' }, h('span', { className: 'lv-cap' }, 'Do '), i.steps) : null,
+        i.command ? h('div', { className: 'lv-paste' },
+          h('span', { className: 'lv-cap' }, 'Paste'), h('pre', null, i.command), h(CopyBtn, { text: i.command, small: true })) : null,
+        h('div', { className: 'lv-qif' },
+          h('span', { className: 'lv-dim' }, 'If you don’t answer: '), silenceCopy(i),
+          i.expiry ? h('span', { className: expired ? 'lv-warn' : 'lv-dim' },
+            ' · ' + (expired ? 'expired ' + i.expiry + ' — still open, still yours' : 'expires ' + i.expiry)) : null))),
+    h('div', { className: 'lv-pick' },
+      h('div', { className: 'lv-opts' },
+        (i.options || []).length
+          ? i.options.map((o, n) => h('button', { key: o, type: 'button', className: cls('lv-opt', pick === n && 'lv-on'),
+              onClick: () => setPick(n) }, h('kbd', null, String(n + 1)), o))
+          : h('div', { className: 'lv-warn' }, 'No options yet — nothing can answer this card; the chair adds them.')),
+      h('button', { type: 'button', className: cls('lv-later', pick === words.length - 1 && 'lv-on'),
+        onClick: () => setPick(words.length - 1) },
+        h('u', null, 'later'), h('span', { className: 'lv-dim' }, ' parks the card — decide v2 takes it on every card')),
+      h('pre', { className: cls('lv-line', !line && 'lv-dim') }, line || 'decide ' + i.id + ' <pick a word>'),
+      h('button', { type: 'button', className: cls('lv-copy', line && 'lv-ready'), disabled: !line, onClick: doCopy },
+        copied[i.id] && line && copied[i.id] === words[pick] ? 'Copied' : 'Copy', ' ', h('kbd', null, '↵')),
+      h('div', { className: 'lv-dim lv-small' },
+        copied[i.id] ? 'Copied “' + copied[i.id] + '” — paste it in a terminal; the card stays open until decide runs.'
+          : 'Pick a word — ↵ copies its decide line; this page writes nothing.')),
+    h('div', { className: 'lv-prog' },
+      h('div', { className: 'lv-progh' }, 'question ' + (k + 1) + ' of ' + batch.length + ' · batch ' + (pg + 1) + ' of ' + pages),
+      h('div', { className: 'lv-bars' }, batch.map((x, n) => h('span', { key: x.id,
+        className: cls(n === k && 'lv-cur', copied[x.id] && 'lv-done'), onClick: () => { setPick(null); setQ(n) } }))),
+      h('div', { className: 'lv-dim lv-small' },
+        behind > 0 ? behind + ' more queued behind this batch, soonest expiry first.' : 'Nothing queued behind this batch.'),
+      h('div', { className: 'lv-keys' },
+        h('div', null, h('kbd', null, '1'), '–', h('kbd', null, String(Math.max(1, words.length - 1))), ' pick · ', h('kbd', null, 'L'), ' later'),
+        h('div', null, h('kbd', null, '↵'), ' copy the decide line'),
+        h('div', null, h('kbd', null, '←'), h('kbd', null, '→'), ' question · ', h('kbd', null, 'esc'), ' back')),
+      h('div', { className: 'lv-navs' },
+        pg > 0 ? h('button', { type: 'button', className: 'lv-btn', onClick: () => onPage(pg - 1) }, 'Back five') : null,
+        pg < pages - 1 ? h('button', { type: 'button', className: 'lv-btn', onClick: () => onPage(pg + 1) }, 'Next five') : null)))
 }
 
 function LivePage() {
@@ -968,84 +1190,63 @@ function LivePage() {
   const gone = receipts || []
   useEffect(() => { injectStyle() }, [])
 
-  if (loading && !data) return h('div', { className: 'tdy-root' }, h('p', null, 'Sampling the box…'))
-  if (err && !data) return h('div', { className: 'tdy-root' }, h(Err, { msg: err }))
+  if (loading && !data) return h('div', { className: 'lv-stage' }, h('p', null, 'Sampling the box…'))
+  if (err && !data) return h('div', { className: 'lv-stage' }, h(Err, { msg: err }))
 
   const stale = Boolean(err && data)
   const iso = t => (t ? new Date(t).toISOString() : null)
   const ny = data.needs_you || {}
   const { today, live, parked, derived } = splitNeeds(ny)
   const n = needCount(data)
-  const agents = [...new Set(live.map(i => i.agent || 'no agent yet'))].sort()
-  const pool = live.filter(i => !agent || (i.agent || 'no agent yet') === agent).sort(byCall)
+  const rows = (data.agents || {}).items || []
+  const failed = rows.filter(r => r.status === 'failed' || r.status === 'stopped')
+  const byLoad = (a, b) => live.filter(i => who(i) === b).length - live.filter(i => who(i) === a).length || a.localeCompare(b)
+  const agents = [...new Set(live.map(who))].sort(byLoad)
+  const pool = live.filter(i => !agent || who(i) === agent).sort(byCall)
   const pages = Math.max(1, Math.ceil(pool.length / BATCH))
   const pg = Math.min(page, pages - 1)
   const batch = pool.slice(pg * BATCH, pg * BATCH + BATCH)
-  const failed = ((data.agents || {}).items || []).filter(r => r.status === 'failed' || r.status === 'stopped')
 
-  return h('div', { className: stale ? 'tdy-root tdy-stale' : 'tdy-root' },
+  return h('div', { className: cls('lv-stage', stale && 'tdy-stale') },
     stale ? h('div', { className: 'tdy-stalebar', role: 'alert' },
       'STALE — the last refresh failed ' + ago(iso(errAt)) +
       '. Everything below was sampled ' + ago(iso(lastOkAt)) + ' and is NOT current.',
       h('small', null, 'Error: ' + err)) : null,
     h('div', { className: 'tdy-body' },
-      h('header', null,
-        h('h1', null, 'Live'),
-        h('div', { className: 'tdy-stamp' },
-          h('span', null, 'sampled ' + clock(data.sampled_at)),
-          h('span', null, 'refreshes every ' + Math.round(POLL_MS / 1000) + 's'),
-          ny.updated_at ? h('span', null, 'queue updated ' + ago(ny.updated_at)) : null),
-        h('div', { className: cls('tdy-verdict', n ? 'tdy-hot' : 'tdy-calm') }, needLine(n, parked.length)),
-        h('p', { className: 'tdy-oneline' },
-          'Copy one ', h('code', null, 'decide <id> <word>'), ' line per card into a terminal. ',
-          'This page writes nothing; Next, the tiles and Leave change only what you see.')),
-      failed.length ? h('div', { className: 'lv-band', role: 'alert' },
-        h('b', null, failed.length + ' failed'), ' — ',
-        failed.map(r => (r.agent || '?') + ' ' + (r.job || '?') + ' ' + when(r.t)).join(' · '),
-        ' (details on Today → What the agents did)') : null,
-      h('div', { className: 'lv-tiles' },
-        agents.map(a => {
-          const mine = live.filter(i => (i.agent || 'no agent yet') === a)
-          const notShipped = mine.some(i => i.agent_shipped === false)
-          return h('button', { key: a, type: 'button', className: cls('lv-tile', agent === a && 'lv-on'),
-            onClick: () => { setAgent(agent === a ? null : a); setPage(0) } },
-            h('div', { className: 'lv-tname' }, a),
-            h('div', { className: 'lv-tcount' }, mine.length + ' need you' +
-              (mine.some(i => i.expiry && i.expiry < today) ? ' · some expired' : '')),
-            notShipped ? h('div', { className: 'lv-tcount tdy-warn' }, 'not shipped — nothing runs on its cards yet') : null)
-        })),
-      h('div', { className: 'lv-tray' },
-        h('div', { className: 'lv-trayhead' },
-          h('h2', null, agent ? 'The call · ' + agent : 'The call'),
-          h('span', { className: 'tdy-meta', style: { marginLeft: 0 } },
-            pool.length ? 'batch ' + (pg + 1) + ' of ' + pages + ' · ' + batch.length + ' of ' + pool.length + ' cards · soonest expiry first' : ''),
-          h('span', { style: { marginLeft: 'auto', display: 'flex', gap: 6 } },
-            pg > 0 ? h('button', { className: 'tdy-btn tdy-small', onClick: () => setPage(pg - 1) }, 'Back') : null,
-            pg < pages - 1 ? h('button', { className: 'tdy-btn tdy-small', onClick: () => setPage(pg + 1) }, 'Next five') : null,
-            h('button', { className: 'tdy-btn tdy-small', title: 'Closes this view only. Nothing is answered or parked.',
-              onClick: () => navigate('/today') }, 'Leave'))),
-        batch.length
-          ? batch.map(i => h(LiveCard, { key: i.id, i, today }))
-          // Never write the word f-r-o-m right before a quote anywhere in this file, not even
-          // in a string: the Desktop loader regex-scans the raw source for imports and refuses
-          // the whole plugin ("unsupported import: + agent +"), which cost slice 1 its debut.
-          : h('p', { className: 'tdy-empty' }, agent ? agent + ' has nothing waiting on you.' : 'Nothing is waiting on you.'),
-        derived.length ? h('p', { className: 'tdy-note' },
-          derived.length + ' derived item(s) also wait — nobody typed them; see Today → Needs you.') : null),
-      h(Section, { title: 'Receipts', count: gone.length,
-        meta: since ? 'since ' + clock(since) : null,
-        children: h('div', null,
+      h('header', { className: 'lv-top' },
+        h('span', { className: 'lv-live' }, '● Live'),
+        h('span', null, (live.length + parked.length) + ' open · ', h('b', null, (n ?? '?') + ' need you'),
+          parked.length ? ' · ' + parked.length + ' parked' : ''),
+        failed.length ? h('span', { className: 'lv-bad' }, ' · ' + failed.length + ' failed last night') : null,
+        h('span', { className: 'lv-dim lv-stamp' }, 'sampled ' + clock(data.sampled_at) +
+          (ny.updated_at ? ' · queue updated ' + ago(ny.updated_at) : '') + ' · every ' + Math.round(POLL_MS / 1000) + 's'),
+        h('button', { type: 'button', className: 'lv-btn', title: 'Closes this view only. Nothing is answered or parked.',
+          onClick: () => navigate('/today') }, 'Leave the call')),
+      h('div', { className: 'lv-gallery' },
+        agents.map(a => h(AgentTile, { key: a, a, today, on: agent === a,
+          mine: live.filter(i => who(i) === a),
+          parkedN: parked.filter(i => who(i) === a).length,
+          failedRow: failed.find(r => r.agent === a),
+          onPick: () => { setAgent(agent === a ? null : a); setPage(0) } })),
+        h(BoxTile, { box: data.box, rows })),
+      // keyed by the batch: a new batch starts at question 1 with nothing picked
+      h(Tray, { key: batch.map(x => x.id).join(','), batch, pg, pages, pool, today, onPage: setPage }),
+      derived.length ? h('p', { className: 'lv-dim lv-small' },
+        derived.length + ' derived item(s) also wait — nobody typed them; see Today → Needs you.') : null,
+      h('div', { className: 'lv-foot' },
+        h('section', null,
+          h('div', { className: 'lv-cap' }, 'Receipts · ' + gone.length + (since ? ' since ' + clock(since) : '')),
           gone.length
-            ? gone.map(i => h('div', { key: i.id, className: 'lv-receipt' },
-                h('span', { className: 'tdy-agent' }, i.agent || '—'), ' · ', i.ask || i.title,
-                h('span', { className: 'tdy-when', style: { marginLeft: 8 } }, 'left the queue ' + ago(i.seenGoneAt))))
-            : h('p', { className: 'tdy-empty' }, 'No card has left the queue since the Desktop loaded this page.'),
-          h('p', { className: 'tdy-note' },
-            'The word and who gave it are in the queue record, not on this page yet: the box serves open cards only, ' +
-            'and serving closed ones needs a server change that is not part of this slice.')) }),
-      parked.length ? h(Section, { title: 'Parked', count: parked.length,
-        children: h('div', { className: 'tdy-parked' }, parked.map(i => h('div', { key: i.id, className: 'tdy-parkrow' },
-          (i.agent ? i.agent + ' · ' : '') + (i.ask || i.title) + ' — until ' + i.parked.until))) }) : null))
+            ? gone.map(i => h('div', { key: i.id, className: 'lv-night' },
+                h('b', null, i.agent || '—'), ' · ', i.ask || i.title,
+                h('span', { className: 'lv-dim' }, ' · left the queue ' + ago(i.seenGoneAt))))
+            : h('div', { className: 'lv-dim lv-small' }, 'No card has left the queue since the Desktop loaded this page.'),
+          h('div', { className: 'lv-dim lv-small' },
+            'The word and who gave it are in the queue record, not on this page yet: the box serves open cards only.')),
+        parked.length ? h('section', null,
+          h('div', { className: 'lv-cap' }, 'Parked · ' + parked.length),
+          parked.map(i => h('div', { key: i.id, className: 'lv-night lv-dim' },
+            (i.agent ? i.agent + ' · ' : '') + (i.ask || i.title) + ' — until ' + i.parked.until))) : null)))
 }
 
 /* ------------------------------------------------------------------------ */
@@ -1116,6 +1317,20 @@ function makeFleetPage(rest) {
   }
 }
 
+const CC_DARK = {
+  background: '#121315', foreground: '#ecebe7', card: '#1b1c1f', cardForeground: '#ecebe7',
+  muted: '#232428', mutedForeground: '#a3a29d', popover: '#1b1c1f', popoverForeground: '#ecebe7',
+  primary: '#e8612c', primaryForeground: '#ffffff', secondary: '#232428', secondaryForeground: '#ecebe7',
+  accent: '#2a2b30', accentForeground: '#ecebe7', border: 'rgba(255,255,255,0.09)', input: 'rgba(255,255,255,0.12)',
+  ring: '#e8612c', destructive: '#e2705e', destructiveForeground: '#ffffff',
+  sidebarBackground: '#161719', sidebarBorder: 'rgba(255,255,255,0.07)'
+}
+const COMMAND_CENTER_THEME = {
+  name: 'command-center', label: 'Command Center',
+  description: 'The dark stage of plan C: near-black surfaces, one orange for what needs you.',
+  colors: CC_DARK, darkColors: CC_DARK
+}
+
 const plugin = {
   id: 'fleet',
   name: 'Today + Fleet',
@@ -1149,6 +1364,13 @@ const plugin = {
       contributions.push({ id: 'need-chip', area: STATUSBAR_RIGHT, order: 115,
         render: () => h(Boundary, { name: 'Needs-you chip' }, h(NeedChip)) })
     }
+    if (TITLEBAR_RIGHT) {
+      contributions.push({ id: 'need-chip-title', area: TITLEBAR_RIGHT, order: 5,
+        render: () => h(Boundary, { name: 'Needs-you chip' }, h(NeedChip, { title: true })) })
+    }
+    // Listed in Settings → Appearance, never selected here: choosing it changes the
+    // whole app, and that is Karl's click. /live carries the same palette on its own.
+    if (THEMES_AREA) contributions.push({ id: 'command-center-theme', area: THEMES_AREA, data: COMMAND_CENTER_THEME })
     if (PALETTE_AREA) {
       contributions.push(
         { id: 'open-today', area: PALETTE_AREA,
