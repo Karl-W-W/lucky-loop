@@ -235,7 +235,8 @@ of the control, said as code rather than as intent:
 ## The artifact hop left the Mac (2026-09-10)
 
 Karl's word: **action**, overriding the council's **mac**, reason lid dependence. The loop host
-stages its three redacted artifacts plus `gate.json` in the PRIVATE `lucky-loop-artifacts` mirror
+stages its three redacted artifacts plus `gate.json` — and since 2026-09-19 `ci-runs.json`, so
+O3/KR3 keeps counting; see "The CI snapshot" below — in the PRIVATE `lucky-loop-artifacts` mirror
 over a write key scoped to that repo (the council verdict the 2026-09-08 rule requires is this
 override, logged as `hop:artifact-return-action-2026-09-10`); `.github/workflows/artifact-return.yml`
 pulls the mirror with a read-only key held as `ARTIFACT_MIRROR_KEY`, bounds the attestation
@@ -248,6 +249,36 @@ on the runner — the Action's summary says so every run; on the Action's PR `ga
 waits for a maintainer's approval (`action_required`, observed 09-11 to 09-15), so read the job's summary,
 not a tick; `gates.yml` runs unattended on `main` after the merge; both cadences in the
 canvas node are derived from the timer and the cron, so change those files, never the label.
+
+## The CI snapshot advances on its own (2026-09-19)
+
+O3/KR3 ("zero gate failures") is derived at build time from `data/ci-runs.json`, which
+`scripts/sync-ci.mjs` writes from the public GitHub API. **Nobody ran it on a schedule, so the
+number froze at 6 of 51 clean days on 2026-09-16** while the gates went on passing daily. A
+derived display that cannot move is the day-after rule in a different coat.
+
+`nightly-queue`'s `ci-snapshot` job (local, `fn`, third in the list so it survives a night the
+delegations halt) now writes the snapshot to `~/ll-loop/out/ci-runs.json` — deliberately outside
+the checkout, because dirtying `~/lucky-loop` breaks the queue's own `git pull --ff-only` — and the
+artifact-return hop carries it, with `data/okrs.json`, into the same PR. Read `docs/AUTONOMY.md`,
+"The CI snapshot rides this hop", before touching any of it.
+
+**The floor is on ROWS, not on clean days, and the difference is the whole point.** A fetch that
+lost a run it already published is refused. A clean-day count that FALLS is published loudly —
+that is a gate failure, which is the thing the KR measures, and a guard against it would make
+"zero gate failures" a number that cannot fall. **The merge is still Karl's**; nothing on the box
+publishes, and the KR advances by itself only as far as the PR.
+
+**Trap, and the reason `check_artifacts.py` now has an `EXEMPT` table.** Putting
+`data/ci-runs.json` under the redaction gate makes the BY-NAME half fire on `$.runs[*].repo`,
+because the owner half of a GitHub slug is an account name — 33 hits on the first snapshot. It
+fires only where the real deny-list is loaded, i.e. the loop host: **CI stays green on the
+pattern half and fictional names while `artifact-return`'s gate goes red on the box, refuses its
+push, and takes the loop's own three artifacts down with it.** Caught 2026-09-19 in a post-merge
+rehearsal against a local mirror, not by any gate. The waiver is one rule at one path pattern,
+counted in the gate's status line so it can never be silent; every other field stays under both
+halves. If you add an artifact whose content is legitimately public identifiers, rehearse it on
+the host before merging — the runner cannot tell you.
 
 ## The Today page and the needs-you queue (2026-09-03)
 

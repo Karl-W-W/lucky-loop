@@ -14,8 +14,15 @@ can run, regenerates the canvas and opens a PR. A human merges the PR; the merge
 Nothing here touches the public repo.
 
 The council's conditions (captures/council/council-artifact-hop-off-the-mac.md), as code:
-  * the mirror holds ONLY the redacted files: four fixed filenames; any other path in the mirror's
-    working tree refuses the push instead of being swept along;
+  * the mirror holds ONLY the redacted files: a fixed, closed list of filenames (ALLOWED); any other
+    path in the mirror's working tree refuses the push instead of being swept along. The list was
+    four and is five since 2026-09-19 — ci-runs.json, the CI snapshot O3/KR3 is derived from. That
+    is a widening of a council-conditioned channel and is named here rather than slipped in: the
+    added bytes are public GitHub metadata (repo, workflow, run number, short sha, time,
+    conclusion) produced by scripts/sync-ci.mjs from the public API, they are gated by
+    check_artifacts.py like every other name on the list, and they are attested in the same
+    gate.json. If the council wants it out, delete CI_RUNS here and in artifact-return-verify.py;
+    nothing else depends on it;
   * no content in logs: one line per run, counts and verdict words only, never a filename, never
     a document title;
   * gate.json is written HERE — {gate, nameTokens, sha256, at} — and says "strong" only when the real
@@ -69,7 +76,16 @@ PUBLIC_REPO = "Karl-W-W/lucky-loop"
 WORKFLOW = "artifact-return.yml"
 STATUS_MAX_AGE_H = 12
 ARTIFACTS = ("loop-runs.json", "loop-def.json", "loop-status.json")
-STAGED = ARTIFACTS + ("gate.json",)
+# The CI snapshot O3/KR3 is derived from, added 2026-09-19. It is NOT a loop artifact and is not
+# produced here: nightly-queue's `ci-snapshot` job runs scripts/sync-ci.mjs against the public
+# GitHub API and drops the result at LL/out/ci-runs.json, floored against what is committed. This
+# hop only CARRIES it, for one reason — it is the same journey (host -> private mirror -> Action ->
+# PR -> a human merges) and a second channel would be a second thing to watch go quiet. It rides
+# the existing 12-hourly status snapshot, so the KR keeps counting on a night with no loop pass,
+# which was the whole finding (REPORT slot-truth, 2026-09-16: the number froze at 6 of 51 clean
+# days because nobody ran the script). Absent on the host = this file behaves exactly as before.
+CI_RUNS = "ci-runs.json"
+ALLOWED = ARTIFACTS + (CI_RUNS, "gate.json")
 DRY = "--dry-run" in sys.argv
 # --test <name>: the council builder's test. Appends ONE synthetic run (a copy of the newest pass with
 # synthetic ids, flagged "synthetic": true) and stages the result on the mirror branch <name>, never on
@@ -235,8 +251,10 @@ def run_gates(payload: dict[str, bytes]) -> tuple[str, int, dict]:
     link = GATE_REPO / "loop" / "name_tokens_local.py"  # gitignored in the repo, so reset leaves it alone
     if not link.exists():
         link.symlink_to(LL / "name_tokens_local.py")
-    for name in ARTIFACTS:
-        (GATE_REPO / "data" / name).write_bytes(payload[name])
+    # Every file we are about to stage, not just the loop's three: ci-runs.json is on
+    # check_artifacts.py's list too, so the attestation covers exactly what the PR carries.
+    for name, blob in payload.items():
+        (GATE_REPO / "data" / name).write_bytes(blob)
     try:
         r1 = subprocess.run([sys.executable, "loop/check_artifacts.py"], cwd=GATE_REPO, capture_output=True, text=True, timeout=300)
         r2 = subprocess.run([sys.executable, "loop/test_redaction.py"], cwd=GATE_REPO, capture_output=True, text=True, timeout=300)
@@ -337,6 +355,17 @@ def main() -> None:
         "loop-def.json": def_bytes,
         "loop-status.json": (json.dumps(status, indent=2) + "\n").encode("utf-8"),
     }
+    # The CI snapshot, when the nightly job has left one. Parsed before it is carried: an
+    # unreadable file is dropped from the payload rather than staged, because the Action would
+    # refuse the whole push over it and take the loop's artifacts down with it.
+    ci_bytes = None
+    try:
+        ci_bytes = (LL / "out" / CI_RUNS).read_bytes()
+        json.loads(ci_bytes)
+    except (OSError, ValueError):
+        ci_bytes = None
+    if ci_bytes is not None:
+        payload[CI_RUNS] = ci_bytes
 
     env = mirror_env()
     try:
@@ -358,6 +387,22 @@ def main() -> None:
         finish(f"REFUSED:host-returned-fewer-passes-than-staged({len(runs)}<{prev_count})", 1)
     new = str(len(runs) - prev_count)
     runs_changed = prev_runs != runs_bytes or prev_def != def_bytes
+    # The CI snapshot's own floor, against the mirror's last copy — the same rule as the pass
+    # count one line up, and the same reason: published history never shrinks on one fetch.
+    # sync-ci.mjs floors it once more against the COMMITTED copy before it ever gets here, and
+    # artifact-return-verify.py floors it a third time on the runner, which is the only side with
+    # authority over what is published. A clean-day count that FALLS is not a shrink and is
+    # carried through untouched: that is a gate failure, which is the thing KR3 measures.
+    prev_ci = (MIRROR / CI_RUNS).read_bytes() if has_main and (MIRROR / CI_RUNS).exists() else None
+    ci_changed = ci_bytes is not None and prev_ci != ci_bytes
+    if ci_bytes is not None and prev_ci is not None:
+        try:
+            incoming_ci = len(json.loads(ci_bytes).get("runs", []))
+            staged_ci = len(json.loads(prev_ci).get("runs", []))
+        except (ValueError, AttributeError):
+            incoming_ci = staged_ci = 0
+        if incoming_ci < staged_ci:
+            finish(f"REFUSED:ci-snapshot-shrank({incoming_ci}<{staged_ci})", 1)
     age_h = 10**6
     try:
         prev_status = json.loads((MIRROR / "loop-status.json").read_text(encoding="utf-8"))
@@ -365,7 +410,7 @@ def main() -> None:
         age_h = int((time.time() - prev_epoch) // 3600)
     except (OSError, ValueError, KeyError):
         pass
-    if not runs_changed and age_h < STATUS_MAX_AGE_H and not TEST:
+    if not runs_changed and not ci_changed and age_h < STATUS_MAX_AGE_H and not TEST:
         finish(f"unchanged(snapshot-age={age_h}h)", 0)
 
     # --- the gate -----------------------------------------------------------------------------------
@@ -388,30 +433,33 @@ def main() -> None:
         "at": utc_now(),
         "artifactNewestAt": newest,
         "passCount": len(runs),
-        "sha256": {name: sha256(payload[name]) for name in ARTIFACTS},
+        "sha256": {name: sha256(blob) for name, blob in payload.items()},
         "checks": {"check_artifacts": detail["check_artifacts"], "test_redaction": detail["test_redaction"]},
         "gateCode": detail["gateCode"],
     }
     if TEST:
         attestation["synthetic"] = True
         attestation["testBranch"] = TEST
-    what = f"{new} new pass(es)" if runs_changed else "status snapshot"
+    what = f"{new} new pass(es)" if runs_changed else ("CI snapshot" if ci_changed else "status snapshot")
     if DRY:
         finish(f"dry-run(would-stage:{what})", 0)
 
-    # --- stage: exactly these four files, nothing else, one ref -------------------------------------
+    # --- stage: exactly these files, nothing else, one ref ------------------------------------------
     target_ref = f"refs/heads/{TEST}" if TEST else "main"
     if TEST:
         git(MIRROR, "checkout", "-q", "-B", f"test/{TEST}", "origin/main" if has_main else "main")
-    for name in ARTIFACTS:
-        (MIRROR / name).write_bytes(payload[name])
+    for name, blob in payload.items():
+        (MIRROR / name).write_bytes(blob)
     (MIRROR / "gate.json").write_text(json.dumps(attestation, indent=2) + "\n", encoding="utf-8")
+    staged = tuple(payload) + ("gate.json",)
     porcelain = [ln[3:] for ln in git(MIRROR, "status", "--porcelain").stdout.splitlines() if ln.strip()]
-    foreign = [p for p in porcelain if p not in STAGED]
+    # ALLOWED, not `staged`: the refusal is about paths this hop must never sweep along, and it must
+    # not start firing on a night the host produced no ci-runs.json but the mirror already holds one.
+    foreign = [p for p in porcelain if p not in ALLOWED]
     if foreign:
         git(MIRROR, "checkout", "-q", "--", ".", check=False)
         finish(f"REFUSED:foreign-path-in-mirror(count={len(foreign)})", 1)
-    git(MIRROR, "add", "--", *STAGED)
+    git(MIRROR, "add", "--", *staged)
     if git(MIRROR, "diff", "--cached", "--quiet", check=False).returncode == 0:
         finish("nothing-staged", 0)
     msg = f"artifact-return: {what} — {passes} pass(es) on the host; gate {gate} ({tokens} name tokens); sampled {status['syncedAt']}"
