@@ -1,43 +1,78 @@
 #!/usr/bin/env bash
-# SWITCH 2 — WhatsApp answers. STAGED, OFF. The flip is Karl's (his phone pairs the number; the
-# 09-10 "no WhatsApp" ruling stands until his word). See hermes/profiles/decision-call/SWITCHES.md.
+# SWITCH 2 — WhatsApp answers. STAGED, OFF. The flip is Karl's: his phone pairs the number, and the
+# 09-10 "no WhatsApp" ruling stands until his word. See hermes/profiles/decision-call/SWITCHES.md.
 #
-# Runs ON THE BOX. Copy the three source files there first (from the Mac, in this repo):
-#   hermes/profiles/decision-call/whatsapp-switch.sh push      (scp's the sources, then runs `stage` there)
+# WHY THE PROFILE IS KEPT OUTSIDE ~/.hermes/profiles UNTIL THE FLIP (verifier blocker 2, 2026-09-27):
+# the box's gateway multiplexes profiles (gateway/run.py `_multiplex_profile_homes` ->
+# hermes_cli/profiles.py `profiles_to_serve(multiplex=True)`: default + EVERY live named profile under
+# profiles/). There is no per-profile exclude key, and its reconcile watcher rescans profiles/ and
+# every served profile's .env about every 30 s. So a staged profile that sat under profiles/ was
+# SERVED, and setting WHATSAPP_ENABLED=true there would have started the adapter inside the main
+# gateway on its own. The staged profile therefore lives in STAGED below, served by nothing; `flip`
+# moves it into profiles/ (the gateway picks it up) and is the ONLY step that turns WhatsApp on.
+# No separate systemd unit: the main gateway serves it once it is under profiles/, and a second
+# gateway would double-serve the same number.
 #
-#   whatsapp-switch.sh stage    install the decision-whatsapp profile, WhatsApp DISABLED; unit written, not enabled
-#   whatsapp-switch.sh status   what is installed, whether it is on (never prints the number)
-#   whatsapp-switch.sh flip     KARL: asks for his own number (hidden input), enables, then prints the pairing step
-#   whatsapp-switch.sh off      stop + disable the unit, WHATSAPP_ENABLED=false (the number stays unless --forget)
+# Runs ON THE BOX. From the Mac, in this repo:
+#   hermes/profiles/decision-call/whatsapp-switch.sh push     copy the sources to the box, run `stage` there
 #
-# What the profile can do once on: the SAME three tools as the Desktop call (hermes/plugins/decision-call):
-# read a card, read a word back, record it after an explicit yes in a later message (tier 3: a second yes),
-# through the box's vault writer, doneBy "karl — whatsapp <word>". No terminal, no file, no web, no memory,
-# no send tool: it answers only in the chat it was written in. Only Karl's number is allowlisted
-# (dm_policy allowlist; groups disabled); another number gets nothing. Words only: a value (A4) is refused
-# by the writer's value-shape check and by the call's rules.
+#   whatsapp-switch.sh stage    build/refresh the profile in STAGED, WhatsApp disabled, served by nothing
+#   whatsapp-switch.sh status   where it is, whether it is on, whether the gateway serves it (never the number)
+#   whatsapp-switch.sh flip     KARL, in a terminal: his number (hidden) -> into profiles/ -> pair the
+#                               separate number's phone -> WHATSAPP_ENABLED=true. The one switch.
+#   whatsapp-switch.sh off      WHATSAPP_ENABLED=false, then back out of profiles/ into STAGED
+#                               (`off --forget` also removes the number)
 #
-# Why not the page's POST /answer: that route takes only requests carrying the Mac-only page key
-# (slice 3's channel). Putting that key on the box would undo the channel. So WhatsApp writes through
-# the same WRITER as verb (a) — needs-you-write, with the same id/word validation — not through its route.
+# Once on, the profile has the SAME three tools as the Desktop call (hermes/plugins/decision-call) and
+# nothing else on any platform: read a card, read a word back, record it when Karl's next message
+# names the word (tier 3: names it twice), through the box's vault writer, doneBy
+# "karl — whatsapp <word>". It answers only in the chat it was written in. dm_policy allowlist with
+# only Karl's number; groups disabled. Why not the page's POST /answer: that route takes only the
+# Mac-only page key; putting the key on the box would undo the page's channel. So it writes through
+# the same WRITER as verb (a) (needs-you-write, the same id/word validation), not through its route.
 set -euo pipefail
 P_NAME=decision-whatsapp
-UNIT=hermes-decision-whatsapp.service
 SRC="${DECISION_CALL_SRC:-$HOME/.local/share/lucky-loop/decision-call-src}"
+STAGED="$HOME/.local/share/lucky-loop/$P_NAME-staged"
 HH="$HOME/.hermes"
-P="$HH/profiles/$P_NAME"
+LIVE="$HH/profiles/$P_NAME"
 PY="$HH/hermes-agent/venv/bin/python"
 HERMES="$HOME/.local/bin/hermes"
-ENVF="$P/.env"
+GWLOG="$HH/logs/gateway.log"
 
-setenv() {  # setenv KEY VALUE — replace or append one line in the profile .env (0600)
-  touch "$ENVF"; chmod 600 "$ENVF"
-  local tmp; tmp="$(mktemp "$P/.env.XXXX")"
-  grep -v "^$1=" "$ENVF" > "$tmp" || true
-  printf '%s=%s\n' "$1" "$2" >> "$tmp"
-  chmod 600 "$tmp"; mv "$tmp" "$ENVF"
+# A dir under profiles/ is a profile only with an identity marker (hermes_constants
+# named_profile_has_identity). After the move out, the gateway's per-profile log router leaves a
+# marker-less GHOST (logs/ only) behind: not listed, not served. `live` ignores it; flip clears it.
+live() {
+  local m; for m in config.yaml .env SOUL.md profile.yaml auth.json state.db; do
+    [[ -f "$LIVE/$m" || -L "$LIVE/$m" ]] && return 0; done; return 1
 }
-getenv() { grep "^$1=" "$ENVF" 2>/dev/null | tail -1 | cut -d= -f2-; }
+clear_ghost() {  # move a marker-less ghost's logs into the staged profile, then remove the empty dir
+  [[ -d "$LIVE" ]] && ! live || return 0
+  local extra; extra="$(find "$LIVE" -mindepth 1 -not -path "$LIVE/logs" -not -path "$LIVE/logs/*" | head -1)"
+  [[ -z "$extra" ]] || { echo "refused: $LIVE holds more than logs ($extra); look at it by hand" >&2; exit 2; }
+  local g; g="$1/logs/ghost-$(date -u +%Y%m%dT%H%M%SZ)"; mkdir -p "$g"
+  [[ -d "$LIVE/logs" ]] && mv "$LIVE/logs/"* "$g/" 2>/dev/null || true
+  rmdir "$LIVE/logs" 2>/dev/null || true; rmdir "$LIVE"
+}
+where() { if live; then echo "$LIVE"; elif [[ -d "$STAGED" ]]; then echo "$STAGED"; fi; }
+setenv() {  # setenv DIR KEY VALUE — replace or append one line in DIR/.env (0600)
+  local f="$1/.env" tmp; touch "$f"; chmod 600 "$f"
+  tmp="$(mktemp "$1/.env.XXXX")"; grep -v "^$2=" "$f" > "$tmp" || true
+  printf '%s=%s\n' "$2" "$3" >> "$tmp"; chmod 600 "$tmp"; mv "$tmp" "$f"
+}
+getenv() { grep "^$2=" "$1/.env" 2>/dev/null | tail -1 | cut -d= -f2-; }
+policy() {  # the fixed WhatsApp policy, re-asserted after anything that may have edited .env
+  setenv "$1" WHATSAPP_MODE bot
+  setenv "$1" WHATSAPP_DM_POLICY allowlist
+  setenv "$1" WHATSAPP_GROUP_POLICY disabled
+  setenv "$1" WHATSAPP_ALLOW_ALL_USERS false
+  setenv "$1" NYW_BOX_CMD "git -C $HOME/brain rev-parse HEAD"
+}
+served() {  # the multiplexer logs a profile's own lines (incl. "deleted ... unrouted") into THAT profile's log
+  cat "$GWLOG" "$LIVE/logs/gateway.log" "$STAGED/logs/gateway.log" "$STAGED"/logs/ghost-*/gateway.log 2>/dev/null \
+    | grep "MULTIPLEX" | grep "'$P_NAME'" | sort | tail -1
+}
 
 case "${1:-}" in
 push)  # from the Mac
@@ -45,89 +80,67 @@ push)  # from the Mac
   HOST="${BOX:-dgx-remote}"
   ssh -o BatchMode=yes "$HOST" 'mkdir -p ~/.local/share/lucky-loop/decision-call-src'
   scp -q "$ROOT/hermes/plugins/decision-call/__init__.py" "$ROOT/hermes/plugins/decision-call/plugin.yaml" \
-    "$HERE/SOUL.md" "$HERE/whatsapp-switch.sh" "$HOST:.local/share/lucky-loop/decision-call-src/"
+    "$HERE/SOUL.md" "$HERE/profile_config.py" "$HERE/whatsapp-switch.sh" "$HOST:.local/share/lucky-loop/decision-call-src/"
   ssh -o BatchMode=yes "$HOST" 'bash ~/.local/share/lucky-loop/decision-call-src/whatsapp-switch.sh stage'
   ;;
 stage)
-  [[ -x "$HERMES" ]] || { echo "no hermes at $HERMES" >&2; exit 1; }
-  [[ -d "$P" ]] || "$HERMES" profile create "$P_NAME" --no-skills --no-alias \
-    --description "Decision answers over WhatsApp (staged OFF): one card, Karl's word read back, recorded only after an explicit yes."
-  STAMP="$(date -u +%Y%m%dT%H%M%SZ)"; mkdir -p "$P/backups/$STAMP"
+  live && { echo "refused: $P_NAME is LIVE under profiles/ — run \`off\` first; stage never touches a live profile" >&2; exit 2; }
+  if [[ ! -d "$STAGED" ]]; then
+    # Build it once with the vendor's create (identity marker etc.), then move it out at once.
+    [[ -x "$HERMES" ]] || { echo "no hermes at $HERMES" >&2; exit 1; }
+    "$HERMES" profile create "$P_NAME" --no-skills --no-alias \
+      --description "Decision answers over WhatsApp: one card, Karl's word read back, recorded only when he names it."
+    setenv "$LIVE" WHATSAPP_ENABLED false
+    mkdir -p "$(dirname "$STAGED")"; mv "$LIVE" "$STAGED"
+  fi
+  P="$STAGED"; STAMP="$(date -u +%Y%m%dT%H%M%SZ)"; mkdir -p "$P/backups/$STAMP"
   for f in config.yaml SOUL.md .env; do [[ -f "$P/$f" ]] && cp -p "$P/$f" "$P/backups/$STAMP/"; done
   mkdir -p "$P/plugins/decision-call.new"
   cp "$SRC/__init__.py" "$SRC/plugin.yaml" "$P/plugins/decision-call.new/"
   rm -rf "$P/plugins/decision-call"; mv "$P/plugins/decision-call.new" "$P/plugins/decision-call"
   { cat "$SRC/SOUL.md"; printf '\n## Over WhatsApp\n\nYou are reached by text on WhatsApp, not by voice. Keep replies to a few lines. Start a\ncall only when Karl names a card or says "next". Never send anything first.\n'; } > "$P/SOUL.md"
-  "$PY" - "$HH/config.yaml" "$P/config.yaml" <<'EOF'
-import os, sys, yaml
-main = yaml.safe_load(open(sys.argv[1])) or {}
-gb = ((main.get("mcp_servers") or {}).get("gbrain") or {})
-cfg = {
-    "model": main.get("model"),
-    "plugins": {"enabled": ["decision-call"]},
-    # the toolset cut to the inbox: the call's three tools, nothing else, on every surface this profile has
-    "platform_toolsets": {"whatsapp": ["decision_call"], "cli": ["decision_call"]},
-    "memory": {"memory_enabled": False, "user_profile_enabled": False},
-    "agent": {"max_turns": 20, "reasoning_effort": "none"},
-    "_config_version": main.get("_config_version", 45),
-}
-if gb.get("tools", {}).get("include"):  # read-only allowlist only; a server without one is left out
-    cfg["mcp_servers"] = {"gbrain": gb}
-tmp = sys.argv[2] + ".tmp"
-with open(tmp, "w") as f:
-    f.write("# Generated by lucky-loop whatsapp-switch.sh stage — edit the script, not this file.\n")
-    yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
-os.replace(tmp, sys.argv[2])
-EOF
-  setenv WHATSAPP_ENABLED false
-  setenv WHATSAPP_MODE bot                 # a separate number, not Karl's own chat
-  setenv WHATSAPP_DM_POLICY allowlist      # only WHATSAPP_ALLOWED_USERS may write
-  setenv WHATSAPP_GROUP_POLICY disabled
-  setenv WHATSAPP_ALLOW_ALL_USERS false
-  setenv DECISION_CALL_SURFACE whatsapp    # doneBy "karl — whatsapp <word>"
-  setenv NYW_BOX_CMD "git -C $HOME/brain rev-parse HEAD"  # the writer runs on the box clone
-  mkdir -p "$HOME/.config/systemd/user"
-  cat > "$HOME/.config/systemd/user/$UNIT" <<EOF
-[Unit]
-Description=Hermes gateway for decision answers over WhatsApp (lucky-loop switch 2; OFF until Karl flips it)
-After=network-online.target
-
-[Service]
-ExecStart=$PY -m hermes_cli.main -p $P_NAME gateway run
-Environment=PATH=$HH/hermes-agent/venv/bin:$HH/hermes-agent/node_modules/.bin:/usr/bin:/bin
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=default.target
-EOF
-  systemctl --user daemon-reload
+  (cd "$HH/hermes-agent" && "$PY" "$SRC/profile_config.py" write "$HH/config.yaml" "$P/config.yaml" whatsapp)
+  setenv "$P" WHATSAPP_ENABLED false
+  policy "$P"
   "$PY" "$P/plugins/decision-call/__init__.py" --selftest | tail -1
-  echo "staged OFF: profile $P_NAME, unit $UNIT written (not enabled). Backup: $P/backups/$STAMP"
+  echo "staged OFF in $STAGED — outside profiles/, served by nothing. Backup: $P/backups/$STAMP"
   ;;
 status)
-  echo "profile: $([[ -d $P ]] && echo present || echo absent) · plugin: $([[ -f $P/plugins/decision-call/__init__.py ]] && echo installed || echo absent)"
-  echo "WHATSAPP_ENABLED=$(getenv WHATSAPP_ENABLED) · mode=$(getenv WHATSAPP_MODE) · dm_policy=$(getenv WHATSAPP_DM_POLICY) · allowlist: $([[ -n "$(getenv WHATSAPP_ALLOWED_USERS)" ]] && echo 'one number set' || echo empty)"
-  en="$(systemctl --user is-enabled $UNIT 2>/dev/null || true)"; ac="$(systemctl --user is-active $UNIT 2>/dev/null || true)"
-  echo "unit: ${en:-absent} / ${ac:-inactive}"
+  P="$(where)"
+  echo "profile: ${P:-absent} $([[ "$P" == "$LIVE" ]] && echo '(LIVE under profiles/)' || echo '(staged, served by nothing)')$([[ -d "$LIVE" ]] && ! live && echo ' · a marker-less log ghost sits under profiles/ (not a profile, not served)')"
+  echo "gateway serves: $("$PY" -c "import json,sys;d=json.load(open(sys.argv[1]));print(('YES' if sys.argv[2] in d.get('served_profiles',[]) else 'no'), 'as of', d.get('updated_at'))" "$HH/gateway_state.json" "$P_NAME" 2>/dev/null || echo unknown)"
+  [[ -n "$P" ]] && echo "WHATSAPP_ENABLED=$(getenv "$P" WHATSAPP_ENABLED) · mode=$(getenv "$P" WHATSAPP_MODE) · dm_policy=$(getenv "$P" WHATSAPP_DM_POLICY) · allowlist: $([[ -n "$(getenv "$P" WHATSAPP_ALLOWED_USERS)" ]] && echo 'one number set' || echo empty)"
+  w="$(served || true)"; echo "gateway's last word on it: ${w:-none}"
   ;;
 flip)
   [[ -t 0 ]] || { echo "refused: flip reads Karl's number from a terminal (hidden input); run it yourself on the box" >&2; exit 2; }
-  [[ -f "$P/plugins/decision-call/__init__.py" ]] || { echo "not staged: run stage first" >&2; exit 2; }
-  read -r -s -p "Your own WhatsApp number, digits only with country code (hidden; stays in $ENVF on this box): " NUM; echo
-  [[ "$NUM" =~ ^[0-9]{8,15}$ ]] || { echo "refused: digits only, 8–15 of them" >&2; exit 2; }
-  setenv WHATSAPP_ALLOWED_USERS "$NUM"; unset NUM
-  setenv WHATSAPP_ENABLED true
-  echo "enabled in the profile. Two steps left, both yours:"
-  echo "  1. pair the SEPARATE number's phone:   $HERMES -p $P_NAME whatsapp     (scan the QR with that phone)"
-  echo "  2. start it:                          systemctl --user enable --now $UNIT"
-  echo "then from YOUR phone, message that number: next"
+  [[ -d "$STAGED" ]] && ! live || { echo "refused: nothing staged (or already live); run stage / status" >&2; exit 2; }
+  read -r -s -p "Your own WhatsApp number, digits only with country code (hidden; kept only in the profile's .env on this box): " NUM; echo
+  [[ "$NUM" =~ ^[0-9]{8,15}$ ]] || { echo "refused: digits only, 8-15 of them" >&2; exit 2; }
+  setenv "$STAGED" WHATSAPP_ALLOWED_USERS "$NUM"; unset NUM
+  setenv "$STAGED" WHATSAPP_ENABLED false
+  policy "$STAGED"
+  clear_ghost "$STAGED"
+  mv "$STAGED" "$LIVE"   # the gateway now serves it, still with 0 adapters
+  echo "Pairing: scan the QR with the SEPARATE number's phone."
+  if ! "$HERMES" -p "$P_NAME" whatsapp; then
+    echo "pairing did not finish; WhatsApp stays disabled. Run \`off\` to take the profile back out." >&2; exit 1
+  fi
+  NUM="$(getenv "$LIVE" WHATSAPP_ALLOWED_USERS)"; policy "$LIVE"; setenv "$LIVE" WHATSAPP_ALLOWED_USERS "$NUM"; unset NUM
+  setenv "$LIVE" WHATSAPP_ENABLED true   # the gateway's watcher starts the adapter within ~30 s
+  echo "ON. From YOUR phone, message the separate number: next"
   ;;
 off)
-  systemctl --user disable --now "$UNIT" 2>/dev/null || true
-  setenv WHATSAPP_ENABLED false
-  [[ "${2:-}" == "--forget" ]] && setenv WHATSAPP_ALLOWED_USERS ""
-  echo "off: unit stopped and disabled, WHATSAPP_ENABLED=false$([[ "${2:-}" == "--forget" ]] && echo ', number removed')"
+  if live; then
+    setenv "$LIVE" WHATSAPP_ENABLED false
+    [[ "${2:-}" == "--forget" ]] && setenv "$LIVE" WHATSAPP_ALLOWED_USERS ""
+    sleep 40   # let the watcher tear the adapter down before the profile leaves profiles/
+    [[ -d "$STAGED" ]] && { echo "refused: $STAGED already exists; resolve by hand" >&2; exit 2; }
+    mv "$LIVE" "$STAGED"
+  elif [[ "${2:-}" == "--forget" && -d "$STAGED" ]]; then
+    setenv "$STAGED" WHATSAPP_ALLOWED_USERS ""
+  fi
+  echo "off: WHATSAPP_ENABLED=false, profile in $STAGED (served by nothing)$([[ "${2:-}" == "--forget" ]] && echo ', number removed')"
   ;;
-*) sed -n 2,20p "$0"; exit 2 ;;
+*) sed -n 2,30p "$0"; exit 2 ;;
 esac
