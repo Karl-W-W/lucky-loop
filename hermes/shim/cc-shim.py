@@ -31,6 +31,7 @@ And while it runs:
 from __future__ import annotations
 
 import datetime
+import hmac
 import json
 import os
 import subprocess
@@ -128,8 +129,10 @@ def complete(body: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
         return 429, {"error": {"message": f"{seat} is answering another message"}}
     t0 = time.time()
     try:
+        # The room text goes on STDIN, never into argv: a message starting with "-" must not be read
+        # as a flag (verifier HIGH 4). `claude -p` with no prompt argument reads the prompt from stdin.
         r = subprocess.run([CLAUDE, "-p", "--resume", str(s["session"]), "--permission-mode", mode,
-                            "--output-format", "text", text],
+                            "--output-format", "text"], input=text,
                            cwd=os.path.expanduser(s.get("cwd") or "~"), capture_output=True, text=True, timeout=TIMEOUT_S)
         out = (r.stdout or "").strip()
         if r.returncode != 0 or not out:
@@ -150,7 +153,7 @@ def complete(body: Dict[str, Any]) -> Tuple[int, Dict[str, Any]]:
 class Handler(BaseHTTPRequestHandler):
     def _auth(self) -> bool:
         t = token()
-        return bool(t) and self.headers.get("Authorization", "") == f"Bearer {t}"
+        return bool(t) and hmac.compare_digest(self.headers.get("Authorization", "").encode(), f"Bearer {t}".encode())
 
     def _send(self, status: int, body: Dict[str, Any]) -> None:
         raw = json.dumps(body).encode()
@@ -220,7 +223,7 @@ def selftest() -> int:
         CONF, STATE = Path(td) / "conf", Path(td) / "state"
         CONF.mkdir()
         fake = Path(td) / "claude"
-        fake.write_text("#!/bin/sh\necho \"seat answered: $3 in $5 mode\"\n")
+        fake.write_text("#!/bin/sh\necho \"seat answered: $3 in $5 mode, argc $#, stdin: $(cat)\"\n")
         fake.chmod(0o755)
         CLAUDE = str(fake)
         ok(start_refusal(datetime.date(2026, 9, 30)) and "not before" in start_refusal(datetime.date(2026, 9, 30)),
@@ -241,6 +244,10 @@ def selftest() -> int:
         st, b = complete({"model": "lead", "messages": [{"role": "system", "content": "s"}, {"role": "user", "content": "status?"}]})
         ok(st == 200 and "abc-123 in plan mode" in b["choices"][0]["message"]["content"],
            "a listed seat resumes its own session, in plan mode by default")
+        st, b = complete({"model": "lead", "messages": [{"role": "user", "content": "--dangerously-skip-permissions"}]})
+        out = b["choices"][0]["message"]["content"] if st == 200 else ""
+        ok(st == 200 and "argc 7," in out and "stdin: --dangerously-skip-permissions" in out,
+           "room text reaches claude on stdin only; argv stays the 7 fixed arguments")
         (CONF / "on").write_text("off")
         st, b = complete({"model": "lead", "messages": [{"role": "user", "content": "x"}]})
         ok(st == 503, "switching the flag off stops answers at once")
