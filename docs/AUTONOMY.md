@@ -25,7 +25,9 @@ a closed lid kills O3 silently and nothing watched the hop). Logged as the decis
 `hop:artifact-return-action-2026-09-10`. The council's builder conditions are all in force; none
 is optional, and each is code, not intent:
 
-1. **A dedicated PRIVATE mirror, `lucky-loop-artifacts`, holding only the redacted files** — never
+1. **A dedicated PRIVATE mirror, `lucky-loop-artifacts`, holding only the redacted files** (a closed
+   list, `ALLOWED` in the host script: the loop's three, `gate.json`, and since 2026-09-19
+   `ci-runs.json` — see "The CI snapshot rides this hop" below) — never
    a key to the vault mirror in a public repo's secrets. The loop host pushes there over a write
    deploy key scoped to that one repo; that key exists by council verdict (Karl's override counts
    as the verdict the rule of 2026-09-08 requires). The public repo holds the mirror's READ-only
@@ -60,13 +62,13 @@ public API into a beat file, so a silent Action shows up in KR-0 the same way a 
 
 What the host does, in order: beat; probe the Action; read `out/`; refresh the mirror; refuse a
 shrinking pass count; stop if nothing is new and the mirror's snapshot is under 12 h old; run the
-gates in the gate checkout; refuse anything but `strong`; write exactly four files into the
-mirror and refuse if any other path is dirty; commit; push `HEAD:main` only; verify the push landed.
+gates in the gate checkout; refuse anything but `strong`; write only files on the `ALLOWED` list into
+the mirror and refuse if any other path is dirty; commit; push `HEAD:main` only; verify the push landed.
 One line per run in `~/.local/state/lucky-loop/artifact-return.log`. `--dry-run` does everything
 but commit and push.
 
 What the Action does, in order: clone the mirror with the read key and GitHub's pinned host key;
-verify; copy the three files; regenerate the canvas; redaction (pattern half) and its tests; drift
+verify; copy the files; regenerate the canvas; redaction (pattern half) and its tests; drift
 gate; `npm ci && npm run build` (prebuild re-runs every gate the deploy runs); commit on
 `loop/artifact-return`; force-push that branch; open or update the PR; keepalive; an honest step
 summary. `gates.yml` is queued on the PR but **waits for a maintainer's approval** (`action_required`)
@@ -74,6 +76,43 @@ because the pusher is the Actions bot — observed on every bot push to PR #1 fr
 So the PR's own check is the job's step summary, not a green tick; `gates.yml` runs unattended on `main`
 after the merge. (Two earlier drafts of this paragraph said "does not run" and then "runs"; the run
 list won both times.)
+
+### The CI snapshot rides this hop (2026-09-19)
+
+O3/KR3 ("zero gate failures") is derived at build time from a COMMITTED snapshot,
+`data/ci-runs.json`, written by `scripts/sync-ci.mjs`. Nothing ran that script on a schedule, so
+the number froze at **6 of 51 clean days on 2026-09-16** and would have stayed there while the
+gates went on passing every day — a derived display that cannot move, which is the day-after rule
+wearing a different coat (REPORT `slot-truth`, 2026-09-16).
+
+The fix is one nightly job and one extra filename on this hop:
+
+- **`nightly-queue` job `ci-snapshot`** (`fn`, local, third in the list behind `morning-brief` and
+  `r5-tier1-tick`, ahead of every delegation, for the same reason those two run first: it must run
+  on a night the delegations halt). It calls `sync-ci.mjs --out ~/ll-loop/out/ci-runs.json --floor
+  ~/lucky-loop/data/ci-runs.json` against the **anonymous** public GitHub API — no token, no
+  credential, no cost. It writes OUTSIDE the checkout on purpose: a job that dirties
+  `~/lucky-loop` breaks the queue's own `git pull --ff-only` and modifies a worker's tree.
+- **`ci-runs.json` is a fifth name on `ALLOWED`.** It is gated by `check_artifacts.py` like every
+  other artifact, hashed into the same `gate.json`, floored on the host against the mirror and on
+  the runner against the committed copy, and carried into the same PR. It is public GitHub
+  metadata — repo, workflow, run number, short sha, time, conclusion.
+- **The Action also stages `data/okrs.json`**, which the build already regenerated from the
+  snapshots in the PR. Without it, `gates.yml`'s `gen-okr-derived.mjs --check` goes red on `main`
+  the moment a PR carrying a new snapshot merges. That was latent before this change, because
+  O3/KR4 and O3/KR1 derive from `loop-runs.json`, which this hop has always carried.
+
+**The floor is on ROWS, never on clean days.** The brief for this work asked for "never fewer clean
+days than the committed snapshot". That would have been a bug: a gate failure resets the streak to
+0 **by design**, and a guard against the reset makes "zero gate failures" a number that cannot
+fall — unfalsifiable, and the exact shape of thing CLAUDE.md's "never raise a score to flatter the
+work" forbids. What is refused is a fetch that has LOST a run already published (a 5xx on page 2, a
+rate-limited reply, a renamed workflow). A falling clean-day count is printed loudly and published
+unchanged. It is the signal, not the error.
+
+**What this does NOT change: the merge.** Nothing on the box publishes. The KR advances by itself
+as far as the PR; it lands when Karl merges. Letting the Action push `ci-runs.json` to `main`
+directly would remove the last gate and needs Karl's word, exactly like `auto` in condition 6.
 
 State on 2026-09-10: **Beta until the first PR opened by the Action is merged.** (PR #1, opened by
 the Action's flow, was merged by Karl on 2026-09-15 19:52Z — the Beta condition is met.) Reload the

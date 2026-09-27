@@ -15,10 +15,15 @@ carry them into data/ and open a PR. It refuses, loudly, when:
     the word of one host (the gen-ledger / sync-loop guard, moved to the only place with
     authority over published history).
 
-When everything holds it copies the three files into data/ and reports, in counts only —
-this log is public — whether there is anything to publish: a new pass, or a status snapshot
-older than STATUS_MAX_AGE_H hours. Outputs (also written to $GITHUB_OUTPUT when set):
-changed=yes|no, what, passes, tokens, reason.
+  * the mirror's ci-runs.json (optional; 2026-09-19) holds fewer gate runs than are committed, or
+    has lost one it already published — the same floor, for the snapshot O3/KR3 is derived from.
+    Rows only: the clean-day count is allowed to FALL, because a gate failure resetting the streak
+    is precisely what that KR measures and a guard against it would make the number unfalsifiable.
+
+When everything holds it copies the files into data/ and reports, in counts only —
+this log is public — whether there is anything to publish: a new pass, a newer CI snapshot, or a
+status snapshot older than STATUS_MAX_AGE_H hours. Outputs (also written to $GITHUB_OUTPUT when
+set): changed=yes|no, what, passes, tokens, reason.
 """
 from __future__ import annotations
 
@@ -31,6 +36,10 @@ from datetime import datetime, timedelta, timezone
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 ARTIFACTS = ("loop-runs.json", "loop-def.json", "loop-status.json")
+# ci-runs.json (2026-09-19) is OPTIONAL on the mirror and required to be sound when present: the
+# nightly-queue job that writes it is new, and an old mirror copy or a night the box was down must
+# not turn this job red and strand the loop's artifacts. Its own floor is below.
+CI_RUNS = "ci-runs.json"
 NAME_TOKEN_FLOOR = 6  # the deny-list's known size; CLAUDE.md states the count publicly, never the tokens
 STATUS_MAX_AGE_H = 12
 
@@ -74,7 +83,7 @@ def main() -> int:
     for name in ARTIFACTS + ("gate.json",):
         if not (mirror / name).is_file():
             fail(f"{name} missing from the mirror")
-    extra = sorted(p.name for p in mirror.iterdir() if p.name not in ARTIFACTS + ("gate.json", ".git"))
+    extra = sorted(p.name for p in mirror.iterdir() if p.name not in ARTIFACTS + (CI_RUNS, "gate.json", ".git"))
     if extra:
         fail(f"{len(extra)} unexpected file(s) in the mirror — refusing")
 
@@ -92,7 +101,8 @@ def main() -> int:
         fail("gate.json records a non-zero gate exit")
     shas = gate.get("sha256") or {}
     payload: dict[str, bytes] = {}
-    for name in ARTIFACTS:
+    names = ARTIFACTS + ((CI_RUNS,) if (mirror / CI_RUNS).is_file() else ())
+    for name in names:
         payload[name] = (mirror / name).read_bytes()
         if hashlib.sha256(payload[name]).hexdigest() != shas.get(name):
             fail(f"sha256 mismatch on {name}")
@@ -123,6 +133,29 @@ def main() -> int:
     if incoming < committed:
         fail(f"REFUSING — the mirror holds {incoming} pass(es) but {committed} are committed")
     runs_changed = committed_runs != payload["loop-runs.json"] or committed_def != payload["loop-def.json"]
+
+    # The CI snapshot's floor, on the only side with authority over published history. Rows, never
+    # the clean-day count: a gate failure resets the streak to 0 by design, and refusing to publish
+    # that would make "zero gate failures" a number that cannot fall. sync-ci.mjs says the same in
+    # more words. A snapshot that has LOST a run it already published is the refusable case.
+    ci_changed = False
+    ci_runs_in = ci_runs_committed = 0
+    if CI_RUNS in payload:
+        committed_ci = (REPO / "data" / CI_RUNS).read_bytes() if (REPO / "data" / CI_RUNS).exists() else b""
+        try:
+            ci_runs_in = run_count(payload[CI_RUNS])
+            ci_runs_committed = run_count(committed_ci) if committed_ci else 0
+        except ValueError as exc:
+            fail(f"unparseable {CI_RUNS} ({type(exc).__name__})")
+        if ci_runs_in < ci_runs_committed:
+            fail(f"REFUSING — the mirror's {CI_RUNS} holds {ci_runs_in} run(s) but {ci_runs_committed} are committed")
+        have = {f"{r.get('repo')}#{r.get('run')}" for r in json.loads(payload[CI_RUNS]).get("runs", [])}
+        lost = [f"{r.get('repo')}#{r.get('run')}" for r in (json.loads(committed_ci).get("runs", []) if committed_ci else [])
+                if f"{r.get('repo')}#{r.get('run')}" not in have]
+        if lost:
+            fail(f"REFUSING — {len(lost)} published gate run(s) absent from the mirror's {CI_RUNS}")
+        ci_changed = committed_ci != payload[CI_RUNS]
+
     age_h = 10**6
     try:
         prev = json.loads((REPO / "data" / "loop-status.json").read_text(encoding="utf-8"))
@@ -133,16 +166,23 @@ def main() -> int:
         pass
 
     print(f"verify: gate strong, {tokens} name tokens attested, {incoming} pass(es) in the mirror, {committed} committed")
+    if CI_RUNS in payload:
+        print(f"verify: {CI_RUNS} — {ci_runs_in} gate run(s) in the mirror, {ci_runs_committed} committed")
     out("passes", str(incoming))
     out("tokens", str(tokens))
-    if not runs_changed and age_h < STATUS_MAX_AGE_H:
+    if not runs_changed and not ci_changed and age_h < STATUS_MAX_AGE_H:
         out("changed", "no")
         out("what", "nothing")
-        out("reason", f"runs and definition unchanged; committed snapshot is {age_h} h old (< {STATUS_MAX_AGE_H})")
+        out("reason", f"runs, definition and CI snapshot unchanged; committed snapshot is {age_h} h old (< {STATUS_MAX_AGE_H})")
         return 0
-    for name in ARTIFACTS:
+    for name in payload:
         (REPO / "data" / name).write_bytes(payload[name])
-    what = f"{incoming - committed} new pass(es), canvas regenerated" if runs_changed else "status snapshot"
+    if runs_changed:
+        what = f"{incoming - committed} new pass(es), canvas regenerated"
+    elif ci_changed:
+        what = f"CI snapshot, +{ci_runs_in - ci_runs_committed} gate run(s)"
+    else:
+        what = "status snapshot"
     out("changed", "yes")
     out("what", what)
     out("reason", what)
