@@ -191,7 +191,7 @@ after 900 s with the laptop closed; and `approvals.cron_mode` /
 
 `gbrain` is wired into Hermes as an MCP server on BOTH hosts as of 2026-08-28 —
 DGX registers `~/brain/tools/gbrain-mcp.sh` directly, the Mac reaches it over
-`ssh dgx-remote`. It is scoped to **76 read-only tools by allowlist**
+`ssh dgx-remote`. It is scoped to **75 read-only tools by allowlist**
 (`mcp_servers.gbrain.tools.include`), not the 131 `hermes mcp add` enables by
 default. That is not fussiness: `data/agents.json` publishes on a public website
 that Scout may "never write to the vault", and the default set includes
@@ -199,6 +199,8 @@ that Scout may "never write to the vault", and the default set includes
 fails CLOSED when gbrain upgrades — a denylist would silently grant whatever new
 write tool 0.47 ships. Same reasoning as every other gate here. If an agent
 genuinely needs a new tool, add it to that list where a human can see it.
+`think` was dropped on 2026-09-27 (76 → 75): its schema can append a take row and
+defaults to an Opus call, so it was neither read-only nor free.
 
 ## Hop 0 narrowed for ONE class: bills (2026-09-08)
 
