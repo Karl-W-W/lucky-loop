@@ -969,6 +969,14 @@ def live(all_items: List[Dict[str, Any]], agents_now_d: Dict[str, Any], agents_d
             "failed": {"t": fr.get("t"), "job": fr.get("job")} if fr else None,
         })
 
+    # When a page answer was recorded, its log line holds the time; other paths record only the day.
+    answered_at: Dict[str, str] = {}
+    try:
+        for r in _tail_jsonl(Path(_answer_mod().STATE_DIR) / "log.jsonl", 500):
+            if str(r.get("verdict", "")).startswith("recorded") and r.get("id") and r.get("t"):
+                answered_at[str(r["id"])] = str(r["t"])
+    except Exception:
+        pass
     done_today = []
     for i in all_items:
         if i.get("done") and str(i.get("doneOn") or "") == today:
@@ -976,6 +984,7 @@ def live(all_items: List[Dict[str, Any]], agents_now_d: Dict[str, Any], agents_d
                 "id": i.get("id"), "title": i.get("title"), "ask": i.get("ask"), "agent": i.get("agent"),
                 "tier": i.get("tier"), "doneOn": i.get("doneOn"),
                 "answer": i.get("answer"), "by": i.get("doneBy") or None,
+                "answeredAt": answered_at.get(str(i.get("id"))),
                 "surface": ("page" if str(i.get("doneBy") or "").startswith("karl — page")
                             else "phone" if "ntfy" in str(i.get("doneBy") or "")
                             else "decide" if str(i.get("doneBy") or "").startswith("karl — decide") else None),
@@ -1225,6 +1234,9 @@ def _selftest() -> int:
     A = _answer_mod()
     with tempfile.TemporaryDirectory() as td:
         A.FLAG_FILE = Path(td) / "flag"
+        A.STATE_DIR = Path(td) / "state"
+        A.STATE_DIR.mkdir()
+        (A.STATE_DIR / "log.jsonl").write_text(json.dumps({"t": "2026-09-27T10:00:00Z", "id": "d1", "verdict": "recorded"}) + "\n")
         items = [
             {"id": f"c{k}", "title": f"Card {k}", "agent": "commander" if k % 2 else "panel", "tier": 1,
              "priority": 1 if k < 3 else 2, "since": f"2026-09-{10 + k:02d}", "options": ["go", "hold"]}
@@ -1249,6 +1261,8 @@ def _selftest() -> int:
         ok([(d["id"], d["answer"], d["by"], d["surface"]) for d in lv["done_today"]]
            == [("d1", "merge", "karl — page merge", "page"), ("d2", "go", "karl — decide go", "decide")],
            "done today carries the word and who gave it")
+        ok(lv["done_today"][0]["answeredAt"] == "2026-09-27T10:00:00Z" and lv["done_today"][1]["answeredAt"] is None,
+           "a page answer carries its time from the answer log; others only their day")
         ok([p["id"] for p in lv["parked_today"]] == ["c4"], "a later today is listed as parked today")
         ok(lv["session"]["line"] == "2/9", "session: answered today / (answered today + open)")
         ok(lv["answer"]["enabled"] is False and lv["answer"]["offers"] == {}, "answer off: no offers")
