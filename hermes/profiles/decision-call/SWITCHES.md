@@ -22,9 +22,11 @@ gbrain tools, and takes Karl's word. What is enforced in code, not in the prompt
 
 - it records only through `call_record`, and only after `call_readback` of that exact card and
   word **in an earlier turn**, when Karl's newest message (read from the session store, never
-  from the model) is an explicit yes. "sure", "ok", "yes but…", "wait" all refuse;
-- tier 3 takes a second yes in a later turn before anything is written;
-- one yes records one word on one card; the readback expires after 10 minutes;
+  from the model) **names that word itself** ("pasted", "yes pasted") and none of the card's
+  other words. A bare "yes", "sure", "ok", "no, not pasted" and "wait" all refuse. A bare yes
+  could confirm a word the model was steered into reading back, and card text is written by agents;
+- tier 3 asks him to name the word again, in a later turn, before anything is written;
+- one confirmation records one word on one card; the readback expires after 10 minutes;
 - the write goes through `~/brain/tools/needs-you-write` (the writer `decide` uses), with
   `doneBy: "karl — call <word>"`;
 - the profile's only toolset is `decision_call` plus the gbrain read-only allowlist (copied from

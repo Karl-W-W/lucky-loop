@@ -2038,7 +2038,7 @@ function CallPage() {
           st && !st.busy ? h('div', { className: cls('cl-state', !st.ok && 'cl-bad') }, st.msg) : null),
     h('p', { className: 'cl-note' },
       'In the call the agent presents this card, talks through what each word does, and reads your word back. ' +
-      'It records only after you say an explicit yes in your next message — a tier-3 card takes a second yes — ' +
+      'It records only when your next message names that word itself (a bare yes is not enough) — a tier-3 card asks you to name it twice — ' +
       'through the same writer as decide, marked “karl — call <word>”. It has no shell and sends nothing. ' +
       'To talk instead of type, press Ctrl+B in the chat (local Whisper hears, Edge TTS speaks; nothing is spent). ' +
       'This page writes nothing; decide in a terminal still works.'))

@@ -19,12 +19,13 @@ THREE TOOLS, AND THE PROFILE THAT LOADS THIS PLUGIN HAS NO OTHER WRITE:
        feed-gate.py enforces for `feed:loop --yes`, learned when a bot ran check-then-publish
        inside one turn.)
     2. Karl's newest message in this session — read from the session store, not from the
-       model — is an explicit yes ("yes", "yes, record it", "confirm", …) and arrived after the
-       readback. Anything else ("no", "wait", "hold on", "yes but…") refuses. This closes the gap
-       feed-gate.py names: a new turn proves a human spoke, the store shows WHAT he said.
-    3. Tier 3 takes a second yes: the first call_record after the yes writes nothing and asks
-       for a confirm naming the card's title and the word (A7's second click, spoken); only a
-       call_record in a later turn, after another explicit yes, hands it to the writer.
+       model — NAMES THE WORD being recorded ("pasted", "yes pasted"), holds none of the card's
+       other words, and arrived after the readback. A bare "yes" refuses: it could confirm a word
+       the model was steered into reading back (a card's text is written by agents). "no", "not",
+       "wait", "hold on" refuse too. A new turn proves a human spoke; the store shows WHAT he said.
+    3. Tier 3 takes a second confirmation: the first call_record writes nothing and asks again,
+       naming the card's title and the word (A7's second click, spoken); only a call_record in a
+       later turn, after Karl names the word once more, hands it to the writer.
 
 The model cannot supply the turn id or the reply: the turn id reaches the handler through this
 plugin's own pre_tool_call hook (Hermes hands hooks the turn id, not tools), and the reply is
@@ -62,20 +63,33 @@ WRITER = Path(os.environ.get("DECISION_CALL_WRITER") or REPO / "tools" / "needs-
 REMOTE, BRANCH, QPATH = "origin", "master", "queue/needs-you.json"
 STATE = Path(os.environ.get("DECISION_CALL_STATE") or Path.home() / ".local/state/lucky-loop/decision-call")
 READBACK_TTL = 10 * 60
-# The surface names who carried the word: "call" (the Desktop call, the default) or "whatsapp" (the
-# staged WhatsApp switch). Nothing else: doneBy is read by the verifier and must stay a closed set.
-SURFACE = os.environ.get("DECISION_CALL_SURFACE", "call")
-if SURFACE not in ("call", "whatsapp"):
-    SURFACE = "call"
-DONE_BY = f"karl — {SURFACE}"
+# The surface names who carried the word: "call" (the Desktop call) or "whatsapp" (the staged
+# WhatsApp switch). Nothing else: doneBy is read by the verifier and must stay a closed set. It is
+# resolved PER CALL from the session's profile home (a multiplexed backend serves several profiles
+# in one process, so a process-wide env value would be wrong for all but one of them).
+SURFACES = {"decision-call": "call", "decision-whatsapp": "whatsapp"}
 WORD = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 TOOLS = ("call_card", "call_readback", "call_record")
 
-# An explicit yes, and nothing that hedges it. Voice transcripts arrive as "Yes." or
-# "Yes, record it." — both pass. "yes but wait", "no", "hold on", "ok" do not.
-_YES_HEAD = r"(?:yes|yeah|yep|ja|confirm|confirmed|correct)"
-_YES_TAIL = r"(?:please|record it|do it|go ahead|confirm|confirmed|that'?s right|record|that one)"
-YES = re.compile(rf"^{_YES_HEAD}(?:[\s,.!-]+{_YES_TAIL})*[\s.!]*$", re.I)
+# Karl's confirmation must NAME THE WORD (verifier blocker 1, 2026-09-27): a bare "yes" could confirm
+# whatever the model last read back — and a card's why/steps, written by agents, can steer that. So
+# the newest message must be the word itself, optionally wrapped in plain affirmation ("yes pasted",
+# "pasted.", "yes, hold please"), and nothing else: no other of the card's words, no "no"/"not"/"wait".
+# A word with a hyphen may be spoken with a space ("keep open" for keep-open).
+_AFFIRM = r"(?:yes|yeah|yep|ja|confirm|confirmed|correct|record|please|it|that'?s right|go ahead|do it)"
+_SEP = r"[\s,.!:;-]+"
+
+
+def names_the_word(text: str, word: str, others: List[str]) -> bool:
+    """True only when `text` is `word` (plus plain affirmation) and holds none of `others`."""
+    t = " " + re.sub(r"[^a-z0-9'-]+", " ", (text or "").lower()) + " "
+    if any(re.search(rf"(?<![a-z0-9-]){re.escape(o)}(?![a-z0-9-])", t) or
+           re.search(rf"(?<![a-z0-9-]){r'[ -]'.join(map(re.escape, o.split('-')))}(?![a-z0-9-])", t)
+           for o in others if o != word):
+        return False
+    w = r"[\s-]+".join(map(re.escape, word.split("-")))
+    pat = rf"^(?:{_AFFIRM}{_SEP})*{w}(?:{_SEP}{_AFFIRM})*[\s.!]*$"
+    return bool(re.match(pat, (text or "").strip(), re.I))
 
 _lock = threading.Lock()
 _turns: Dict[str, str] = {}  # session id -> the turn id the hook saw last for one of our tools
@@ -135,15 +149,33 @@ def card_view(card: Dict[str, Any], position: Optional[int] = None, of: Optional
 
 # ------------------------------------------------------------------ what Karl said (session store)
 
+def _home() -> Path:
+    """The CURRENT session's profile home: Hermes' context-local override first (set per session by a
+    multiplexed backend), then HERMES_HOME. Resolved on every call, never cached."""
+    try:
+        from hermes_constants import get_hermes_home  # type: ignore
+        return Path(get_hermes_home())
+    except Exception:
+        return Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes")
+
+
+def surface(home: Optional[Path] = None) -> str:
+    return SURFACES.get((home or _home()).name, "call")
+
+
+def _profile_env(home: Path, key: str) -> Optional[str]:
+    """One value from the profile's own .env (a multiplexed process does not load it into os.environ)."""
+    try:
+        for line in (home / ".env").read_text().splitlines():
+            if line.startswith(key + "="):
+                return line.split("=", 1)[1].strip() or None
+    except OSError:
+        pass
+    return None
+
+
 def _state_db() -> Path:
-    home = os.environ.get("HERMES_HOME")
-    if not home:
-        try:
-            from hermes_constants import get_hermes_home  # type: ignore
-            home = str(get_hermes_home())
-        except Exception:
-            home = str(Path.home() / ".hermes")
-    return Path(home) / "state.db"
+    return _home() / "state.db"
 
 
 def last_user_message(session_id: str, db: Optional[Path] = None) -> Optional[Tuple[str, float]]:
@@ -168,8 +200,6 @@ def last_user_message(session_id: str, db: Optional[Path] = None) -> Optional[Tu
     return (str(text or ""), float(row[1] or 0))
 
 
-def is_explicit_yes(text: str) -> bool:
-    return bool(YES.match((text or "").strip()))
 
 
 # ------------------------------------------------------------------ the ledger and the log
@@ -205,7 +235,7 @@ def log(verdict: str, cid: Optional[str], word: Optional[str], session: str, det
         STATE.mkdir(parents=True, exist_ok=True)
         with open(STATE / "log.jsonl", "a") as f:
             f.write(json.dumps({"at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-                                "surface": "call", "session": session, "card": cid, "word": word,
+                                "surface": surface(), "session": session, "card": cid, "word": word,
                                 "verdict": verdict, "detail": detail[:200]}) + "\n")
     except OSError:
         pass
@@ -214,11 +244,16 @@ def log(verdict: str, cid: Optional[str], word: Optional[str], session: str, det
 # ------------------------------------------------------------------ the writer
 
 def run_writer(cid: str, word: str) -> Tuple[int, str]:
+    home = _home()
+    surf = surface(home)
     op = {"id": cid, "answer": word}
     if word != "later":
-        op["by"] = f"{DONE_BY} {word}"
+        op["by"] = f"karl — {surf} {word}"
     env = dict(os.environ, NYW_REPO=str(REPO))
-    cmd = ([sys.executable, str(WRITER)] if WRITER.suffix == ".py" else [str(WRITER)]) + ["--message", f"{SURFACE}: {cid} = {word}"]
+    box_cmd = _profile_env(home, "NYW_BOX_CMD")  # the box's own clone check, when this runs on the box
+    if box_cmd:
+        env["NYW_BOX_CMD"] = box_cmd
+    cmd = ([sys.executable, str(WRITER)] if WRITER.suffix == ".py" else [str(WRITER)]) + ["--message", f"{surf}: {cid} = {word}"]
     try:
         r = subprocess.run(cmd, input=json.dumps([op]), capture_output=True, text=True, env=env, timeout=120)
     except subprocess.TimeoutExpired:
@@ -285,11 +320,11 @@ def call_readback(args: Dict[str, Any], session_id: str = "", queue: Optional[Ca
         rows.append({"t": now, "session": session_id, "turn": turn, "id": card["id"], "word": w, "stage": "word"})
         _write_ledger(rows)
     title = card.get("ask") or card.get("title") or card["id"]
-    say = f"I heard “{w}” for “{title}”. Shall I record {w}? Say yes to record it, or tell me another word."
+    say = f"I heard “{w}” for “{title}”. To record it, say the word “{w}” again. Or tell me another word."
     if w == "later":
-        say = f"I heard “later” for “{title}”: that parks it until tomorrow and it stays open. Shall I park it? Say yes."
+        say = f"I heard “later” for “{title}”: that parks it until tomorrow and it stays open. To park it, say “later” again."
     return _j({"ok": True, "say": say, "tier": _tier(card),
-               "rule": "Say this sentence to Karl and STOP. Record only after his next message is an explicit yes."})
+               "rule": "Say this sentence to Karl and STOP. Record only after his next message names the word itself."})
 
 
 def call_record(args: Dict[str, Any], session_id: str = "", queue: Optional[Callable[[], Dict[str, Any]]] = None,
@@ -323,16 +358,17 @@ def call_record(args: Dict[str, Any], session_id: str = "", queue: Optional[Call
         text, at = said
         if at < rb["t"] - 1:
             return refuse("Karl has not sent a message since the readback")
-        if not is_explicit_yes(text):
-            return refuse("Karl's last message is not an explicit yes. Ask again, or take the new word he gave")
+        if not names_the_word(text, w, words_of(card)):
+            return refuse(f"Karl's last message does not name the word '{w}' (and only it). A bare yes is not enough: "
+                          f"ask him to say the word itself, or read back the new word he gave")
         tier3 = _tier(card) == 3 and w != "later"
         if tier3 and rb["stage"] == "word":
             rows = [r for r in rows if r is not rb] + [{**rb, "t": now, "turn": turn, "stage": "confirm"}]
             _write_ledger(rows)
-            log("confirm-asked", card["id"], w, sid, "tier 3: nothing written until a second yes")
+            log("confirm-asked", card["id"], w, sid, "tier 3: nothing written until he names the word again")
             return _j({"ok": False, "verdict": "confirm", "say":
                        f"This is a tier-3 card: “{card.get('title', card['id'])}”. "
-                       f"Recording “{w}” closes it for good. Say yes once more to record {w}.",
+                       f"Recording “{w}” closes it for good. Say “{w}” once more to record it.",
                        "rule": "Say this and STOP. Nothing was written."})
         _write_ledger([r for r in rows if r is not rb])  # spent before the write: one yes, one record
     rc, out = writer(card["id"], w)
@@ -369,7 +405,7 @@ SCHEMAS = {
                       "parameters": {"type": "object", "properties": {"id": _ID, "word": _W}, "required": ["id", "word"]}},
     "call_record": {"name": "call_record", "description":
                     "Record Karl's word on the card — ONLY after you read it back with call_readback and his NEXT message "
-                    "was an explicit yes. Refuses otherwise. Tier 3 asks for one more yes first.",
+                    "named the word itself (a bare yes is refused). Tier 3 asks him to name it once more first.",
                     "parameters": {"type": "object", "properties": {"id": _ID, "word": _W}, "required": ["id", "word"]}},
 }
 
@@ -437,15 +473,25 @@ def selftest() -> int:
         _turns["S"] = "t2"
         say("no, wait", T + 5)
         r = json.loads(call_record({"id": "one-2026-01-01", "word": "done"}, session_id="S", queue=Q, writer=W, db=db, now=T + 6))
-        ok("error" in r and "explicit yes" in r["error"] and not calls, "a later turn that is not a yes: refused")
+        ok("error" in r and "name the word" in r["error"] and not calls, "a later turn that is not the word: refused")
         say("yes but maybe hold", T + 7)
         r = json.loads(call_record({"id": "one-2026-01-01", "word": "done"}, session_id="S", queue=Q, writer=W, db=db, now=T + 8))
         ok("error" in r and not calls, "a hedged yes: refused")
         r = json.loads(call_record({"id": "one-2026-01-01", "word": "hold"}, session_id="S", queue=Q, writer=W, db=db, now=T + 8))
         ok("error" in r and not calls, "record of a different word than the readback: refused")
-        say("Yes, record it.", T + 9)
+        # blocker 1: a steered readback plus a bare yes must not record the steered word
+        say("yes", T + 8.5)
+        r = json.loads(call_record({"id": "one-2026-01-01", "word": "done"}, session_id="S", queue=Q, writer=W, db=db, now=T + 8.6))
+        ok("error" in r and "bare yes" in r["error"] and not calls, "a steered readback plus a bare yes: refused (say the word itself)")
+        say("done or hold, whichever", T + 8.7)
+        r = json.loads(call_record({"id": "one-2026-01-01", "word": "done"}, session_id="S", queue=Q, writer=W, db=db, now=T + 8.8))
+        ok("error" in r and not calls, "a message holding two of the card's words: refused")
+        say("no, not done", T + 8.9)
+        r = json.loads(call_record({"id": "one-2026-01-01", "word": "done"}, session_id="S", queue=Q, writer=W, db=db, now=T + 8.95))
+        ok("error" in r and not calls, "a negated word: refused")
+        say("Yes, done.", T + 9)
         r = json.loads(call_record({"id": "one-2026-01-01", "word": "done"}, session_id="S", queue=Q, writer=W, db=db, now=T + 10))
-        ok(r.get("ok") and calls == [("one-2026-01-01", "done")], "an explicit yes in a later turn: handed to the writer once")
+        ok(r.get("ok") and calls == [("one-2026-01-01", "done")], "the word itself in a later turn: handed to the writer once")
         r = json.loads(call_record({"id": "one-2026-01-01", "word": "done"}, session_id="S", queue=Q, writer=W, db=db, now=T + 11))
         ok("error" in r and len(calls) == 1, "the yes is spent: a second record is refused")
 
@@ -453,13 +499,16 @@ def selftest() -> int:
         _turns["S"] = "t3"
         json.loads(call_readback({"id": "three-2026-01-01", "word": "merge"}, session_id="S", queue=Q, now=T + 20))
         _turns["S"] = "t4"
-        say("yes", T + 25)
+        say("merge", T + 25)
         r = json.loads(call_record({"id": "three-2026-01-01", "word": "merge"}, session_id="S", queue=Q, writer=W, db=db, now=T + 26))
         ok(r.get("verdict") == "confirm" and "Merge the branch" in r["say"] and len(calls) == 1, "tier 3 first yes: confirm, nothing written")
         r = json.loads(call_record({"id": "three-2026-01-01", "word": "merge"}, session_id="S", queue=Q, writer=W, db=db, now=T + 27))
         ok("error" in r and len(calls) == 1, "tier 3 confirm in the same turn: refused")
         _turns["S"] = "t5"
-        say("confirm", T + 30)
+        say("yes", T + 29)
+        r = json.loads(call_record({"id": "three-2026-01-01", "word": "merge"}, session_id="S", queue=Q, writer=W, db=db, now=T + 29.5))
+        ok("error" in r and len(calls) == 1, "tier 3 second confirmation as a bare yes: refused")
+        say("yes merge", T + 30)
         r = json.loads(call_record({"id": "three-2026-01-01", "word": "merge"}, session_id="S", queue=Q, writer=W, db=db, now=T + 31))
         ok(r.get("ok") and calls[-1] == ("three-2026-01-01", "merge"), "tier 3 second yes in a later turn: written")
 
@@ -474,15 +523,25 @@ def selftest() -> int:
         ok("error" in r and len(calls) == 2, "no turn id from the hook: refused (fails closed)")
         # a stale readback expires
         _turns["S"] = "t7"
-        say("yes", T + 40 + READBACK_TTL + 5)
+        say("hold", T + 40 + READBACK_TTL + 5)
         r = json.loads(call_record({"id": "one-2026-01-01", "word": "hold"}, session_id="S", queue=Q, writer=W, db=db, now=T + 40 + READBACK_TTL + 6))
         ok("error" in r and len(calls) == 2, "a readback older than 10 minutes: refused")
 
-        for t, want in [("yes", True), ("Yes.", True), ("yes, record it", True), ("Confirm", True), ("ja", True),
-                        ("no", False), ("ok", False), ("yes but no", False), ("yes hold", False), ("", False)]:
-            ok(is_explicit_yes(t) is want, f"yes-matcher: {t!r} -> {want}")
+        ws = ["hold", "keep-open", "pasted", "later"]
+        for t, w, want in [("pasted", "pasted", True), ("Yes, pasted.", "pasted", True), ("yes pasted please", "pasted", True),
+                           ("keep open", "keep-open", True), ("yes", "pasted", False), ("ok pasted", "pasted", False),
+                           ("pasted, hold", "pasted", False), ("not pasted", "pasted", False), ("pasted later", "pasted", False),
+                           ("hold on", "hold", False), ("", "hold", False)]:
+            ok(names_the_word(t, w, ws) is want, f"word-matcher: {t!r} for {w} -> {want}")
+        wa = Path(td) / "profiles" / "decision-whatsapp"
+        wa.mkdir(parents=True)
+        (wa / ".env").write_text("OTHER=1\nNYW_BOX_CMD=git -C /x rev-parse HEAD\n")
+        ok(surface(wa) == "whatsapp" and surface(Path(td) / "profiles" / "decision-call") == "call"
+           and surface(Path(td) / "elsewhere") == "call", "surface resolves per profile home, closed set")
+        ok(_profile_env(wa, "NYW_BOX_CMD") == "git -C /x rev-parse HEAD" and _profile_env(wa, "NOPE") is None,
+           "the writer's box check is read from the session's own profile .env")
         logged = (STATE / "log.jsonl").read_text()
-        ok("Yes, record it" not in logged and '"verdict": "recorded"' in logged, "the log holds verdicts, never Karl's text")
+        ok("Yes, done" not in logged and '"verdict": "recorded"' in logged, "the log holds verdicts, never Karl's text")
         con.close()
     print(f"\n{'PASS' if not fails else 'FAIL'} — {fails} failing")
     return 1 if fails else 0
