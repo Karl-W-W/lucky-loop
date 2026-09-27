@@ -58,13 +58,13 @@
         {
           "id": "KR1",
           "title": "10 real documents processed across at least 3 document types, zero fixtures",
-          "progress": 0.4,
+          "progress": 0.6,
           "note": "derived at build time by scripts/gen-okr-derived.mjs from data/loop-runs.json: passes whose item is not loop/fixtures/synthetic-bill.txt (matched by loop/run.py's idempotency key), min(1, passes / 10). The numbers live in `derived`, never here.",
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/loop-runs.json",
-            "computedAt": "2026-09-19T05:18:17.546Z",
-            "passes": 4,
+            "computedAt": "2026-09-27T20:32:44.843Z",
+            "passes": 6,
             "fixturesExcluded": 1,
             "docTypes": [
               "invoice",
@@ -72,8 +72,8 @@
               "receipt",
               "vat-invoice"
             ],
-            "snapshotGeneratedAt": "2026-09-09T01:50:04Z",
-            "note": "4/10 real-document passes · 4 doc type(s) (invoice, other, receipt, vat-invoice) · 1 fixture pass(es) excluded · snapshot 2026-09-09T01:50:04Z"
+            "snapshotGeneratedAt": "2026-09-24T01:50:05Z",
+            "note": "6/10 real-document passes · 4 doc type(s) (invoice, other, receipt, vat-invoice) · 1 fixture pass(es) excluded · snapshot 2026-09-24T01:50:05Z"
           }
         },
         {
@@ -91,7 +91,7 @@
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/ci-runs.json",
-            "computedAt": "2026-09-19T05:18:17.546Z",
+            "computedAt": "2026-09-27T20:32:44.843Z",
             "cleanDays": 9,
             "windowDays": 51,
             "cleanFrom": "2026-09-10",
@@ -105,19 +105,19 @@
         {
           "id": "KR4",
           "title": "7 consecutive unattended converged nights (night 1 = 2026-09-08→09; an idle night neither counts nor resets)",
-          "progress": 0.14,
+          "progress": 0.29,
           "note": "derived at build time by scripts/gen-okr-derived.mjs from data/loop-runs.json with the Today page's definition (today_api.py::_converged_nights: a night is 20:00Z→08:00Z; every pass converged = +1; any other end = reset; no pass = skipped). The numbers live in `derived`, never here.",
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/loop-runs.json",
-            "computedAt": "2026-09-19T05:18:17.546Z",
-            "streak": 1,
-            "idle": 9,
-            "nights": 10,
-            "lastCounted": "2026-09-08",
+            "computedAt": "2026-09-27T20:32:44.843Z",
+            "streak": 2,
+            "idle": 17,
+            "nights": 19,
+            "lastCounted": "2026-09-23",
             "lastReset": null,
-            "snapshotGeneratedAt": "2026-09-09T01:50:04Z",
-            "note": "1/7 consecutive converged nights since 2026-09-08→09 · 9 of 10 night(s) idle (skipped) · last counted 2026-09-08 · snapshot 2026-09-09T01:50:04Z"
+            "snapshotGeneratedAt": "2026-09-24T01:50:05Z",
+            "note": "2/7 consecutive converged nights since 2026-09-08→09 · 17 of 19 night(s) idle (skipped) · last counted 2026-09-23 · snapshot 2026-09-24T01:50:05Z"
           }
         }
       ]
