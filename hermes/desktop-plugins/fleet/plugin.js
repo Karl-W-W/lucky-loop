@@ -799,7 +799,7 @@ function Goals({ data: d }) {
 /* ------------------------------------------------------------------------ */
 /* 5. the board — queue/tasks.json: what the agents are on (Karl, 2026-09-15) */
 /* ------------------------------------------------------------------------ */
-const BOARD_DONE = ['verified', 'done', 'converged']
+const BOARD_DONE = ['verified', 'done', 'converged', 'dropped']
 function BoardRow({ r }) {
   return h('div', { className: cls('tdy-row', r.status === 'blocked' && 'tdy-bad') },
     h('span', { className: 'tdy-lbl' }, r.status),
