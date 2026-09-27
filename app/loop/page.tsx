@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import SiteFooter from "@/app/components/site/SiteFooter";
 import {
   feedbackEdges,
   fmtUtc,
@@ -86,6 +87,9 @@ export default function LoopPage() {
           <nav className="flex items-center gap-4 text-xs">
             <Link href="/" className="underline underline-offset-4 hover:opacity-80">
               home
+            </Link>
+            <Link href="/#pricing" className="underline underline-offset-4 hover:opacity-80">
+              pricing
             </Link>
             <Link href="/war" className="underline underline-offset-4 hover:opacity-80">
               war room
@@ -292,6 +296,7 @@ export default function LoopPage() {
               : "Every pass so far was started by hand. There is no schedule yet and the loop does not run on its own."}
           </p>
         </section>
+        <SiteFooter dark />
       </div>
     </div>
   );

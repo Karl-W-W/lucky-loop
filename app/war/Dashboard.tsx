@@ -222,6 +222,15 @@ export default function Dashboard({ anchor }: { anchor: number }) {
 
         <footer className="pb-2 pt-1 text-center text-[11px] text-[var(--war-ink-3)]">
           Real data from git, Vercel, and data/*.json · Lucky Loop War Room
+          {/* The legal links every stranger-facing page carries (2026-09-22). A
+            * link row inside the existing footer, not a second footer. */}
+          <nav className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1" aria-label="Legal and site links">
+            <Link href="/#pricing" className="underline underline-offset-4 hover:opacity-80">pricing</Link>
+            <Link href="/impressum" className="underline underline-offset-4 hover:opacity-80">Impressum</Link>
+            <Link href="/datenschutz" className="underline underline-offset-4 hover:opacity-80">Datenschutz</Link>
+            <Link href="/agb" className="underline underline-offset-4 hover:opacity-80">AGB</Link>
+            <Link href="/kontakt" className="underline underline-offset-4 hover:opacity-80">Kontakt</Link>
+          </nav>
         </footer>
       </div>
     </div>
