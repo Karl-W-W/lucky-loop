@@ -1026,7 +1026,10 @@ function LivePage() {
               onClick: () => navigate('/today') }, 'Leave'))),
         batch.length
           ? batch.map(i => h(LiveCard, { key: i.id, i, today }))
-          : h('p', { className: 'tdy-empty' }, agent ? 'Nothing from ' + agent + ' waits on you.' : 'Nothing is waiting on you.'),
+          // Never write the word f-r-o-m right before a quote anywhere in this file, not even
+          // in a string: the Desktop loader regex-scans the raw source for imports and refuses
+          // the whole plugin ("unsupported import: + agent +"), which cost slice 1 its debut.
+          : h('p', { className: 'tdy-empty' }, agent ? agent + ' has nothing waiting on you.' : 'Nothing is waiting on you.'),
         derived.length ? h('p', { className: 'tdy-note' },
           derived.length + ' derived item(s) also wait — nobody typed them; see Today → Needs you.') : null),
       h(Section, { title: 'Receipts', count: gone.length,
