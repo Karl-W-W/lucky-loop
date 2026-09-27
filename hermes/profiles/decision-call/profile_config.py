@@ -56,6 +56,13 @@ def write(main_path: str, out_path: str, kind: str) -> None:
         "agent": {"max_turns": 40 if kind == "call" else 20, "reasoning_effort": "none"},
         "_config_version": main.get("_config_version", 45),
     }
+    # Some platforms re-add their own native toolsets after the list (feishu -> feishu_doc,
+    # feishu_drive: tools_config._recover_platform_native_toolsets). agent.disabled_toolsets is the
+    # vendor's last-word suppression, so whatever still resolves beyond the call goes there.
+    from hermes_cli.tools_config import _get_platform_tools
+    extra = sorted({t for p in platforms() for t in _get_platform_tools(cfg, p)} - {"decision_call", "gbrain"})
+    if extra:
+        cfg["agent"]["disabled_toolsets"] = extra
     if kind == "call":
         cfg["terminal"] = {"backend": "local", "cwd": os.path.join(os.path.dirname(out_path), "workspace")}
         cfg["stt"] = {"enabled": True, "provider": "local", "local": {"model": "base"}}
@@ -67,7 +74,7 @@ def write(main_path: str, out_path: str, kind: str) -> None:
         yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
     os.replace(tmp, out_path)
     print(f"config.yaml written: {len(cfg['platform_toolsets'])} platforms -> decision_call; "
-          f"gbrain {len(include)} read-only tools; tts {cfg.get('tts', {}).get('provider', '-')}")
+          f"gbrain {len(include)} read-only tools; suppressed {extra or 'nothing'}; tts {cfg.get('tts', {}).get('provider', '-')}")
 
 
 def check() -> int:

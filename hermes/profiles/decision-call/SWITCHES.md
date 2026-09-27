@@ -29,12 +29,25 @@ gbrain tools, and takes Karl's word. What is enforced in code, not in the prompt
 - one confirmation records one word on one card; the readback expires after 10 minutes;
 - the write goes through `~/brain/tools/needs-you-write` (the writer `decide` uses), with
   `doneBy: "karl — call <word>"`;
-- the profile's only toolset is `decision_call` plus the gbrain read-only allowlist (copied from
-  the main config at install). There is no terminal, file, web, memory or messaging tool.
+- on EVERY platform the vendor lists (22 on the box's build: cli, api_server, cron, whatsapp and the
+  rest), the profile resolves to `decision_call` plus the gbrain read-only allowlist and nothing
+  else. The allowlist is copied from the main config at install, minus `think`, which can write
+  takes and spend model calls. There is no terminal, file, browser, code, web, memory or messaging
+  tool. `install.sh --check` resolves each platform with the vendor's own resolver and fails on
+  anything more. In the Desktop, the app adds its GUI affordances to a chat (`desktop_ui`,
+  `project`), and none of them runs a shell or sends.
 
 Voice: in the chat, the composer's voice button or **Ctrl+B** starts a spoken conversation.
-The profile hears with local Whisper and speaks with Edge TTS, so a call spends nothing. The
-Desktop's other voice engine, `gpt-live`, bills per minute, and this profile does not use it.
+The profile hears with local Whisper (on the box) and spends nothing. The Desktop's other voice
+engine, `gpt-live`, bills per minute, and this profile does not use it.
+
+**The TTS trade-off.** The vendor supports three on-device engines (piper, kittentts, neutts).
+None is installed on the box or the Mac today, so the profile speaks with **Edge TTS**. Edge TTS
+sends every spoken sentence to Microsoft's service, and that includes the card's text, which can
+be private. Typing the call instead of speaking it sends nothing out. To make the voice local,
+install one engine into the box's Hermes venv, for example `~/.hermes/hermes-agent/venv/bin/pip
+install piper-tts`, then re-run `install.sh --box`. The generator picks up the local engine by
+itself. That is an install into the vendor's venv, so it is Karl's call.
 
 Install or refresh where the Desktop can open it: `hermes/profiles/decision-call/install.sh --box`
 (from the Mac; it copies the sources and installs on the box). Without `--box` it installs on the
@@ -74,32 +87,50 @@ names (the 08-28 rule, AGENT-OS Hands, rule 5). Each goes through his gate.
 
 ## OFF — switch 2: WhatsApp answers
 
-The 09-10 ruling ("no WhatsApp") stands until Karl gives his word. Pairing needs his phone. The
-profile `decision-whatsapp` is staged on the box by `whatsapp-switch.sh push` (run from the Mac)
-with WhatsApp **disabled**:
+The 09-10 ruling ("no WhatsApp") stands until Karl gives his word. Pairing needs his phone.
 
+**Where it sits, and why.** The profile `decision-whatsapp` is staged on the box by
+`whatsapp-switch.sh push`, run from the Mac. It sits in
+`~/.local/share/lucky-loop/decision-whatsapp-staged`, **outside** `~/.hermes/profiles`, so nothing
+serves it. The box's gateway serves every named profile under `profiles/`, and it has no key to
+leave one out. It also re-reads each served profile's `.env` about every 30 seconds. While the
+staged profile sat under `profiles/`, the main gateway served it. At that point, setting
+`WHATSAPP_ENABLED=true` by hand would have started WhatsApp inside the main gateway.
+
+The profile was moved out on 2026-09-27, with a backup taken first. The gateway logged
+`[MULTIPLEX] Profile 'decision-whatsapp' deleted — 0 adapter(s) stopped and unrouted`, and
+`gateway_state.json` lists it in `served_profiles` no longer.
+
+What the staged profile holds:
+
+- WhatsApp **disabled**;
 - `WHATSAPP_MODE=bot`: a separate number;
 - `dm_policy allowlist`, with the allowlist empty until the flip, and groups disabled;
-- the same three tools as the call, and nothing else (no terminal);
-- `doneBy: "karl — whatsapp <word>"`;
-- the systemd unit `hermes-decision-whatsapp.service` is written but not enabled.
+- the same three tools as the call on every platform, and nothing else;
+- `doneBy: "karl — whatsapp <word>"`.
+
+There is no separate systemd unit, because a second gateway would serve the number twice.
 
 It writes through the same writer as verb (a), not through verb (a)'s route. That route takes
 only the Mac-only page key, and putting the key on the box would undo the page's channel.
 
-**Flip:** on the box, in a terminal:
+**Flip.** This is the ONE step that turns WhatsApp on, and nothing else does. On the box, in a
+terminal:
 
 ```
 bash ~/.local/share/lucky-loop/decision-call-src/whatsapp-switch.sh flip
 ```
 
-It asks for Karl's own number as hidden input, and the number is kept only in the profile's
-`.env` on the box. Then:
+It does four things, in order:
 
-1. `hermes -p decision-whatsapp whatsapp`, and scan the QR with the separate number's phone;
-2. `systemctl --user enable --now hermes-decision-whatsapp.service`.
+1. It asks for Karl's own number as hidden input. The number is kept only in the profile's `.env`
+   on the box.
+2. It moves the profile into `profiles/`. The gateway then serves it, still with 0 adapters.
+3. It runs the pairing. Scan the QR with the separate number's phone.
+4. Only then does it set `WHATSAPP_ENABLED=true`. The gateway starts the adapter within about 30
+   seconds.
 
-**Off:**
+**Off:** this sets the switch false and moves the profile back out of `profiles/`:
 
 ```
 bash ~/.local/share/lucky-loop/decision-call-src/whatsapp-switch.sh off

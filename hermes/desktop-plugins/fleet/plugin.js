@@ -1873,7 +1873,7 @@ function MonitorPage() {
 /* call" opens a Hermes chat with the `decision-call` profile, primed with   */
 /* `call <id>`: that agent presents the card, discusses its effects (the     */
 /* card and read-only vault context), reads Karl's word back, and records it */
-/* only after his explicit yes in a later turn (tier 3: a second yes). The   */
+/* only when his next message names that word (tier 3: names it twice). The */
 /* recording is the agent's one narrow tool, enforced in code there          */
 /* (hermes/plugins/decision-call), through the vault's one writer, doneBy    */
 /* "karl — call <word>". THIS PAGE WRITES NOTHING: it opens a chat, or       */
@@ -2014,7 +2014,7 @@ function CallPage() {
         : h('div', { className: 'cl-card' },
           h('div', { className: 'cl-pos' },
             h('span', null, 'card ' + (qi + 1) + ' of ' + Q.length),
-            tier ? h('span', { className: cls('cl-tier', tier === 3 && 'cl-t3') }, 'tier ' + tier + (tier === 3 ? ' · a second yes' : '')) : null,
+            tier ? h('span', { className: cls('cl-tier', tier === 3 && 'cl-t3') }, 'tier ' + tier + (tier === 3 ? ' · name the word twice' : '')) : null,
             q.ask_kind ? h('span', null, q.ask_kind) : null,
             h('span', null, who(q)),
             q.expiry ? h('span', null, 'expires ' + q.expiry) : null),
