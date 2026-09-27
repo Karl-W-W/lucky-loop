@@ -9,7 +9,7 @@ that says what is built, what is on, and how each of the two remaining switches 
 | part | where | source |
 |---|---|---|
 | `/call` view (sidebar row **Call**, ⌘K "Open the call") | Hermes Desktop, the Fleet plugin | `hermes/desktop-plugins/fleet/plugin.js`, the CALL section |
-| `decision-call` profile: SOUL, config | the Mac's Hermes (the Desktop's local runtime) | `hermes/profiles/decision-call/{SOUL.md,install.sh}` |
+| `decision-call` profile: SOUL, config | the BOX's Hermes: the Desktop's backend is the box (127.0.0.1:9119 is a tunnel to its hermes-serve) | `hermes/profiles/decision-call/{SOUL.md,install.sh}` |
 | three tools + the turn hook | `~/.hermes/profiles/decision-call/plugins/decision-call/` | `hermes/plugins/decision-call/` |
 
 `/call` shows one open card at a time in the queue's order (the server's `live` order), with its
@@ -34,8 +34,11 @@ Voice: in the chat, the composer's voice button or **Ctrl+B** starts a spoken co
 The profile hears with local Whisper and speaks with Edge TTS, so a call spends nothing. The
 Desktop's other voice engine, `gpt-live`, bills per minute, and this profile does not use it.
 
-Install or refresh on the Mac: `hermes/profiles/decision-call/install.sh`. The installer backs up
-first. `--check` reports what is installed.
+Install or refresh where the Desktop can open it: `hermes/profiles/decision-call/install.sh --box`
+(from the Mac; it copies the sources and installs on the box). Without `--box` it installs on the
+machine it runs on, which serves `hermes -p decision-call chat` in that machine's terminal only. The
+installer backs up first. `--check` reports what is installed. If the profile is missing from the
+Desktop's backend, **Start the call** opens nothing and says so.
 
 ## OFF — switch 1: the shim (Claude Code panes as room members)
 
