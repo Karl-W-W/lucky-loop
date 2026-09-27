@@ -1161,6 +1161,298 @@ def rooms(_gateway=None, _fallback: Optional[Path] = None) -> Dict[str, Any]:
     return out
 
 
+# --------------------------------------------------------------------------- #
+# proposals — C's "Proposals — not questions · no count · never applied by silence".
+# Each owner's pass report in the vault ends in a "## Next best action" paragraph; that
+# paragraph is the proposal. Read-only: nothing here writes, applies or counts. Newest
+# first, one per (owner, title). A line that looks like a value or credential drops the
+# whole proposal rather than a redacted half of it.
+# --------------------------------------------------------------------------- #
+COUNCIL_DIR = BRAIN / "captures" / "council"
+DEFAULT_SEATS = ("commander", "my-big-game", "showcase", "bill-clerk", "mail-triage")
+PROPOSALS_CAP = 12
+_NBA_RE = re.compile(r"^#{2,4}\s*next best action\s*:?\s*$", re.I)
+_NBA_INLINE_RE = re.compile(r"^\**next best action\**\s*[:—-]\s*(.+)$", re.I)
+_FILE_DATE_RE = re.compile(r"^cc-(\d{4}-\d{2}-\d{2})-(.+)\.md$")
+_SECRETISH_RE = re.compile(
+    r"(-----BEGIN|\bsk-[A-Za-z0-9_-]{12,}|\bgh[pousr]_[A-Za-z0-9]{20,}|\bxox[abpr]-|\bAKIA[0-9A-Z]{12,}"
+    r"|\bAIza[0-9A-Za-z_-]{20,}|\beyJ[A-Za-z0-9_-]{15,}\.|(?:password|passwd|secret|token|api[_-]?key|bearer)\s*[:=]\s*\S{6,}"
+    r"|\b[A-Fa-f0-9]{40,}\b)", re.I)
+# a long unbroken mixed-case+digit run (base64-ish key); case-sensitive, and '-' and '/' are
+# left out so a card id or a vault path is never mistaken for a value
+_KEYISH_RE = re.compile(r"(?<![A-Za-z0-9+_])(?=[A-Za-z0-9+_]*\d)(?=[A-Za-z0-9+_]*[A-Z])(?=[A-Za-z0-9+_]*[a-z])"
+                        r"[A-Za-z0-9+_]{40,}={0,2}")
+
+
+def _secretish(s: str) -> bool:
+    return bool(_SECRETISH_RE.search(s) or _KEYISH_RE.search(s))
+
+
+def _seats() -> List[str]:
+    seats = list(DEFAULT_SEATS)
+    try:
+        for i in _read_json(QUEUE_FILE).get("items", []):
+            a = i.get("agent")
+            if isinstance(a, str) and re.fullmatch(r"[a-z0-9][a-z0-9-]{1,40}", a) and a not in seats:
+                seats.append(a)
+    except Exception:
+        pass
+    return seats
+
+
+def _next_best_action(text: str) -> Optional[str]:
+    lines = text.splitlines()
+    for k, ln in enumerate(lines):
+        s = ln.strip()
+        m = _NBA_INLINE_RE.match(s)
+        if m:
+            return m.group(1).strip()
+        if _NBA_RE.match(s):
+            body: List[str] = []
+            for nxt in lines[k + 1:]:
+                t = nxt.strip()
+                if t.startswith("#") or t.startswith("---"):
+                    break
+                if not t:
+                    if body:
+                        break
+                    continue
+                body.append(t)
+            return " ".join(body).strip() or None
+    return None
+
+
+def _split_title_why(para: str) -> tuple:
+    p = re.sub(r"\*\*|__", "", para)
+    p = re.sub(r"^[-*]\s+", "", p).strip()
+    m = re.match(r"(.+?[.!?])(\s+|$)(.*)", p, re.S)
+    title, rest = (m.group(1), m.group(3)) if m else (p, "")
+    if len(title) > 160:
+        title = title[:157].rstrip() + "…"
+    rest = rest.strip()
+    if len(rest) > 400:
+        rest = rest[:397].rstrip() + "…"
+    return title.strip(), rest
+
+
+def proposals(_dir: Optional[Path] = None, _seats_list: Optional[List[str]] = None,
+              cap: int = PROPOSALS_CAP) -> Dict[str, Any]:
+    """``{sampled_at, source, items: [{owner, title, why, about, file, date}], skipped_secretish}``.
+    ``about`` is the report's own H1 (which card or pass it is), because a proposal like
+    "Karl says done." means nothing without it.
+    An empty ``items`` is a valid state: no owner has proposed anything."""
+    d = _dir or COUNCIL_DIR
+    out: Dict[str, Any] = {"sampled_at": _now(), "source": _rel(d) + "/cc-*-<seat>-*.md", "items": [],
+                           "skipped_secretish": 0}
+    seats = sorted(_seats_list or _seats(), key=len, reverse=True)   # longest first: my-big-game before my
+    cands = []
+    for p in d.glob("cc-*.md"):
+        m = _FILE_DATE_RE.match(p.name)
+        if not m:
+            continue
+        owner = next((s for s in seats if m.group(2) == s or m.group(2).startswith(s + "-")), None)
+        if not owner:
+            continue
+        try:
+            mt = p.stat().st_mtime
+        except Exception:
+            continue
+        cands.append((m.group(1), mt, owner, p))
+    cands.sort(key=lambda c: (c[0], c[1]), reverse=True)
+    seen = set()
+    for fdate, _mt, owner, p in cands[:300]:
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        para = _next_best_action(text)
+        if not para:
+            continue
+        title, why = _split_title_why(para)
+        if not title:
+            continue
+        if _secretish(title) or _secretish(why):
+            out["skipped_secretish"] += 1
+            continue
+        key = (owner, re.sub(r"\W+", " ", title.lower()).strip())
+        if key in seen:
+            continue
+        seen.add(key)
+        fm = re.search(r"^date:\s*(\d{4}-\d{2}-\d{2})\s*$", text[:600], re.M)
+        h1 = re.search(r"^# (.+?)\s*$", text, re.M)
+        about = re.sub(r"\*\*|`", "", h1.group(1)).strip()[:140] if h1 else None
+        if about and _secretish(about):
+            about = None
+        out["items"].append({"owner": owner, "title": title, "why": why, "about": about, "file": _rel(p),
+                             "date": fm.group(1) if fm else fdate})
+        if len(out["items"]) >= cap:
+            break
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# models — the box tile's model line: what ollama holds in memory, what it has on disk,
+# and the Hermes install. Every field fails soft into ``errors[field]``; nothing raises.
+# --------------------------------------------------------------------------- #
+OLLAMA = "http://127.0.0.1:11434"
+HERMES_BIN = HOME / ".local" / "bin" / "hermes"
+HERMES_SKILLS = HOME / ".hermes" / "skills"
+_HERMES_CACHE: Dict[str, Any] = {}
+
+
+def _ollama_get(path: str) -> Any:
+    import urllib.request
+    with urllib.request.urlopen(OLLAMA + path, timeout=2) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def _hermes_info() -> Dict[str, Any]:
+    now = _now_dt().timestamp()
+    if _HERMES_CACHE.get("t") and now - _HERMES_CACHE["t"] < 300:
+        return dict(_HERMES_CACHE["v"])
+    h: Dict[str, Any] = {"version": None, "skills": None}
+    try:
+        raw = _sh(f"{HERMES_BIN} --version", timeout=5)
+        m = re.search(r"v(\d+\.\d+\.\d+)(?:\s*\(([^)]+)\))?", raw)
+        if not m:
+            raise ValueError("no version in `hermes --version`")
+        h["version"] = m.group(1) + (f" ({m.group(2)})" if m.group(2) else "")
+    except Exception as e:
+        h["version_error"] = f"{type(e).__name__}: {e}"
+    try:
+        h["skills"] = sum(1 for _ in HERMES_SKILLS.rglob("SKILL.md"))
+        h["skills_source"] = _rel(HERMES_SKILLS)
+    except Exception as e:
+        h["skills_error"] = f"{type(e).__name__}: {e}"
+    _HERMES_CACHE.update({"t": now, "v": h})
+    return dict(h)
+
+
+def models(_get=None, _hermes=None) -> Dict[str, Any]:
+    """``{sampled_at, loaded: [{name, size_gb, vram_gb, until}] | None, on_disk: int | None,
+    hermes: {version, skills}, errors: {field: str}}``."""
+    get = _get or _ollama_get
+    out: Dict[str, Any] = {"sampled_at": _now(), "source": OLLAMA, "loaded": None, "on_disk": None,
+                           "hermes": None, "errors": {}}
+    try:
+        ps = get("/api/ps")
+        out["loaded"] = [{"name": m.get("name"),
+                          "size_gb": round((m.get("size") or 0) / 1e9, 1),
+                          "vram_gb": round((m.get("size_vram") or 0) / 1e9, 1),
+                          "until": m.get("expires_at")} for m in (ps.get("models") or [])]
+    except Exception as e:
+        out["errors"]["loaded"] = f"{type(e).__name__}: {e}"
+    try:
+        out["on_disk"] = len(get("/api/tags").get("models") or [])
+    except Exception as e:
+        out["errors"]["on_disk"] = f"{type(e).__name__}: {e}"
+    try:
+        out["hermes"] = (_hermes or _hermes_info)()
+    except Exception as e:
+        out["errors"]["hermes"] = f"{type(e).__name__}: {e}"
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# bots — the box's Hermes profiles (a profile dir with profile.yaml or config.yaml; a dir
+# holding only logs is a leftover, not a profile). ``bot`` is true when the profile carries
+# Bot Mode's ui_meta; ``title`` is the same bots map the rooms block publishes.
+# --------------------------------------------------------------------------- #
+def _profile_display_name(pf: Path) -> Optional[str]:
+    try:
+        for ln in pf.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"^display_name:\s*(.+?)\s*$", ln)
+            if m:
+                return m.group(1).strip().strip("'\"") or None
+    except Exception:
+        pass
+    return None
+
+
+def bots(_dir: Optional[Path] = None, _titles: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """``{sampled_at, source, items: [{name, display_name, title, bot}]}``."""
+    d = _dir or HERMES_PROFILES
+    titles = _bot_titles() if _titles is None else _titles
+    out: Dict[str, Any] = {"sampled_at": _now(), "source": _rel(d), "items": []}
+    for p in sorted(d.iterdir()):
+        if not p.is_dir() or p.name.startswith("."):
+            continue
+        pf = p / "profile.yaml"
+        if not pf.exists() and not (p / "config.yaml").exists():
+            continue
+        title = titles.get(p.name)
+        out["items"].append({"name": p.name,
+                             "display_name": title or _profile_display_name(pf) or p.name,
+                             "title": title, "bot": title is not None})
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# timers — the box's user timers with their cadence, from one call. /jobs keeps the raw
+# `list-timers` lines; this is the parsed form: every (the timer's own spec), next, last.
+# --------------------------------------------------------------------------- #
+def _usec_iso(v: Any) -> Optional[str]:
+    try:
+        v = int(v)
+        if v <= 0:
+            return None
+        return datetime.fromtimestamp(v / 1e6, timezone.utc).astimezone().isoformat(timespec="seconds")
+    except Exception:
+        return None
+
+
+def _timer_every(calendar: str, monotonic: str) -> Optional[str]:
+    """``TimersCalendar={ OnCalendar=*-*-* 03:30:00 ; next_elapse=… }`` -> ``*-*-* 03:30:00``;
+    ``TimersMonotonic={ OnUnitActiveUSec=15min ; … }`` -> ``every 15min``. Boot-only
+    delays (OnBootUSec/OnStartupUSec) are left out: they fire once, they are not a cadence."""
+    parts: List[str] = []
+    for m in re.finditer(r"OnCalendar=([^;}]+?)\s*;", calendar or ""):
+        parts.append(m.group(1).strip())
+    for m in re.finditer(r"On(UnitActive|UnitInactive|Active)USec=([^;}\s]+)", monotonic or ""):
+        parts.append(f"every {m.group(2)}")
+    return " · ".join(dict.fromkeys(parts)) or None
+
+
+def _parse_show(raw: str) -> List[Dict[str, str]]:
+    blocks, cur = [], {}
+    for ln in raw.splitlines():
+        if not ln.strip():
+            if cur:
+                blocks.append(cur)
+                cur = {}
+            continue
+        k, _, v = ln.partition("=")
+        cur[k] = (cur[k] + " " + v) if k in cur else v   # a unit may carry several Timers* lines
+    if cur:
+        blocks.append(cur)
+    return blocks
+
+
+def timers(_list=None, _show=None) -> Dict[str, Any]:
+    """``{sampled_at, source, items: [{name, activates, every, next, last, active}]}``, soonest first."""
+    out: Dict[str, Any] = {"sampled_at": _now(), "source": "systemctl --user list-timers + show", "items": []}
+    raw = _list() if _list else _sh("systemctl --user list-timers --all -o json --no-pager", timeout=10)
+    rows = json.loads(raw or "[]")
+    names = [r["unit"] for r in rows if str(r.get("unit", "")).endswith(".timer")]
+    if not names:
+        return out
+    props = _show(names) if _show else _sh(
+        "systemctl --user show " + " ".join(names)
+        + " -p Id -p TimersCalendar -p TimersMonotonic -p ActiveState --no-pager", timeout=10)
+    by_id = {b.get("Id"): b for b in _parse_show(props)}
+    for r in rows:
+        u = r.get("unit")
+        if u not in names:
+            continue
+        b = by_id.get(u, {})
+        out["items"].append({"name": u[:-len(".timer")], "activates": r.get("activates"),
+                             "every": _timer_every(b.get("TimersCalendar", ""), b.get("TimersMonotonic", "")),
+                             "next": _usec_iso(r.get("next")), "last": _usec_iso(r.get("last")),
+                             "active": b.get("ActiveState")})
+    out["items"].sort(key=lambda i: (i["next"] is None, i["next"] or ""))
+    return out
+
+
 def _digest(d: Dict[str, Any]) -> str:
     L: List[str] = []
     ny, ag, go, bx = d["needs_you"], d["agents"], d["goals"], d["box"]
@@ -1236,6 +1528,31 @@ def _digest(d: Dict[str, Any]) -> str:
              + (f" · {rm['error']}" if rm.get("error") else ""))
     for r in rm.get("rooms") or []:
         L.append(f"  {r['name']}: " + ", ".join(r["members"]))
+    md = bx.get("models") or {}
+    if md:
+        hm = md.get("hermes") or {}
+        L.append("MODELS: loaded " + (", ".join(f"{m['name']} {m['size_gb']} GB" for m in md.get("loaded") or []) or
+                                      ("none" if md.get("loaded") is not None else "?"))
+                 + f" · on disk {md.get('on_disk') if md.get('on_disk') is not None else '?'}"
+                 + f" · hermes {hm.get('version') or '?'} · skills {hm.get('skills') if hm.get('skills') is not None else '?'}"
+                 + (" · errors " + "; ".join(f"{k}: {v}" for k, v in md["errors"].items()) if md.get("errors") else "")
+                 + (f" · {md['error']}" if md.get("error") else ""))
+    pr = d.get("proposals") or {}
+    L.append(f"PROPOSALS (not questions · never applied by silence) · sampled {pr.get('sampled_at')}"
+             + (f" · {pr['error']}" if pr.get("error") else ""))
+    for p in pr.get("items") or []:
+        L.append(f"  {p['date']} {p['owner']:<12} {p['title']}" + (f"  [{p['about']}]" if p.get("about") else ""))
+    if not (pr.get("items") or pr.get("error")):
+        L.append("  (none)")
+    bt = d.get("bots") or {}
+    L.append(f"BOTS: " + (", ".join(f"{b['display_name']} ({b['name']})" if b["display_name"] != b["name"] else b["name"]
+                                     for b in bt.get("items") or []) or "none")
+             + (f" · {bt['error']}" if bt.get("error") else ""))
+    tm = d.get("timers") or {}
+    L.append(f"TIMERS: {len(tm.get('items') or [])} · sampled {tm.get('sampled_at')}"
+             + (f" · {tm['error']}" if tm.get("error") else ""))
+    for t in tm.get("items") or []:
+        L.append(f"  {t['name']:<32} {str(t.get('every') or '—'):<28} next {str(t.get('next') or '—')[:16]}")
     return "\n".join(L)
 
 
@@ -1259,11 +1576,19 @@ def _today() -> Dict[str, Any]:
         ("board", lambda: board()),
         ("agents_now", lambda: agents_now()),
         ("rooms", lambda: rooms()),
+        ("proposals", lambda: proposals()),
+        ("bots", lambda: bots()),
+        ("timers", lambda: timers()),
     ):
         try:
             out[name] = fn()
         except Exception as e:
             out[name] = {"error": f"{type(e).__name__}: {e}"}
+    if isinstance(out.get("box"), dict) and "error" not in out["box"]:
+        try:
+            out["box"]["models"] = models()
+        except Exception as e:
+            out["box"]["models"] = {"error": f"{type(e).__name__}: {e}"}
     try:
         ny = out["needs_you"]
         out["live"] = live(ny.get("all_items", []), out.get("agents_now") or {}, out.get("agents") or {},
@@ -1379,6 +1704,74 @@ def _selftest() -> int:
         n = rooms(_gateway=boom, _fallback=Path(td) / "missing.json")
         ok(n["source"] == "none" and n["rooms"] == [] and "gateway" in n["error"] and "rooms.json" in n["error"],
            "rooms: neither readable -> source none, an unknown with both reasons")
+    # proposals: the "Next best action" paragraph per owner report; newest first; one per (owner, title)
+    with tempfile.TemporaryDirectory() as td:
+        cd = Path(td)
+        def rep(name, nba, date=None, heading="## Next best action"):
+            (cd / name).write_text(("---\nreport: r\n" + (f"date: {date}\n" if date else "") + "---\n\n# R\n\n"
+                                    + f"{heading}\n\n{nba}\n\n## Commands run\n\nx\n"))
+        rep("cc-2026-09-26-alpha-pass-1.md", "Do the first thing. Because it unblocks two.")
+        rep("cc-2026-09-27-alpha-pass-2.md", "Do the **first** thing. Again, later.")          # same (owner, title): dropped
+        rep("cc-2026-09-27-my-big-game-card-x.md", "Ship the build. The card id `task-blocked-headless-claude-drop-the-unused-mcp-floor` stays.")
+        rep("cc-2026-09-27-my-pass.md", "Seat my.")                                             # seat 'my' is not 'my-big-game'
+        rep("cc-2026-09-27-alpha-leak.md", "Paste token: " + "Zx9" * 8 + " into the box.")
+        rep("cc-2026-09-27-alpha-leak2.md", "Use " + "aB3" * 15 + " as the key.")
+        rep("cc-2026-09-25-alpha-none.md", "", heading="## Something else")
+        rep("cc-2026-09-22-builder.md", "Not a seat.")
+        for k, n in enumerate(["cc-2026-09-27-alpha-pass-2.md", "cc-2026-09-27-my-pass.md", "cc-2026-09-27-my-big-game-card-x.md"]):
+            os.utime(cd / n, (1_790_000_000 + k, 1_790_000_000 + k))   # same day: the later write first
+        rep("cc-2026-09-24-beta-old.md", "An older one. From its front matter.", date="2026-09-20")
+        pr = proposals(_dir=cd, _seats_list=["alpha", "my-big-game", "my", "beta"])
+        ok([(p["owner"], p["title"]) for p in pr["items"]] ==
+           [("my-big-game", "Ship the build."), ("my", "Seat my."), ("alpha", "Do the first thing."),
+            ("beta", "An older one.")],
+           "proposals: newest first, one per (owner, title), longest seat wins, non-seats ignored")
+        ok(pr["items"][2]["why"] == "Again, later." and pr["items"][2]["file"].endswith("cc-2026-09-27-alpha-pass-2.md")
+           and pr["items"][3]["date"] == "2026-09-20" and "unused-mcp-floor" in pr["items"][0]["why"],
+           "proposals: the newer report wins a repeat; why, file, date from front matter; a card id is not a key")
+        ok(pr["items"][0]["about"] == "R", "proposals: about is the report's H1")
+        ok(pr["skipped_secretish"] == 2 and not any("token" in p["title"] for p in pr["items"]),
+           "proposals: a value- or key-looking line drops the proposal")
+        ok(len(proposals(_dir=cd, _seats_list=["alpha", "my-big-game", "my", "beta"], cap=1)["items"]) == 1, "proposals: capped")
+        empty = Path(td) / "empty"
+        empty.mkdir()
+        ok(proposals(_dir=empty, _seats_list=["alpha"])["items"] == [], "proposals: none is an empty list, not an error")
+    # models: every field fails soft
+    def fake_get(path):
+        if path == "/api/ps":
+            return {"models": [{"name": "m:1", "size": 2_500_000_000, "size_vram": 2_400_000_000, "expires_at": "x"}]}
+        raise OSError("refused")
+    md = models(_get=fake_get, _hermes=lambda: {"version": "0.1.0", "skills": 3})
+    ok(md["loaded"] == [{"name": "m:1", "size_gb": 2.5, "vram_gb": 2.4, "until": "x"}] and md["on_disk"] is None
+       and "refused" in md["errors"]["on_disk"] and md["hermes"]["skills"] == 3, "models: loaded read, on_disk fails soft")
+    def boom2(*_a):
+        raise RuntimeError("down")
+    md2 = models(_get=boom2, _hermes=boom2)
+    ok(md2["loaded"] is None and set(md2["errors"]) == {"loaded", "on_disk", "hermes"}, "models: all down -> three errors, no raise")
+    # bots: real profiles only; title from the bots map, else profile.yaml's display_name
+    with tempfile.TemporaryDirectory() as td:
+        pd = Path(td)
+        for n, files in (("a", {"profile.yaml": "display_name: Alpha One\n"}), ("b", {"config.yaml": "x: 1\n"}),
+                         ("c", {"logs": None}), ("d", {"profile.yaml": "display_name: 'Dee'\n"})):
+            (pd / n).mkdir()
+            for f, body in files.items():
+                (pd / n / f).mkdir() if body is None else (pd / n / f).write_text(body)
+        bt = bots(_dir=pd, _titles={"d": "Dee Bot"})
+        ok([(b["name"], b["display_name"], b["bot"]) for b in bt["items"]]
+           == [("a", "Alpha One", False), ("b", "b", False), ("d", "Dee Bot", True)], "bots: profiles, names, the bot flag")
+    # timers: cadence from the timer's own spec
+    ok(_timer_every("{ OnCalendar=*-*-* 03:30:00 ; next_elapse=Mon 2026-09-28 03:30:00 CEST }", "") == "*-*-* 03:30:00"
+       and _timer_every("", "{ OnUnitActiveUSec=15min ; next_elapse=1h } { OnBootUSec=5min ; next_elapse=5min }") == "every 15min"
+       and _timer_every("", "") is None, "timers: OnCalendar and OnUnitActiveSec parsed, boot delay is not a cadence")
+    tl = json.dumps([{"unit": "b.timer", "activates": "b.service", "next": 1790544600000000, "last": 0},
+                     {"unit": "a.timer", "activates": "a.service", "next": 1790500000000000, "last": 1790400000000000}])
+    sh = ("Id=a.timer\nActiveState=active\nTimersMonotonic={ OnUnitActiveUSec=15min ; next_elapse=x }\n"
+          "TimersMonotonic={ OnBootUSec=5min ; next_elapse=5min }\n\n"
+          "Id=b.timer\nActiveState=active\nTimersCalendar={ OnCalendar=*-*-* *:00/10:00 ; next_elapse=y }\n")
+    tm = timers(_list=lambda: tl, _show=lambda names: sh)
+    ok([(t["name"], t["every"], t["last"] is None) for t in tm["items"]]
+       == [("a", "every 15min", False), ("b", "*-*-* *:00/10:00", True)], "timers: every/next/last, soonest first")
+    ok(timers(_list=lambda: "[]")["items"] == [], "timers: none is an empty list")
     print(f"selftest: {'PASS' if not fails else 'FAIL'} — {len(fails)} failure(s)")
     return 0 if not fails else 1
 
