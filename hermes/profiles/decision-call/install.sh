@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Install the decision-call profile into the Hermes on THIS machine (the Mac: the Desktop's local
-# runtime is the one that talks, and the vault writer `needs-you-write` lives in ~/brain here).
+# Install the decision-call profile into the Hermes on THIS machine (both the Mac and the box hold
+# ~/brain and its writer `needs-you-write`). For the Desktop, install it on the BOX: see --box below.
 #
 #   hermes/profiles/decision-call/install.sh            install / refresh (backs up first)
 #   hermes/profiles/decision-call/install.sh --check    show what is installed; change nothing
+#   hermes/profiles/decision-call/install.sh --box      install on the box, whose backend the Desktop uses
 #
 # What it writes, all under ~/.hermes/profiles/decision-call/ (the profile's own home):
 #   plugins/decision-call/   the three tools + the turn hook (from hermes/plugins/decision-call)
@@ -22,6 +23,20 @@ HH="${HERMES_ROOT:-$HOME/.hermes}"
 P="$HH/profiles/decision-call"
 PY="$HH/hermes-agent/venv/bin/python"
 
+# WHICH HERMES: the Desktop's backend is the one whose profiles a Desktop chat can open. On this Mac
+# that is the BOX (the Desktop dials 127.0.0.1:9119, an ssh tunnel to the box's hermes-serve), so the
+# profile must be installed there: `install.sh --box` copies the sources over and runs this script on
+# the box. A Mac-only install serves `hermes -p decision-call chat` in a Mac terminal, nothing more.
+if [[ "${1:-}" == "--box" ]]; then
+  HOST="${BOX:-dgx-remote}"; D=".local/share/lucky-loop/decision-call-src"
+  ssh -o BatchMode=yes "$HOST" "mkdir -p $D/hermes/plugins/decision-call $D/hermes/profiles/decision-call"
+  scp -q "$REPO_ROOT/hermes/plugins/decision-call/__init__.py" "$REPO_ROOT/hermes/plugins/decision-call/plugin.yaml" \
+    "$HOST:$D/hermes/plugins/decision-call/"
+  scp -q "$HERE/SOUL.md" "$HERE/install.sh" "$HOST:$D/hermes/profiles/decision-call/"
+  ssh -o BatchMode=yes "$HOST" "bash ~/$D/hermes/profiles/decision-call/install.sh ${2:-}"
+  exit $?
+fi
+
 if [[ "${1:-}" == "--check" ]]; then
   ls -la "$P/plugins/decision-call" 2>/dev/null || echo "plugin: not installed"
   "$PY" - "$P/config.yaml" <<'EOF'
@@ -34,8 +49,9 @@ EOF
   exit 0
 fi
 
-command -v hermes >/dev/null || { echo "hermes is not on PATH" >&2; exit 1; }
-[[ -d "$P" ]] || hermes profile create decision-call --no-skills --no-alias \
+HERMES_BIN="$(command -v hermes || echo "$HOME/.local/bin/hermes")"
+[[ -x "$HERMES_BIN" ]] || { echo "no hermes binary found" >&2; exit 1; }
+[[ -d "$P" ]] || "$HERMES_BIN" profile create decision-call --no-skills --no-alias \
   --description "The decision call: presents one needs-you card, discusses its effects, and records Karl's word only after an explicit yes."
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -81,5 +97,12 @@ with open(tmp, "w") as f:
 os.replace(tmp, sys.argv[2])
 print("config.yaml written:", len(gb["tools"]["include"]), "gbrain tools allowlisted; toolsets", cfg["platform_toolsets"]["cli"])
 EOF
+if [[ "$(uname)" == "Linux" ]]; then
+  # On the box the writer's own clone IS the box clone: its "did the box take it" check reads this HEAD.
+  touch "$P/.env"; chmod 600 "$P/.env"
+  grep -v '^NYW_BOX_CMD=' "$P/.env" > "$P/.env.tmp" || true
+  echo "NYW_BOX_CMD=git -C $HOME/brain rev-parse HEAD" >> "$P/.env.tmp"
+  chmod 600 "$P/.env.tmp"; mv "$P/.env.tmp" "$P/.env"
+fi
 "$PY" "$P/plugins/decision-call/__init__.py" --selftest | tail -1
 echo "installed. backup: $P/backups/$STAMP"

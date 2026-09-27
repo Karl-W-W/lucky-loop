@@ -1948,51 +1948,61 @@ function injectCallStyle() {
   document.head.appendChild(el)
 }
 
-/* The local route that serves the decision-call profile, or null (then the bare-profile overload). */
+/* The route that serves the decision-call profile on a connection this Desktop knows, or null.
+ * The profile must live where the Desktop's BACKEND runs: on this Mac that is the box (the Desktop
+ * dials 127.0.0.1:9119, a tunnel to the box's hermes-serve), so install.sh --box, not a Mac install.
+ * The 2026-09-27 proof: with the profile only on the Mac, session.create failed ("Profile
+ * 'decision-call' does not exist") and the old fallback opened a generic draft in the default profile. */
 async function callRoute(host) {
   if (typeof host.profileRoutes !== 'function') return null
   try {
     const routes = await host.profileRoutes()
-    const mine = (routes || []).filter(r => r && (r.targetProfile === CALL_PROFILE || r.profile === CALL_PROFILE))
+    const mine = (routes || []).filter(r => r && r.connectionId && (r.targetProfile || r.profile) === CALL_PROFILE)
     return mine.find(r => r.mode === 'local') || mine[0] || null
   } catch { return null }
 }
 
-/* Open a fresh decision-call chat primed with `call <id>`. Resolves to a line for the page.
- * The same door Bot Mode uses: session.create → session.title → openSession → prompt.submit.
- * Any missing piece falls back to a plain new chat in the profile plus the line on the clipboard. */
+/* Open a fresh decision-call chat primed with `call <id>`, through the profile's own route — the
+ * same door Bot Mode uses: session.create → session.title → openSession → prompt.submit. When the
+ * profile or any step is missing it opens NOTHING (a plain new chat would land in whatever profile is
+ * active, which is not the call) and says why; the id line is offered for a chat Karl opens himself. */
 async function startCall(card) {
   const host = SDK.host
   const line = 'call ' + card.id
-  const fallback = async why => {
-    try { if (host && typeof host.newChat === 'function') host.newChat(CALL_PROFILE) } catch { /* no-op */ }
-    await copy(line).catch(() => {})
-    return { ok: false, msg: why + ' — a new ' + CALL_PROFILE + ' chat was opened and "' + line + '" copied: paste it and send.' }
-  }
+  const fail = why => ({ ok: false, msg: why + ' Nothing was opened or written.' })
   if (!host || typeof host.requestProfile !== 'function' || typeof host.openSession !== 'function') {
-    return fallback('this Desktop cannot open a primed chat from a plugin')
+    return fail('This Desktop cannot open a primed chat from a plugin.')
   }
   const route = await callRoute(host)
-  const target = route ? route : CALL_PROFILE
-  const req = (method, params) => host.requestProfile(target, method, params, undefined, { spawnPriority: 'foreground' })
-  try {
-    const title = 'Call · ' + String(card.ask || card.title || card.id).slice(0, 60)
-    const res = await req('session.create', { profile: route ? (route.targetProfile || route.profile) : CALL_PROFILE, title })
-    const sid = res && res.stored_session_id
-    const runtime = res && res.session_id
-    if (!sid || !runtime) return fallback('the ' + CALL_PROFILE + ' backend did not return a session')
-    try { await req('session.title', { session_id: runtime, title }) } catch { /* the first prompt persists the row */ }
-    let opened = false
-    const open = () => host.openSession(sid, { ...(route ? { route } : {}), profile: CALL_PROFILE, intent: 'main',
-      keepAllProfilesScope: true, tabTitle: title, awaitHydration: false })
-    try { await open(); opened = true } catch { /* retried after the first prompt */ }
-    await new Promise(r => setTimeout(r, 400))
-    await req('prompt.submit', { session_id: runtime, text: line })
-    if (!opened) { try { await open() } catch { /* the chat exists; it is in the Sessions list */ } }
-    return { ok: true, msg: 'The call is open in a ' + CALL_PROFILE + ' chat. Press Ctrl+B there to talk.' }
-  } catch (e) {
-    return fallback('could not open the call (' + String((e && e.message) || e).slice(0, 120) + ')')
+  if (!route) {
+    return fail('The ' + CALL_PROFILE + ' profile is not on the Desktop\'s backend (install it there: ' +
+      'hermes/profiles/decision-call/install.sh --box).')
   }
+  const req = (method, params) => host.requestProfile(route, method, params, undefined, { spawnPriority: 'foreground' })
+  const title = 'Call · ' + String(card.ask || card.title || card.id).slice(0, 60)
+  let res
+  try {
+    res = await req('session.create', { profile: route.targetProfile || route.profile, title, follow_profile_config: true })
+  } catch (e) {
+    return fail('The ' + CALL_PROFILE + ' backend refused the session (' + String((e && e.message) || e).slice(0, 120) + ').')
+  }
+  const sid = res && typeof res.stored_session_id === 'string' ? res.stored_session_id : null
+  const runtime = res && typeof res.session_id === 'string' ? res.session_id : null
+  if (!sid || !runtime) return fail('The ' + CALL_PROFILE + ' backend did not return a session.')
+  try { await req('session.title', { session_id: runtime, title }) } catch { /* the first prompt persists the row */ }
+  const open = () => host.openSession(sid, { route, profile: route.profile, intent: 'main',
+    keepAllProfilesScope: true, tabTitle: title })
+  let opened = false
+  try { await open(); opened = true } catch { /* the row may not exist until the first prompt; retried below */ }
+  await new Promise(r => setTimeout(r, 400))
+  try {
+    await req('prompt.submit', { session_id: runtime, text: line })
+  } catch (e) {
+    return { ok: false, msg: 'The chat "' + title + '" was opened, but "' + line + '" could not be sent (' +
+      String((e && e.message) || e).slice(0, 100) + '). Type it there yourself.' }
+  }
+  if (!opened) { try { await open() } catch { /* it is in the Sessions list under its title */ } }
+  return { ok: true, msg: 'The call is open: the tab "' + title + '", profile ' + CALL_PROFILE + '. Press Ctrl+B there to talk.' }
 }
 
 function CallPage() {
