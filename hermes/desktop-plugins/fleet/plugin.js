@@ -1736,13 +1736,14 @@ const CC_TOKENS = `
 .ccs .navs{display:flex;gap:6px;margin-top:8px}
 .ccs .tile.away .t-face svg{filter:saturate(.35) brightness(.7)}
 .ccs .tile.host{align-self:start}
-.ccs .why{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.ccs .tr-ask{-webkit-line-clamp:4}
+.ccs .bub .why{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ccs .tr-q .tr-ask{-webkit-line-clamp:4}
 .ccs .thr{display:flex;gap:6px;align-items:flex-start}
 .ccs .evr .rw b{min-width:0}.ccs .evr .rw b .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ccs[data-r=chat] .tr-meta,.ccs[data-r=room] .tr-meta{white-space:normal;flex-wrap:wrap}
 .ccs.cc-sbar kbd{display:inline-grid;place-items:center;min-width:17px;height:16px;padding:0 4px;border-radius:4px;background:var(--surface-3);border:1px solid var(--border-2);font:500 10px/1 var(--mono);color:var(--ink-2)}
 .ccs.cc-sbar .sbtn{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2);font:inherit;background:none;border:0;cursor:pointer}
+.ccs.cc-sbar .sbtn.c-needs{color:var(--orange)}
 .ccs .comp .in{cursor:pointer}.ccs .comp .in:hover{border-color:var(--border-2);color:var(--ink-3)}
 /* the sidebar sections below the Bots roster, and the chrome items */
 .ccs.cc-side{padding:4px 8px 14px;display:flex;flex-direction:column;gap:1px;background:transparent}
@@ -2969,7 +2970,7 @@ function CcStatus({ side }) {
   const n = Q.length + M.derived
   const nb = Math.max(1, Math.ceil(Q.length / BATCH))
   return h('span', { className: 'ccs cc-sbar' },
-    h('span', { className: n ? 'c-needs' : '' }, h('b', null, n + ' need you')),
+    h('button', { type: 'button', className: cls('sbtn', n && 'c-needs'), onClick: () => navigate('/live'), title: 'Open Live' }, h('b', null, n + ' need you')),
     h('span', null, Q.length ? 'batch 1 of ' + nb + ' open' : 'no batch open'),
     h('span', null, 'the box · ' + M.box.checks + ' · GPU ' + M.box.gpuPct + ' %'))
 }
