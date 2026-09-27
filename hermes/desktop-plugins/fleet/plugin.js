@@ -58,10 +58,13 @@ const h = React.createElement
 const POLL_MS = 15000
 const IDLE_POLL_MS = 60000 // when only the status bar is listening
 const BATCH = 5
-/* VERB (a) — answer on the page. OFF unless BOTH switches are on:
+/* VERB (a) — answer on the page. KEEP IT OFF until a channel exists that only the page
+ * holds (any process on the box can read the session token and post; see answer_api.py).
+ * It is on only when all three are on:
  *   here:        ANSWER_ON_PAGE = true, then install this file (atomically) on the Mac;
- *   on the box:  echo on > ~/.config/lucky-loop/fleet-answer-verb  (read per request).
- * Either one off: no send button is drawn, and the box answers POST /answer with 404.
+ *   on the box:  echo on > ~/.config/lucky-loop/fleet-answer-verb  (read per request);
+ *   on the box:  the page's Origin declared in ~/.config/lucky-loop/fleet-answer-origins.
+ * Page flag off: no send button. Box flag off: POST /answer is 404. No Origin declared: 403.
  * Only Karl's click on that card's own button sends an answer: one card per click, and
  * a tier-3 word only after a second click that shows the card's title and the word.
  * The route takes an open card id and one word from that card's options, or `later`,
@@ -1282,6 +1285,11 @@ function HostTile({ box, ov, rows, wide, alone }) {
         timerLeft(t.raw) ? h('span', { className: 'lv-dim' }, ' in ' + timerLeft(t.raw)) : null))))
 }
 
+/* The newest receipt: by the day it closed, then the time it was answered or seen to leave;
+ * a tie keeps the later one in the list. Never file order alone (the queue is not chronological). */
+const receiptKey = r => String(r.doneOn || '') + '|' + String(r.answeredAt || r.seenGoneAt || '')
+const newest = list => list.reduce((best, r) => (!best || receiptKey(r) >= receiptKey(best) ? r : best), null)
+
 /* One owner's tile: its face, its raised hands, the first question it holds,   */
 /* and one folded line — the fact that matters most about it right now. An      */
 /* owner that no pane carries is drawn away from the call: its face is dimmed.  */
@@ -1289,7 +1297,7 @@ function SeatTile({ seat, hue, mine, parked, pane, gone, failedRow, today, speak
   const top = mine[0]
   const noAgent = mine.concat(parked).some(i => i.agent_shipped === false)
   const late = mine.filter(i => i.expiry && i.expiry < today).length
-  const left = gone[gone.length - 1]
+  const left = newest(gone)
   const parkFold = !failedRow && !noAgent && parked.length > 0 // the fold says it; the status line need not
   const fold = failedRow ? [h('span', { key: 'f', className: 'lv-c-failed' }, 'failed ' + stamp(failedRow.t)), ' — ' + (failedRow.job || '?')]
     : noAgent ? 'no agent for this seat yet'

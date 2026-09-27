@@ -28,12 +28,21 @@ words or `later`, handed to the vault's existing writer (`tools/needs-you-write`
 `decide` uses) with `doneBy: "karl — page <word>"`. Every call, refusals included, is
 logged on the loop host at `~/.local/state/lucky-loop/page-answer/log.jsonl`.
 
-It is on only when BOTH switches are on:
+**Keep it OFF until a channel exists that only the page holds.** Any process on the
+loop host can read the dashboard session token, fetch an offer and post it; the Origin
+check below does not stop that (the header is the sender's claim, and the Desktop's own
+REST calls leave its main process with no Origin at all). The log records what arrived,
+with the Origin and User-Agent it claimed; it cannot tell Karl's click from a script's.
+
+It is on only when ALL of these are on:
 
 1. **Server** (loop host): `echo on > ~/.config/lucky-loop/fleet-answer-verb`. Read on
    every request, no restart. Off again: `rm ~/.config/lucky-loop/fleet-answer-verb`.
    While off, `POST /answer` answers 404 and `/live` carries no offers.
-2. **Page** (Mac): set `const ANSWER_ON_PAGE = true` in `plugin.js` and install it
+2. **Origin** (loop host): the page's Origin, one per line, in
+   `~/.config/lucky-loop/fleet-answer-origins`. Absent or empty: every request is refused
+   403 and logged, and doneBy `karl — page <word>` is never written.
+3. **Page** (Mac): set `const ANSWER_ON_PAGE = true` in `plugin.js` and install it
    atomically. While false, no send button is drawn.
 
 Selftests: `python3 plugins/fleet/dashboard/answer_api.py --selftest` (no FastAPI needed)

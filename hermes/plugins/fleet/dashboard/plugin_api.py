@@ -5,7 +5,9 @@ Mounted at ``/api/plugins/fleet/`` by the dashboard plugin system.
 READ-ONLY BY DESIGN, EXCEPT ``answer``. This surface reports; it does not control.
 The one exception is verb (a), ``POST /answer`` in ``answer_api.py``: Karl's own
 word on one open needs-you card, handed to the vault's existing writer. It ships
-OFF (404 until ``~/.config/lucky-loop/fleet-answer-verb`` says ``on``). That is not a
+OFF (404 until ``~/.config/lucky-loop/fleet-answer-verb`` says ``on``; 403 unless the
+request's Origin is declared) and must stay off until a channel exists that only the
+page holds — see answer_api.py's docstring for what is and is not enforced. That is not a
 missing feature — the standing ADR is that Hermes is interface and chat runtime,
 never orchestration, and the `/war` precedent is a read-only hub with management
 staying on the CLI. Where an action is available it is emitted as a copy-pasteable

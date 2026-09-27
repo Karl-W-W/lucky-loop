@@ -32,13 +32,28 @@ How that is held here, as code:
   ``~/brain/tools/needs-you-write`` (the one ``decide`` uses): it reads the hub's
   copy, refuses unknown/done ids and off-list words again, commits through a
   temporary index and pushes. It records ``doneBy: "karl — page <word>"``.
-* **Every call is logged** (who, when, card, word, surface=page, verdict) to
-  ``~/.local/state/lucky-loop/page-answer/log.jsonl`` on this box — never in the
-  vault, never a token.
+* **Only a declared Origin may answer.** A request whose ``Origin`` header is not
+  listed in ``~/.config/lucky-loop/fleet-answer-origins`` (one per line; absent or
+  empty = none) is refused 403 and logged. Only then is doneBy written as
+  ``karl — page <word>``.
+* **Every call is logged** (when, card, word, surface=page, verdict, client address,
+  Origin and User-Agent as sent) to ``~/.local/state/lucky-loop/page-answer/log.jsonl``
+  on this box — never in the vault, never a token. ``who`` is never written as
+  "karl": the server cannot know who clicked.
 
-What this does NOT enforce, said plainly: any script running in the dashboard holds
-the session and could read an offer and post it (the council's settled fact). The
-log is the control for that, not the token.
+THE FLAG MUST STAY OFF until a channel exists that only the page holds. What is true
+today, said plainly:
+
+* The dashboard session token sits in a file any process on this box can read, so any
+  such process can fetch an offer and POST it. The signed offer binds a write to one
+  card and one word; it does not prove a human clicked.
+* The Origin check does not close that either: an Origin header is chosen by whoever
+  sends the request, and the Desktop's own REST calls go out from its main process
+  (Node ``http.request``), which sends no Origin at all — so with no origins declared,
+  every request, the Desktop's included, is refused.
+* The log is therefore a record, not a control: it shows what arrived, with the
+  headers it claimed, for the verifier to read at clock-out. It cannot tell Karl's
+  click from a script's.
 
 ``python3 answer_api.py --selftest`` runs the validation and logging against a temp
 queue and a fake writer; it needs no FastAPI (the route is exercised too when
@@ -54,6 +69,7 @@ import json
 import os
 import re
 import secrets
+import signal
 import subprocess
 import sys
 import tempfile
@@ -71,15 +87,20 @@ FLAG_FILE = Path(os.environ.get("FLEET_ANSWER_FLAG") or (HOME / ".config" / "luc
 STATE_DIR = Path(os.environ.get("FLEET_ANSWER_STATE") or (HOME / ".local" / "state" / "lucky-loop" / "page-answer"))
 
 SURFACE = "page"
-WHO = "karl — page"            # the only human with this dashboard; the claim is logged, not proven
+ORIGINS_FILE = Path(os.environ.get("FLEET_ANSWER_ORIGINS")
+                    or (HOME / ".config" / "lucky-loop" / "fleet-answer-origins"))
+WHO = "page — unverified"       # the server cannot know who clicked; it never writes "karl" in the log
+DONE_BY = "karl — page"         # the council's doneBy, written ONLY for a request from a declared Origin
 TOKEN_TTL_S = 900
 CONFIRM_TTL_S = 90
 WRITER_TIMEOUT_S = 90
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 WORD_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 BODY_KEYS = {"id", "word", "exp", "token", "confirm_exp", "confirm"}
-HOW_TO_ENABLE = ("server: echo on > ~/.config/lucky-loop/fleet-answer-verb on the box (no restart); "
-                 "page: set ANSWER_ON_PAGE = true in plugin.js and install it. Both default off.")
+HOW_TO_ENABLE = ("KEEP OFF until a channel only the page holds exists (see answer_api.py). Then: "
+                 "server: echo on > ~/.config/lucky-loop/fleet-answer-verb on the box (no restart) and declare "
+                 "the page's Origin in ~/.config/lucky-loop/fleet-answer-origins; page: set ANSWER_ON_PAGE = true "
+                 "in plugin.js and install it. All default off.")
 
 _KEY = secrets.token_bytes(32)   # this process only; a restart invalidates every open offer
 _USED: Dict[str, float] = {}     # token -> exp, so a replay is refused before the queue is read
@@ -104,10 +125,23 @@ def _now_z() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def log(verdict: str, cid: Optional[str], word: Optional[str], detail: str = "", client: Optional[str] = None) -> None:
-    """One line per call, refusals included. Never a token, never a body beyond id and word."""
+def allowed_origins() -> List[str]:
+    """The declared Origins, one per line. Absent or empty: none — every request is refused.
+    Keep it empty while the flag is off; see the module docstring for why an Origin is not proof."""
+    try:
+        return [ln.strip() for ln in ORIGINS_FILE.read_text(encoding="utf-8").splitlines()
+                if ln.strip() and not ln.strip().startswith("#")]
+    except OSError:
+        return []
+
+
+def log(verdict: str, cid: Optional[str], word: Optional[str], detail: str = "", client: Optional[str] = None,
+        origin: Optional[str] = None, agent: Optional[str] = None) -> None:
+    """One line per call, refusals included. Never a token, never a body beyond id and word.
+    Origin and User-Agent are logged exactly as the request claimed them (cut to 160)."""
     rec = {"t": _now_z(), "who": WHO, "surface": SURFACE, "id": cid, "word": word,
-           "verdict": verdict, "detail": str(detail)[:300]}
+           "verdict": verdict, "detail": str(detail)[:300],
+           "origin": (origin or "")[:160] or None, "user_agent": (agent or "")[:160] or None}
     if client:
         rec["client"] = client
     try:
@@ -211,48 +245,75 @@ def run_writer(cid: str, word: str) -> Tuple[int, str]:
     """needs-you-write with one op. Exit: 0 recorded · 1 not recorded · 2 refused · 3 recorded, box clone NOT updated."""
     op = {"id": cid, "answer": word}
     if word != "later":
-        op["by"] = f"{WHO} {word}"      # doneBy "karl — page <word>", the council's wording
+        op["by"] = f"{DONE_BY} {word}"  # doneBy "karl — page <word>"; answer() reaches here only from a declared Origin
     env = {**os.environ, "NYW_REPO": str(BRAIN), "NYW_REMOTE": "origin",
            # the writer runs ON the box clone, so the box check is this clone's own HEAD
            "NYW_BOX_CMD": f"git -C '{BRAIN}' rev-parse HEAD"}
     try:
-        p = subprocess.run([sys.executable, str(WRITER), "--message", f"page: {cid} = {word}"],
-                           input=json.dumps([op]), capture_output=True, text=True,
-                           timeout=WRITER_TIMEOUT_S, env=env)
-        return p.returncode, (p.stdout + p.stderr).strip()[-600:]
-    except subprocess.TimeoutExpired:
-        return 1, f"the writer ran past {WRITER_TIMEOUT_S}s"
+        # its own session, so a timeout can kill the writer AND the git/ssh children it started
+        p = subprocess.Popen([sys.executable, str(WRITER), "--message", f"page: {cid} = {word}"],
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, env=env, start_new_session=True)
     except OSError as e:
         return 1, f"the writer could not start: {type(e).__name__}"
+    try:
+        out, err = p.communicate(json.dumps([op]), timeout=WRITER_TIMEOUT_S)
+        return p.returncode, (out + err).strip()[-600:]
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            pass
+        try:
+            p.communicate(timeout=5)
+        except Exception:
+            pass
+        # the push may or may not have landed before the kill: never say "not recorded"
+        return TIMED_OUT, f"the writer ran past {WRITER_TIMEOUT_S}s and was killed"
 
 
-WRITER_VERDICT = {0: (200, "recorded"), 3: (200, "recorded — box clone not updated"),
-                  2: (409, "refused by the writer"), 1: (502, "not recorded")}
+TIMED_OUT = -9
+WRITER_VERDICT = {0: (200, "recorded"), 3: (200, "recorded; this page will lag until the box clone syncs"),
+                  2: (409, "refused by the writer"), 1: (502, "not recorded"),
+                  TIMED_OUT: (504, "outcome unknown — check the queue")}
 
 
 def answer(body: Any, client: Optional[str] = None, now: Optional[int] = None,
-           writer=None) -> Tuple[int, Dict[str, Any]]:
+           writer=None, origin: Optional[str] = None, agent: Optional[str] = None) -> Tuple[int, Dict[str, Any]]:
     """The whole verb as a function: (http status, response). The route is a thin shell around it."""
     raw_id = body.get("id") if isinstance(body, dict) and isinstance(body.get("id"), str) else None
     raw_word = body.get("word") if isinstance(body, dict) and isinstance(body.get("word"), str) else None
     safe_id = raw_id if raw_id and ID_RE.match(raw_id) else None
     safe_word = raw_word if raw_word and WORD_RE.match(raw_word) else None
+    L = lambda v, c, w, d: log(v, c, w, d, client, origin, agent)
     if not enabled():
-        log("off", safe_id, safe_word, "the verb is off on this box", client)
+        L("off", safe_id, safe_word, "the verb is off on this box")
         return 404, {"ok": False, "verdict": "off", "detail": "the answer verb is off on this box"}
+    # Only a declared Origin may answer (none are declared by default). NOT proof of a human:
+    # the header is the sender's claim — the flag stays off until a page-only channel exists.
+    if not origin or origin not in allowed_origins():
+        L("refused-origin", safe_id, safe_word, "Origin not declared in " + ORIGINS_FILE.name)
+        return 403, {"ok": False, "verdict": "refused",
+                     "detail": "this request's Origin is not declared for answering on this box"}
     with _LOCK:     # one answer at a time in this process; the file lock covers a second process
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
-        with open(STATE_DIR / "answer.lock", "w") as lk:
+        try:
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+            lk = open(STATE_DIR / "answer.lock", "w")
+        except OSError as e:
+            # nothing can be logged either, so nothing is written
+            return 503, {"ok": False, "verdict": "refused",
+                         "detail": f"the answer log's directory is not writable ({type(e).__name__}); nothing written"}
+        with lk:
             fcntl.flock(lk, fcntl.LOCK_EX)
             try:
                 card, clean = validate(body, now)
             except Refusal as r:
-                log(r.verdict, safe_id, safe_word, r.detail, client)
+                L(r.verdict, safe_id, safe_word, r.detail)
                 return r.status, {"ok": False, "verdict": r.verdict, "detail": r.detail}
             cid, word = clean["id"], clean["word"]
             if clean.get("needs_confirm"):
                 cexp = int(now if now is not None else time.time()) + CONFIRM_TTL_S
-                log("confirm-asked", cid, word, "tier 3: nothing written until the second click", client)
+                L("confirm-asked", cid, word, "tier 3: nothing written until the second click")
                 return 200, {"ok": False, "verdict": "confirm", "id": cid, "word": word,
                              "title": str(card.get("title") or "")[:200],
                              "confirm": {"exp": cexp, "token": _sign("confirm", cid, word, cexp)},
@@ -263,9 +324,9 @@ def answer(body: Any, client: Optional[str] = None, now: Optional[int] = None,
                     _USED.pop(t, None)
             rc, out = (writer or run_writer)(cid, word)
             status, verdict = WRITER_VERDICT.get(rc, (502, f"writer exit {rc}"))
-            log(verdict, cid, word, out.splitlines()[-1] if out else "", client)
+            L(verdict, cid, word, out.splitlines()[-1] if out else "")
             return status, {"ok": rc in (0, 3), "verdict": verdict, "id": cid, "word": word,
-                            "detail": out.splitlines()[-1][:300] if out else ""}
+                            "detail": verdict if rc in (3, TIMED_OUT) else (out.splitlines()[-1][:300] if out else "")}
 
 
 # --------------------------------------------------------------------------- #
@@ -274,6 +335,7 @@ def answer(body: Any, client: Optional[str] = None, now: Optional[int] = None,
 try:
     from fastapi import APIRouter, Request
     from fastapi.responses import JSONResponse
+    from starlette.concurrency import run_in_threadpool
 
     router = APIRouter()
 
@@ -284,7 +346,10 @@ try:
         except Exception:
             body = None
         client = request.client.host if request.client else None
-        status, resp = answer(body, client=client)
+        # answer() blocks on git for up to WRITER_TIMEOUT_S: off the event loop, so chat keeps running
+        status, resp = await run_in_threadpool(answer, body, client=client,
+                                               origin=request.headers.get("origin"),
+                                               agent=request.headers.get("user-agent"))
         return JSONResponse(resp, status_code=status)
 except ImportError:  # pragma: no cover - the box always has FastAPI
     router = None
@@ -294,7 +359,7 @@ except ImportError:  # pragma: no cover - the box always has FastAPI
 # selftest
 # --------------------------------------------------------------------------- #
 def selftest() -> int:
-    global QUEUE_FILE, FLAG_FILE, STATE_DIR
+    global QUEUE_FILE, FLAG_FILE, STATE_DIR, ORIGINS_FILE, WRITER, WRITER_TIMEOUT_S
     fails: List[str] = []
 
     def ok(cond: bool, name: str) -> None:
@@ -302,10 +367,13 @@ def selftest() -> int:
         if not cond:
             fails.append(name)
 
-    saved = (QUEUE_FILE, FLAG_FILE, STATE_DIR)
+    saved = (QUEUE_FILE, FLAG_FILE, STATE_DIR, ORIGINS_FILE, WRITER, WRITER_TIMEOUT_S)
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         QUEUE_FILE, FLAG_FILE, STATE_DIR = td / "needs-you.json", td / "flag", td / "state"
+        ORIGINS_FILE = td / "origins"
+        WRITER = td / "no-writer-here"   # any path that reached the real writer would fail to start, not write
+        PAGE = "app://selftest-page"
         q = {"schema": 1, "items": [
             {"id": "alpha-2026-01-01", "title": "Merge the branch", "tier": 3, "options": ["hold", "merge"]},
             {"id": "beta-2026-01-01", "title": "Retry the job", "tier": 1, "options": ["retry", "drop"]},
@@ -320,14 +388,15 @@ def selftest() -> int:
             d = json.loads(QUEUE_FILE.read_text())
             for i in d["items"]:
                 if i["id"] == cid and word != "later":
-                    i.update({"done": True, "answer": word, "doneBy": f"{WHO} {word}"})
+                    i.update({"done": True, "answer": word, "doneBy": f"{DONE_BY} {word}"})
             QUEUE_FILE.write_text(json.dumps(d))
             return 0, f"  {cid}: {word}\nrecorded abc1234 · pushed to origin/master"
 
         items = {i["id"]: i for i in q["items"]}
         lines = lambda: [json.loads(x) for x in (STATE_DIR / "log.jsonl").read_text().splitlines()] \
             if (STATE_DIR / "log.jsonl").exists() else []
-        A = lambda body, **kw: answer(body, client="127.0.0.1", writer=fake_writer, **kw)
+        A = lambda body, **kw: answer(body, client="127.0.0.1", writer=fake_writer,
+                                      **{"origin": PAGE, "agent": "selftest-agent/1", **kw})
 
         # 1. off by default: no flag file -> 404, no offer, nothing written, the call is logged
         ok(not enabled(), "no flag file: the verb is off")
@@ -339,6 +408,21 @@ def selftest() -> int:
         ok(not enabled(), "a flag file that says off keeps it off")
         FLAG_FILE.write_text("on\n")
         ok(enabled(), "a flag file that says on switches it on (read per request)")
+
+        # 1b. with the flag on, no Origin is declared by default: everything is refused 403, and logged
+        probe = {"id": "beta-2026-01-01", "word": "retry", "exp": 0, "token": "x"}
+        st, r = A(probe)
+        ok(st == 403 and not calls and allowed_origins() == [], "no origins declared: even the page's Origin is refused 403")
+        ORIGINS_FILE.write_text("# the Desktop's, once a page-only channel exists\n" + PAGE + "\n")
+        st, r = A(probe, origin="http://evil.example")
+        ok(st == 403 and not calls, "an undeclared Origin is refused 403")
+        st, r = A(probe, origin=None, agent="curl/8.0")
+        ok(st == 403 and not calls, "a request with no Origin (a curl, or the Desktop's main process) is refused 403")
+        last = lines()[-1]
+        ok(last["verdict"] == "refused-origin" and last["origin"] is None and last["user_agent"] == "curl/8.0",
+           "the refusal is logged with the Origin and User-Agent it claimed")
+        ok(lines()[-2]["origin"] == "http://evil.example", "a claimed Origin is logged as sent")
+        ok(all("karl" not in str(x.get("who")) for x in lines()), "the log never claims karl as who")
 
         # 2. offers carry exactly the card's words + later
         ob = offer(items["beta-2026-01-01"])
@@ -381,8 +465,9 @@ def selftest() -> int:
            "tier 1: one click hands exactly (id, word) to the writer")
         last = lines()[-1]
         ok(last["verdict"] == "recorded" and last["id"] == "beta-2026-01-01" and last["word"] == "retry"
-           and last["surface"] == "page" and last["who"] == WHO and last.get("t") and last.get("client") == "127.0.0.1",
-           "the log line holds who, when, card, word, surface=page")
+           and last["surface"] == "page" and last["who"] == WHO and last.get("t") and last.get("client") == "127.0.0.1"
+           and last["origin"] == PAGE and last["user_agent"] == "selftest-agent/1",
+           "the log line holds when, card, word, surface=page, client, Origin and User-Agent")
         ok(all(t not in (STATE_DIR / "log.jsonl").read_text() for t in ob["tokens"].values())
            and not any("token" in x for x in lines()),
            "no token ever reaches the log")
@@ -409,34 +494,84 @@ def selftest() -> int:
         # 6. the writer's own verdicts are passed through, not dressed up
         o2 = offer(items["delta-2026-01-01"])
         st, r = answer({"id": "delta-2026-01-01", "word": "go", "exp": o2["exp"], "token": o2["tokens"]["go"]},
-                       writer=lambda c, w: (2, "refused — delta: 'go' is not one of: keep"))
+                       writer=lambda c, w: (2, "refused — delta: 'go' is not one of: keep"), origin=PAGE)
         ok(st == 409 and not r["ok"] and r["verdict"] == "refused by the writer", "a writer refusal is reported as refused")
         o3 = offer(items["delta-2026-01-01"])
         st, r = answer({"id": "delta-2026-01-01", "word": "later", "exp": o3["exp"], "token": o3["tokens"]["later"]},
-                       writer=lambda c, w: (1, "not recorded — 3 pushes rejected"))
+                       writer=lambda c, w: (1, "not recorded — 3 pushes rejected"), origin=PAGE)
         ok(st == 502 and not r["ok"], "a writer that could not push is reported as not recorded")
+        _USED.clear()  # offers minted in the same second share a token; the replay guard is per token
+        o4 = offer(items["delta-2026-01-01"])
+        st, r = answer({"id": "delta-2026-01-01", "word": "go", "exp": o4["exp"], "token": o4["tokens"]["go"]},
+                       writer=lambda c, w: (3, "recorded … box clone NOT updated"), origin=PAGE)
+        ok(st == 200 and r["ok"] and r["detail"] == "recorded; this page will lag until the box clone syncs",
+           "exit 3 is ok, and says the page will lag until the box clone syncs")
+        _USED.clear()  # offers minted in the same second share a token; the replay guard is per token
+        o5 = offer(items["delta-2026-01-01"])
+        st, r = answer({"id": "delta-2026-01-01", "word": "later", "exp": o5["exp"], "token": o5["tokens"]["later"]},
+                       writer=lambda c, w: (TIMED_OUT, "killed"), origin=PAGE)
+        ok(st == 504 and not r["ok"] and r["verdict"] == "outcome unknown — check the queue",
+           "a timed-out writer is reported as outcome unknown, never as not recorded")
+
+        # 6b. the real timeout kills the writer's whole process group (its children too)
+        pidf = td / "child.pid"
+        slow = td / "slow-writer"
+        slow.write_text("import subprocess, sys, time\n"
+                        f"c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+                        f"open({str(pidf)!r}, 'w').write(str(c.pid))\n"
+                        "time.sleep(60)\n")
+        WRITER, WRITER_TIMEOUT_S = slow, 1
+        t0 = time.time()
+        rc, out = run_writer("beta-2026-01-01", "drop")
+        time.sleep(0.3)
+        child = int(pidf.read_text()) if pidf.exists() else None
+        alive = True
+        if child:
+            try:
+                os.kill(child, 0)
+            except ProcessLookupError:
+                alive = False
+            except PermissionError:
+                alive = True
+        ok(rc == TIMED_OUT and time.time() - t0 < 10 and child and not alive,
+           "on timeout the writer and the child it started are both killed")
+        WRITER, WRITER_TIMEOUT_S = saved[4], saved[5]
+
+        # 6c. an unwritable state dir is a 503 with a JSON reason, not a 500
+        keep_state = STATE_DIR
+        (td / "a-file").write_text("x")
+        STATE_DIR = td / "a-file" / "state"
+        _USED.clear()  # offers minted in the same second share a token; the replay guard is per token
+        o6 = offer(items["delta-2026-01-01"])
+        st, r = answer({"id": "delta-2026-01-01", "word": "go", "exp": o6["exp"], "token": o6["tokens"]["go"]},
+                       writer=fake_writer, origin=PAGE)
+        ok(st == 503 and not r["ok"] and "not writable" in r["detail"], "an unwritable state dir answers 503 with a reason")
+        STATE_DIR = keep_state
 
         # 7. the real hand-off builds decide's op and the council's doneBy
         seen: Dict[str, Any] = {}
 
         class P:
-            returncode, stdout, stderr = 0, "recorded", ""
+            returncode, pid = 0, 0
 
-        def fake_run(argv, input=None, **kw):
-            seen.update({"argv": argv, "ops": json.loads(input), "env": kw.get("env", {})})
-            return P()
-        real = subprocess.run
-        subprocess.run = fake_run
+            def __init__(self, argv, **kw):
+                seen.update({"argv": argv, "env": kw.get("env", {}), "session": kw.get("start_new_session")})
+
+            def communicate(self, inp=None, timeout=None):
+                seen["ops"] = json.loads(inp)
+                return "recorded", ""
+        real = subprocess.Popen
+        subprocess.Popen = P
         try:
             rc, _ = run_writer("beta-2026-01-01", "drop")
             ok(rc == 0 and seen["ops"] == [{"id": "beta-2026-01-01", "answer": "drop", "by": "karl — page drop"}]
                and str(seen["argv"][1]).endswith("needs-you-write") and "--message" in seen["argv"]
-               and seen["env"].get("NYW_BOX_CMD", "").endswith("rev-parse HEAD"),
+               and seen["env"].get("NYW_BOX_CMD", "").endswith("rev-parse HEAD") and seen["session"] is True,
                "run_writer hands needs-you-write one op with doneBy `karl — page <word>`")
             run_writer("beta-2026-01-01", "later")
             ok(seen["ops"] == [{"id": "beta-2026-01-01", "answer": "later"}], "`later` goes as decide's own park op")
         finally:
-            subprocess.run = real
+            subprocess.Popen = real
 
         # 8. the route itself, when FastAPI's TestClient is here
         try:
@@ -448,11 +583,23 @@ def selftest() -> int:
             FLAG_FILE.write_text("")
             ok(tc.post("/answer", json=base).status_code == 404, "route: 404 while the flag is off")
             FLAG_FILE.write_text("on\n")
-            ok(tc.post("/answer", content=b"not json", headers={"content-type": "application/json"}).status_code == 400,
-               "route: 400 on a body that is not JSON")
+            ok(tc.post("/answer", content=b"not json", headers={"content-type": "application/json"}).status_code == 403,
+               "route: 403 without a declared Origin, before the body is judged")
+            ok(tc.post("/answer", content=b"not json", headers={"content-type": "application/json", "origin": PAGE}).status_code == 400,
+               "route: 400 on a body that is not JSON (declared Origin)")
+            _USED.clear()
+            stub = td / "stub-writer"   # never the real writer: a selftest must not reach the vault
+            stub.write_text("import sys; sys.stdin.read(); print('recorded stub')\n")
+            WRITER = stub
+            o7 = offer(items["delta-2026-01-01"])
+            rr = tc.post("/answer", json={"id": "delta-2026-01-01", "word": "go", "exp": o7["exp"], "token": o7["tokens"]["go"]},
+                         headers={"origin": PAGE, "user-agent": "route-test/1"})
+            WRITER = saved[4]
+            ok(rr.status_code == 200 and rr.json()["verdict"] == "recorded" and lines()[-1]["user_agent"] == "route-test/1",
+               "route: headers reach the log through the threadpool")
         except ImportError:
             print("  skip route checks (no FastAPI TestClient here)")
-    QUEUE_FILE, FLAG_FILE, STATE_DIR = saved
+    QUEUE_FILE, FLAG_FILE, STATE_DIR, ORIGINS_FILE, WRITER, WRITER_TIMEOUT_S = saved
     print(f"selftest: {'PASS' if not fails else 'FAIL'} — {len(fails)} failure(s)")
     return 0 if not fails else 1
 
