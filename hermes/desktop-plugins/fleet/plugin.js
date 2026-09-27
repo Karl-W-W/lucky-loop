@@ -18,6 +18,9 @@
  * same parked-aware count ("N need you") is computed here, once, and shown on
  * Today, on /live, in the status bar and in the ⌘K palette.
  *
+ * MONITOR (/monitor) is B's board with lanes by room, behind a flag that is OFF
+ * by default (MONITOR_ON); its rooms are a stub until the box's gateway has them.
+ *
  * Pure SDK-consumer work, same shape as before: a `/fleet` route + a sidebar row,
  * data from the Fleet plugin's REST router through `ctx.rest`. Plain ESM, no
  * build step, hot-reloaded from `~/.hermes/desktop-plugins/fleet/plugin.js`.
@@ -193,11 +196,11 @@ const CSS = `
   border:1px solid rgba(128,128,128,.35);background:transparent;color:inherit;opacity:.8}
 .tdy-chip.tdy-hot{background:#d95926;border-color:#d95926;color:#fff;opacity:1}
 /* --- live: the call as plan C draws it (c-stage.html). Its own dark tokens, so it looks the same under any app theme --- */
-.lv-stage{--surface:#161615;--surface-3:#292927;--stage:#0a0a0a;--chrome:#121211;--ink:#f4f3ee;--ink-2:#c3c2b7;--ink-3:#898781;
+.lv-stage,.mn-stage{--surface:#161615;--surface-3:#292927;--stage:#0a0a0a;--chrome:#121211;--ink:#f4f3ee;--ink-2:#c3c2b7;--ink-3:#898781;
   --ink-4:#63625d;--grid:#2c2c2a;--line:rgba(255,255,255,.09);--line-2:rgba(255,255,255,.15);--blue:#3987e5;--orange:#d95926;
   --good:#3fbf3f;--danger:#e66767;--warn:#d9a441;--sans:ui-sans-serif,system-ui,-apple-system,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;--e:cubic-bezier(.2,.7,.2,1);
-  display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:calc(100vh - 72px);min-height:560px;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;--e:cubic-bezier(.2,.7,.2,1)}
+.lv-stage{display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:calc(100vh - 72px);min-height:560px;
   background:var(--stage);color:var(--ink);font:14px/1.45 var(--sans);text-align:left;color-scheme:dark;
   container-type:inline-size;-webkit-font-smoothing:antialiased}
 .lv-stage *,.lv-stage *::before,.lv-stage *::after{box-sizing:border-box}
@@ -333,6 +336,64 @@ const CSS = `
 @container (max-width:880px){.lv-grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(200px,1fr)}
   .lv-tray{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.lv-trq{grid-column:1/-1}}
 .tdy-chip.tdy-title{font-size:12px;padding:1px 10px;font-weight:600}
+/* --- monitor: B's board with lanes by room (b-board.html). Only needs-you is loud; the rest is ink --- */
+.mn-stage{--mcols:208px minmax(0,1.7fr) minmax(0,1.25fr) minmax(0,.8fr);min-height:calc(100vh - 72px);
+  background:var(--stage);color:var(--ink);font:14px/1.45 var(--sans);text-align:left;color-scheme:dark;
+  container-type:inline-size;-webkit-font-smoothing:antialiased}
+.mn-stage *,.mn-stage *::before,.mn-stage *::after{box-sizing:border-box}
+:where(.mn-stage) button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit}
+.mn-tag{font:500 9.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);border:1px dashed var(--line-2);
+  border-radius:4px;padding:3px 5px;white-space:nowrap}
+.mn-bh,.mn-lane{display:grid;grid-template-columns:var(--mcols)}
+.mn-bh{position:sticky;top:0;z-index:2;background:var(--chrome);border-bottom:1px solid var(--grid)}
+.mn-bh>div{padding:9px 12px 8px;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;min-width:0}
+.mn-eb{font:500 10.5px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.mn-n{font:600 20px/1 var(--mono);letter-spacing:-.03em;color:var(--ink-2)}
+.mn-nyh{box-shadow:inset 1px 0 0 var(--grid)}
+.mn-nyh.mn-hot{box-shadow:inset 1px 0 0 rgba(217,89,38,.34);background:rgba(217,89,38,.04)}
+.mn-nyh.mn-hot .mn-eb{color:#e8906b}
+.mn-nyh.mn-hot .mn-n{font-size:30px;color:var(--orange)}
+.mn-pkh,.mn-pkc{border-left:1px solid var(--grid)}
+.mn-lane{border-bottom:1px solid var(--grid);min-height:72px}
+.mn-lane.mn-none .mn-lh .mn-rn{color:var(--ink-2)}
+.mn-lh{padding:10px 10px 10px 14px;border-right:1px solid var(--grid);display:flex;flex-direction:column;gap:4px;min-width:0}
+.mn-rn{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+.mn-rn .mn-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mn-bdg{flex:none;min-width:20px;height:18px;padding:0 6px;border-radius:999px;background:var(--orange);color:var(--ink);
+  font:600 11px/18px var(--mono);text-align:center}
+.mn-me{font:400 10.5px/1.3 var(--mono);color:var(--ink-3)}
+.mn-cell{padding:8px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.mn-nyc{box-shadow:inset 1px 0 0 var(--grid);padding-left:13px}
+.mn-nyc.mn-hot{box-shadow:inset 1px 0 0 rgba(217,89,38,.34);background:rgba(217,89,38,.03)}
+.mn-e{font-size:12px;color:var(--ink-4);padding:2px 0}
+.mn-mem{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:0 8px;align-items:center;min-width:0}
+.mn-face{width:22px;height:22px;grid-row:span 2}
+.mn-face svg{display:block;width:22px;height:22px}
+.mn-mn{font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mn-ml{font-size:11px;line-height:1.3;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;grid-column:2}
+.mn-st{display:inline-flex;align-items:center;gap:5px;color:var(--ink-2)}
+.mn-dot{width:6px;height:6px;border-radius:50%;background:var(--ink-4);flex:none}
+.mn-dot[data-s=working]{background:var(--ink-2)}
+.mn-dot[data-s=blocked]{background:none;border:1.5px solid var(--ink-3)}
+.mn-dot[data-s=failed]{background:none;border:1.5px solid var(--ink-2);border-radius:1px}
+.mn-cp{grid-row:span 2;font:500 10.5px/1 var(--mono);color:var(--ink-3);border:1px solid var(--line-2);border-radius:5px;padding:4px 6px}
+.mn-cp:hover{color:var(--ink);border-color:rgba(255,255,255,.28)}
+.mn-chip{position:relative;display:flex;align-items:center;gap:7px;min-height:22px;padding:2px 7px;border-radius:5px;font-size:12px;
+  line-height:1.35;color:var(--ink);background:rgba(217,89,38,.1);border:1px solid rgba(217,89,38,.22);min-width:0;width:100%}
+.mn-chip::before{content:'';position:absolute;left:-13px;top:2px;bottom:2px;width:2px;border-radius:1px;background:var(--orange)}
+.mn-chip:hover{border-color:rgba(217,89,38,.5)}
+.mn-chip .mn-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mn-chip .mn-x{flex:none;font:500 10px/1 var(--mono);color:#e8906b}
+.mn-pk{font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mn-pk .lv-mono{color:var(--ink-4);margin-right:5px}
+.mn-empty{padding:26px 16px;color:var(--ink-2);font-size:13.5px;max-width:72ch}
+.mn-note{padding:12px 16px 28px;font-size:11.5px;line-height:1.5;color:var(--ink-3);max-width:96ch}
+.mn-note code{font-family:var(--mono);color:var(--ink-2)}
+@container (max-width:860px){.mn-bh{display:none}
+  .mn-lane{display:block;margin:10px 12px 0;border:1px solid var(--grid);border-radius:11px;overflow:hidden;min-height:0;background:#121211}
+  .mn-lh{border-right:0;border-bottom:1px solid var(--grid)}
+  .mn-pkc{border-left:0}
+  .mn-cell[data-l]::before{content:attr(data-l);font:500 10px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4)}}
 `
 
 function injectStyle() {
@@ -1533,6 +1594,196 @@ function LivePage() {
 }
 
 /* ------------------------------------------------------------------------ */
+/* Monitor — B's board with lanes by room (docs/design/2026-09-22-command-    */
+/* center/b-board.html; plan C, slice 2: "one glance shows every agent; only  */
+/* needs-you makes noise"). A lane per room: its members, each one's state    */
+/* (working / idle / blocked / failed) and last activity, and the room's       */
+/* needs-you cards. Orange belongs to needs-you alone; every other state is    */
+/* ink. Failures stay loud on Today and /live, which this page does not        */
+/* replace. READ-ONLY: a chip opens /live, a member's copy button copies its   */
+/* attach or status line. Nothing here starts, stops, closes or sends.         */
+/*                                                                            */
+/* FLAG, default OFF — the route, the sidebar row and the palette entry exist  */
+/* only when it is on. Switch it on by setting MONITOR_ON = true below (the     */
+/* hot reload picks it up), or, without editing the file, run                   */
+/*   localStorage.setItem('fleet.monitor', 'on')                               */
+/* in the Desktop's devtools and reload the plugin. Off again: false / remove. */
+/* ------------------------------------------------------------------------ */
+const MONITOR_ON = false
+function monitorOn() {
+  if (MONITOR_ON) return true
+  try { return window.localStorage.getItem('fleet.monitor') === 'on' } catch { return false }
+}
+
+/* ROOMS: STUB. The rooms do not exist yet — they arrive with the box's gateway  */
+/* (slice 2). Until then a fixed owner→room map groups the REAL agents, panes,  */
+/* units, runs and cards the page already samples, and the page says "rooms:    */
+/* stub" wherever a lane is drawn. An id matches a member exactly or as its      */
+/* prefix ("foreman" holds "foreman-verify"); "name@host" counts as "name".      */
+/* Anything the map does not name lands in the "No room" lane, never dropped.   */
+const ROOM_STUB = [
+  { id: 'chair', name: 'The chair', members: ['commander', 'hermes-serve', 'hermes-gateway', 'herdr-server', 'decide-listener', 'needs-you-notify'] },
+  { id: 'site', name: 'Site + repo', members: ['panel', 'gatekeeper', 'showcase', 'artifact-return'] },
+  { id: 'loop', name: 'The loop', members: ['loop', 'lucky-loop', 'bill-clerk', 'mail-triage', 'nightly', 'nightly-queue'] },
+  { id: 'box', name: 'Wake the box', members: ['foreman', 'worker', 'scout', 'propose', 'infra-watch', 'hermes-cron'] },
+  { id: 'vault', name: 'The vault', members: ['gardener'] }
+]
+
+/* THE SOURCE — the one thing that changes when the gateway's rooms exist.     */
+/* Expected real shape (a proposal; the gateway is the one authority for rooms): */
+/*   { source: 'gateway', sampled_at: '<ISO>',                                  */
+/*     rooms: [ { id: 'r-…', name: '<the task, in words>',                      */
+/*                members: ['<agent id>', …],        // 2–6; Karl is implied     */
+/*                cards:   ['<needs-you id>', …] } ] } // optional: absent, a    */
+/*                                                   // card joins its agent's  */
+/*                                                   // first room              */
+/* e.g. read it from the backend: restFn('/rooms'), into the same shape.        */
+function roomSource() {
+  return { source: 'stub', sampled_at: null, rooms: ROOM_STUB }
+}
+
+const idOf = s => String(s || '').split('@')[0].trim().split(/\s/)[0]
+const matches = (member, id) => id === member || id.startsWith(member + '-')
+const PANE_STATE = { working: 'working', active: 'working', blocked: 'blocked', masked: 'blocked', failed: 'failed' }
+const RUN_STATE = { failed: 'failed', stopped: 'failed', blocked: 'blocked' }
+const STATE_RANK = { idle: 0, working: 1, blocked: 2, failed: 3 }
+const later = (a, b) => (!a ? b : !b ? a : Date.parse(b.at) > Date.parse(a.at) ? b : a)
+
+/* THE ADAPTER. Every room fact the page draws comes through here, as one view */
+/* model; the member states come from the real sample whatever the room source. */
+function getRooms(data, src = roomSource()) {
+  const ny = (data && data.needs_you) || {}
+  const { today, live, parked, derived } = splitNeeds(ny)
+  const panes = (data && data.agents_now && data.agents_now.rows) || []
+  const runs = (data && data.agents && data.agents.items) || []
+  const board = (data && data.board && data.board.items) || []
+
+  // Everyone the sample shows, by id: their state (worst wins) and their latest activity.
+  const seen = new Map()
+  const see = (rawId, state, act) => {
+    const id = idOf(rawId)
+    if (!id) return
+    const m = seen.get(id) || { id, state: 'idle', last: null, cmd: null, where: null }
+    if (STATE_RANK[state] > STATE_RANK[m.state]) m.state = state
+    if (act && act.at && !Number.isNaN(Date.parse(act.at))) m.last = later(m.last, act)
+    seen.set(id, m)
+    return m
+  }
+  panes.forEach(r => {
+    const m = see(r.name, PANE_STATE[r.state] || 'idle',
+      { at: r.last_output || r.since, what: (r.host === 'box' ? 'unit ' : 'pane ') + (r.state || '?') })
+    if (m) { m.cmd = m.cmd || r.attach || r.status || null; m.where = m.where || (r.host === 'box' ? 'the box' : 'the Mac') }
+  })
+  const lastRun = new Map()
+  runs.forEach(r => { const id = idOf(r.agent); if (id && (!lastRun.has(id) || Date.parse(r.t) > Date.parse(lastRun.get(id).t))) lastRun.set(id, r) })
+  lastRun.forEach((r, id) => see(id, lastNight(r.t) ? RUN_STATE[r.status] || 'idle' : 'idle',
+    { at: r.t, what: (r.status || 'ran') + ' · ' + String(r.job || '?').slice(0, 60) }))
+  board.forEach(r => { if (r.owner) see(r.owner, r.status === 'claimed' ? 'working' : 'idle', { at: r.claimed_at, what: 'board · ' + (r.status || '?') }) })
+  live.concat(parked).forEach(i => { if (i.agent) see(i.agent, 'idle', { at: i.since, what: 'filed a card' }) })
+
+  const rooms = (src.rooms || []).map(r => ({ id: r.id, name: r.name, mapped: r.members || [], explicit: new Set(r.cards || []),
+    members: [], live: [], parked: [] }))
+  const roomsOf = id => rooms.filter(r => r.mapped.some(k => matches(k, id)))
+  const none = { id: null, name: 'No room', mapped: [], members: [], live: [], parked: [] }
+  seen.forEach(m => {
+    const rs = roomsOf(m.id)
+    if (rs.length) rs.forEach(r => r.members.push(m))
+    else none.members.push(m)
+  })
+  const place = (i, key) => {
+    const r = rooms.find(x => x.explicit.has(i.id)) || (i.agent ? roomsOf(idOf(i.agent))[0] : null) || none
+    r[key].push(i)
+  }
+  live.slice().sort(byQueue).forEach(i => place(i, 'live'))
+  parked.forEach(i => place(i, 'parked'))
+  const order = (a, b) => STATE_RANK[b.state] - STATE_RANK[a.state] || a.id.localeCompare(b.id)
+  rooms.concat(none).forEach(r => r.members.sort(order))
+  return { source: src.source, sampled_at: src.sampled_at || (data && data.sampled_at) || null, today,
+    rooms, none, derivedN: derived.length, members: [...seen.keys()].sort() }
+}
+
+function MemberRow({ m, hue }) {
+  return h('div', { className: 'mn-mem', title: m.id + ' — ' + m.state + (m.where ? ' · ' + m.where : '') },
+    h('div', { className: 'mn-face' }, h(Face, { id: m.id, hue })),
+    h('span', { className: 'mn-mn' }, m.id),
+    m.cmd ? h('button', { type: 'button', className: 'mn-cp', title: 'Copy: ' + m.cmd, onClick: () => copy(m.cmd) }, 'copy') : h('span'),
+    h('span', { className: 'mn-ml' },
+      h('span', { className: 'mn-st' }, h('i', { className: 'mn-dot', 'data-s': m.state }), m.state),
+      m.last ? ' · ' + ago(m.last.at) + ' — ' + m.last.what : ' · no activity in this sample'))
+}
+
+function RoomLane({ r, stub, hueOf }) {
+  const n = r.live.length
+  const isNone = r.id === null
+  const meta = isNone ? 'agents and cards no room holds'
+    : r.mapped.filter(k => r.members.some(m => matches(k, m.id))).length + ' of ' + r.mapped.length + ' seen in this sample' + (stub ? ' · rooms: stub' : '')
+  return h('div', { className: cls('mn-lane', isNone && 'mn-none') },
+    h('div', { className: 'mn-lh' },
+      h('div', { className: 'mn-rn' }, h('span', { className: 'mn-nm' }, r.name), n ? h('span', { className: 'mn-bdg' }, String(n)) : null),
+      h('div', { className: 'mn-me' }, meta)),
+    h('div', { className: 'mn-cell', 'data-l': 'members' },
+      r.members.length ? r.members.map(m => h(MemberRow, { key: m.id, m, hue: hueOf(m.id) }))
+        : h('div', { className: 'mn-e' }, isNone ? 'every agent in this sample has a room' : 'no member seen in this sample')),
+    h('div', { className: cls('mn-cell mn-nyc', n && 'mn-hot'), 'data-l': 'needs you' },
+      n ? r.live.map(i => h('button', {
+        key: i.id, type: 'button', className: 'mn-chip', onClick: () => navigate('/live'),
+        title: (i.agent || 'no agent yet') + ' · ' + (i.ask || i.title || i.id) + ' — answer it on Live'
+      }, h('span', { className: 'mn-t' }, topic(i)), i.expiry ? h('span', { className: 'mn-x' }, md(i.expiry)) : null))
+        : h('div', { className: 'mn-e' }, 'nothing needs you here')),
+    h('div', { className: 'mn-cell mn-pkc', 'data-l': 'parked' },
+      r.parked.length ? r.parked.map(i => h('div', { key: i.id, className: 'mn-pk', title: i.ask || i.title || i.id },
+        h('span', { className: 'lv-mono' }, 'until ' + md(i.parked.until)), topic(i)))
+        : h('div', { className: 'mn-e' }, '—')))
+}
+
+function MonitorPage() {
+  const s = useToday(true)
+  useEffect(() => { injectStyle() }, [])
+  const data = s.data
+  const iso = t => (t ? new Date(t).toISOString() : null)
+  const v = data ? getRooms(data) : null
+  const stub = Boolean(v) && v.source === 'stub'
+  const n = needCount(data)
+  const hueOf = id => hueFor(id, v ? v.members : [])
+  const lanes = v ? v.rooms.concat(v.none.members.length || v.none.live.length || v.none.parked.length ? [v.none] : []) : []
+  const parkedN = v ? lanes.reduce((a, r) => a + r.parked.length, 0) : 0
+  return h('div', { className: 'mn-stage' },
+    s.err && data ? h('div', { className: 'tdy-stalebar', role: 'alert' },
+      'STALE — the last refresh failed ' + ago(iso(s.errAt)) +
+      '. Everything below was sampled ' + ago(iso(s.lastOkAt)) + ' and is NOT current.',
+      h('small', null, 'Error: ' + s.err)) : null,
+    h('div', { className: 'lv-cb' },
+      h('div', { className: 'lv-cb-l' },
+        h('span', { className: 'lv-live' }, 'Monitor'),
+        stub ? h('span', { className: 'mn-tag', title: 'Rooms come from a fixed owner→room map in plugin.js until the gateway has rooms.' }, 'rooms: stub') : null,
+        v ? h('span', { className: 'lv-sum' },
+          v.rooms.length + ' rooms · ' + v.members.length + ' agents · ',
+          h('b', null, (n ?? '?') + ' need you'), ' · ' + parkedN + ' parked',
+          v.derivedN ? ' · ' + v.derivedN + ' derived on Today' : '') : null),
+      h('div', { className: 'lv-cb-r' },
+        data ? h('span', { className: 'lv-stamp' }, 'sampled ' + hhmm(data.sampled_at)) : null,
+        h('button', { type: 'button', className: 'lv-cbtn', title: 'Opens the call. Nothing is answered here.', onClick: () => navigate('/live') },
+          'Answer on Live'))),
+    !data ? h('div', { className: 'lv-msg' }, s.err ? 'Could not sample: ' + s.err : 'Sampling the box…')
+      : !v.rooms.length && !lanes.length ? h('div', { className: 'mn-empty' },
+          'No rooms yet, and no agent or card in this sample. When a room exists it gets a lane here.')
+        : h('div', null,
+            h('div', { className: 'mn-bh' },
+              h('div', null, h('span', { className: 'mn-eb' }, 'Room'), h('span', { className: 'mn-n' }, String(v.rooms.length))),
+              h('div', null, h('span', { className: 'mn-eb' }, 'Members · state · last activity'), h('span', { className: 'mn-n' }, String(v.members.length))),
+              h('div', { className: cls('mn-nyh', n && 'mn-hot') }, h('span', { className: 'mn-eb' }, 'Needs you'), h('span', { className: 'mn-n' }, String(n ?? '?'))),
+              h('div', { className: 'mn-pkh' }, h('span', { className: 'mn-eb' }, 'Parked'), h('span', { className: 'mn-n' }, String(parkedN)))),
+            !v.rooms.length ? h('div', { className: 'mn-empty' }, 'No rooms yet. Every agent and card below waits in “No room” until one exists.') : null,
+            lanes.map(r => h(RoomLane, { key: r.id || '~none', r, stub, hueOf })),
+            !n ? h('div', { className: 'mn-empty' }, 'Nothing needs you. Every lane is quiet.') : null),
+    h('p', { className: 'mn-note' },
+      stub ? 'Rooms: stub — the lanes group the real agents, panes, units, runs and cards of this sample by a fixed owner→room map ' +
+        'in plugin.js (ROOM_STUB). The box’s gateway replaces it; only roomSource() changes. ' : '',
+      'States: a pane or unit reports working, blocked or failed; a run that failed or blocked in the last 24 h counts; ' +
+      'a claimed board row is working; the worst wins. Read-only — a card opens Live, where the decide line is; copy buttons copy an attach or status line.'))
+}
+
+/* ------------------------------------------------------------------------ */
 /* Fleet — the full view of the box, unchanged, as its own page.             */
 /* Today ADDS a page; it does not replace this one (Karl, 2026-09-03).       */
 /* ------------------------------------------------------------------------ */
@@ -1644,6 +1895,15 @@ const plugin = {
       { id: 'nav', area: SIDEBAR_NAV_AREA, order: 55,
         data: { codicon: 'pulse', label: 'Fleet', path: '/fleet' } }
     ]
+    // Monitor mode is behind its flag (see MONITOR_ON): off, nothing of it registers.
+    const monitor = monitorOn()
+    if (monitor) {
+      contributions.push(
+        { id: 'monitor-page', area: ROUTES_AREA, data: { path: '/monitor' },
+          render: () => h(Boundary, { name: 'Monitor' }, h(MonitorPage)) },
+        { id: 'monitor-nav', area: SIDEBAR_NAV_AREA, order: 7,
+          data: { codicon: 'layout', label: 'Monitor', path: '/monitor' } })
+    }
     if (STATUSBAR_RIGHT) {
       contributions.push({ id: 'need-chip', area: STATUSBAR_RIGHT, order: 115,
         render: () => h(Boundary, { name: 'Needs-you chip' }, h(NeedChip)) })
@@ -1663,6 +1923,11 @@ const plugin = {
         { id: 'open-live', area: PALETTE_AREA,
           data: { id: 'fleet.open-live', label: 'Open Live — the call', keywords: ['live', 'call', 'cards'],
             detail: needDetail, run: () => navigate('/live') } })
+      if (monitor) {
+        contributions.push({ id: 'open-monitor', area: PALETTE_AREA,
+          data: { id: 'fleet.open-monitor', label: 'Open Monitor — every room at a glance', keywords: ['monitor', 'rooms', 'board'],
+            detail: needDetail, run: () => navigate('/monitor') } })
+      }
     }
     ctx.registerMany(contributions)
   }
