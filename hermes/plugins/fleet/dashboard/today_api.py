@@ -57,6 +57,8 @@ CRON_OUT = HOME / ".hermes" / "cron" / "output"
 FAIL_LOG = HOME / "logs" / "lucky-loop-failures.log"
 TASKS_FILE = BRAIN / "queue" / "tasks.json"
 HERDR_SNAP = HOME / ".local" / "state" / "lucky-loop" / "herdr-agents.json"   # written by the Mac every 60 s
+ROOMS_FALLBACK = BRAIN / "tools" / "deploy" / "rooms.json"   # the vault's copy, read only when the gateway is not
+HERMES_PROFILES = HOME / ".hermes" / "profiles"
 USER_UNIT_DIR = HOME / ".config" / "systemd" / "user"
 MAC_SNAPSHOT_STALE_S = 180
 # The box's user units that ARE this project's agents (name prefix, before .service or @).
@@ -1085,6 +1087,80 @@ def live_txt() -> str:
     return _live_digest(_live())
 
 
+# --------------------------------------------------------------------------- #
+# rooms — the box gateway's hosted rooms (Bot Mode Group Chats), for monitor mode.
+# The gateway is the one authority. This module runs inside hermes-serve, the process
+# that owns the hosted-room service, so it reads the same store `groups.list` reads
+# (gateway.hosted_rooms.list_rooms on default_db_path()). If that import or read fails,
+# the vault's tools/deploy/rooms.json is the fallback and says so in `source`. Names are
+# the box's, read at request time: nothing here names a room or a Bot.
+# --------------------------------------------------------------------------- #
+def _bot_titles() -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    try:
+        import yaml  # hermes-serve's venv carries it
+    except Exception:
+        return out
+    for pf in sorted(HERMES_PROFILES.glob("*/profile.yaml")):
+        try:
+            meta = yaml.safe_load(pf.read_text()) or {}
+            bots = (meta.get("ui_meta") or {}).get("hermes-bots")
+            if isinstance(bots, dict) and str(bots.get("title") or "").strip():
+                out[pf.parent.name] = str(bots["title"]).strip()
+        except Exception:
+            continue
+    return out
+
+
+def _room_row(room_id: Any, name: Any, members: List[Any]) -> Dict[str, Any]:
+    ids = []
+    for m in members or []:
+        pid = m.get("profile") or m.get("member_id") if isinstance(m, dict) else m
+        if pid:
+            ids.append(str(pid))
+    return {"id": str(room_id), "name": str(name or room_id), "members": ids}
+
+
+def rooms(_gateway=None, _fallback: Optional[Path] = None) -> Dict[str, Any]:
+    """``{source, sampled_at, rooms: [{id, name, members}], bots, driver?, error?}``.
+    ``source`` is ``gateway`` (live store), ``rooms.json`` (the vault's copy, fallback) or
+    ``none`` (neither could be read: an unknown, not an empty list)."""
+    out: Dict[str, Any] = {"sampled_at": _now(), "bots": _bot_titles()}
+    errs: List[str] = []
+    try:
+        if _gateway is None:
+            from gateway.hosted_rooms import default_db_path, list_rooms
+            listed = list_rooms(default_db_path())
+        else:
+            listed = _gateway()
+        out["source"] = "gateway"
+        out["rooms"] = [_room_row(r.get("room_id"), r.get("name"), r.get("members"))
+                        for r in listed if r.get("disbanded_at") is None]
+        try:
+            if _gateway is None:
+                from tui_gateway.methods_groups import get_hosted_room_service
+                svc = get_hosted_room_service()
+                out["driver"] = bool(svc and svc.runtime.status().get("running"))
+        except Exception:
+            out["driver"] = None
+        return out
+    except Exception as e:
+        errs.append(f"gateway: {type(e).__name__}: {e}")
+    fb = _fallback or ROOMS_FALLBACK
+    try:
+        d = _read_json(fb)
+        out["source"] = "rooms.json"
+        out["rooms"] = [_room_row(r.get("room_id") or r.get("id"), r.get("name"), r.get("members"))
+                        for r in (d.get("rooms") or [])]
+        out["file"] = _rel(fb)
+        out["error"] = errs[0]
+        return out
+    except Exception as e:
+        errs.append(f"rooms.json: {type(e).__name__}: {e}")
+    out.update({"source": "none", "rooms": [], "error": " · ".join(errs)})
+    return out
+
+
 def _digest(d: Dict[str, Any]) -> str:
     L: List[str] = []
     ny, ag, go, bx = d["needs_you"], d["agents"], d["goals"], d["box"]
@@ -1154,6 +1230,12 @@ def _digest(d: Dict[str, Any]) -> str:
                  else f"since {_age_str(_age_s(r['since']))}" if r.get("since") else "—")
         L.append(f"  {r.get('host'):<4} {str(r.get('state')):<8} {str(r.get('name'))[:30]:<30} {stamp:<16}"
                  + (f"  {r['attach']}" if r.get("attach") else ""))
+    rm = d.get("rooms") or {}
+    L.append(f"ROOMS: {len(rm.get('rooms') or [])} · source {rm.get('source')} · sampled {rm.get('sampled_at')}"
+             + (f" · driver {'running' if rm['driver'] else 'down'}" if rm.get("driver") is not None else "")
+             + (f" · {rm['error']}" if rm.get("error") else ""))
+    for r in rm.get("rooms") or []:
+        L.append(f"  {r['name']}: " + ", ".join(r["members"]))
     return "\n".join(L)
 
 
@@ -1176,6 +1258,7 @@ def _today() -> Dict[str, Any]:
         ("box", lambda: box(checks)),
         ("board", lambda: board()),
         ("agents_now", lambda: agents_now()),
+        ("rooms", lambda: rooms()),
     ):
         try:
             out[name] = fn()
@@ -1278,6 +1361,24 @@ def _selftest() -> int:
            "/live.txt never carries an offer token")
         ok(live([], {}, {}, today="2026-09-27")["batches"] == [{"n": 1, "of": 1, "ids": []}]
            and live([], {}, {}, today="2026-09-27")["session"]["line"] == "0/0", "an empty queue is a state, not a crash")
+    # rooms: the gateway wins; its failure falls back to the vault's file, labelled; neither is "none"
+    with tempfile.TemporaryDirectory() as td:
+        fb = Path(td) / "rooms.json"
+        fb.write_text(json.dumps({"rooms": [{"room_id": "r1", "name": "One", "members": ["a", "b"]}]}))
+        g = rooms(_gateway=lambda: [
+            {"room_id": "r1", "name": "One", "members": [{"member_id": "a", "profile": "a"}, {"member_id": "b", "profile": "b"}]},
+            {"room_id": "r0", "name": "Gone", "members": [], "disbanded_at": 1.0}], _fallback=fb)
+        ok(g["source"] == "gateway" and g["rooms"] == [{"id": "r1", "name": "One", "members": ["a", "b"]}],
+           "rooms: the gateway's listing, disbanded rooms left out")
+
+        def boom():
+            raise RuntimeError("no store")
+        f = rooms(_gateway=boom, _fallback=fb)
+        ok(f["source"] == "rooms.json" and f["rooms"][0]["members"] == ["a", "b"] and "no store" in f["error"],
+           "rooms: gateway down -> the vault's rooms.json, labelled, with the reason")
+        n = rooms(_gateway=boom, _fallback=Path(td) / "missing.json")
+        ok(n["source"] == "none" and n["rooms"] == [] and "gateway" in n["error"] and "rooms.json" in n["error"],
+           "rooms: neither readable -> source none, an unknown with both reasons")
     print(f"selftest: {'PASS' if not fails else 'FAIL'} — {len(fails)} failure(s)")
     return 0 if not fails else 1
 

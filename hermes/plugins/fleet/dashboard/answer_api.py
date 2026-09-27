@@ -32,28 +32,41 @@ How that is held here, as code:
   ``~/brain/tools/needs-you-write`` (the one ``decide`` uses): it reads the hub's
   copy, refuses unknown/done ids and off-list words again, commits through a
   temporary index and pushes. It records ``doneBy: "karl — page <word>"``.
-* **Only a declared Origin may answer.** A request whose ``Origin`` header is not
-  listed in ``~/.config/lucky-loop/fleet-answer-origins`` (one per line; absent or
-  empty = none) is refused 403 and logged. Only then is doneBy written as
-  ``karl — page <word>``.
+* **Only the page's channel may answer (slice 3, 2026-09-27).** Every POST must carry
+  the header ``X-Fleet-Answer-Key``: a random secret that exists ONLY on the Mac —
+  in ``~/.config/lucky-loop/fleet-answer-channel.key`` (mode 600) and in the Hermes
+  Desktop's per-connection remote headers (``connections.json`` / ``connection.json``
+  under ``~/Library/Application Support/Hermes``), which the Desktop's main process
+  attaches to every request it sends to this box (``headersForRemoteRequest`` in the
+  vendor's ``fetchJson``, the path ``ctx.rest`` takes). This box holds only
+  ``sha256(secret)`` in ``~/.config/lucky-loop/fleet-answer-channel.sha256`` (mode
+  600, refused if group/other can read or write it). The check hashes what arrived
+  and compares in constant time. Missing, wrong, or no verifier on file: 403, logged,
+  nothing written. Only then is doneBy written as ``karl — page <word>``.
 * **Every call is logged** (when, card, word, surface=page, verdict, client address,
-  Origin and User-Agent as sent) to ``~/.local/state/lucky-loop/page-answer/log.jsonl``
-  on this box — never in the vault, never a token. ``who`` is never written as
-  "karl": the server cannot know who clicked.
+  whether the page key matched — never its value — and Origin and User-Agent as sent)
+  to ``~/.local/state/lucky-loop/page-answer/log.jsonl`` on this box — never in the
+  vault, never a token. ``who`` is never written as "karl": the server cannot know
+  who clicked, only that the request carried the Mac's key.
 
-THE FLAG MUST STAY OFF until a channel exists that only the page holds. What is true
-today, said plainly:
+WHY A BOX PROCESS CANNOT FORGE THE KEY, AND WHAT IT STILL CAN DO, said plainly:
 
-* The dashboard session token sits in a file any process on this box can read, so any
-  such process can fetch an offer and POST it. The signed offer binds a write to one
-  card and one word; it does not prove a human clicked.
-* The Origin check does not close that either: an Origin header is chosen by whoever
-  sends the request, and the Desktop's own REST calls go out from its main process
-  (Node ``http.request``), which sends no Origin at all — so with no origins declared,
-  every request, the Desktop's included, is refused.
-* The log is therefore a record, not a control: it shows what arrived, with the
-  headers it claimed, for the verifier to read at clock-out. It cannot tell Karl's
-  click from a script's.
+* The session token (in ``~/.hermes/.env``, readable by any process of this user)
+  still gates the dashboard as a whole, but no longer gates answers: a box process
+  holding it gets 403 without the key. The box stores a SHA-256 of a 256-bit random
+  value, which checks a key but cannot produce one. The key never lands in a box
+  file or log: this module logs a match verdict only, and hermes-serve logs no
+  request headers. Rotate both sides with ``hermes/tools/answer-channel-rotate``.
+* The Origin allow-list of slice 2 is REMOVED: an Origin is the sender's own claim,
+  and the Desktop's main process sends none, so it could only ever refuse Karl. The
+  Origin is still logged as claimed.
+* Not closed, and not closable from inside this process: a box process of the same
+  user can rewrite this file (or the vault writer's input) and restart the server.
+  The key moves the forgery from "one curl with a token" to "edit and restart the
+  server", which the ledger of deploys and ``git status`` on the box would show.
+  Reading the key in flight would need ptrace of sshd or hermes-serve (Yama
+  ``ptrace_scope`` is 1 on this box) or root. Any process on the MAC that can read
+  Karl's files can also read the key; the Mac is Karl's trust domain by design.
 
 ``python3 answer_api.py --selftest`` runs the validation and logging against a temp
 queue and a fake writer; it needs no FastAPI (the route is exercised too when
@@ -87,20 +100,21 @@ FLAG_FILE = Path(os.environ.get("FLEET_ANSWER_FLAG") or (HOME / ".config" / "luc
 STATE_DIR = Path(os.environ.get("FLEET_ANSWER_STATE") or (HOME / ".local" / "state" / "lucky-loop" / "page-answer"))
 
 SURFACE = "page"
-ORIGINS_FILE = Path(os.environ.get("FLEET_ANSWER_ORIGINS")
-                    or (HOME / ".config" / "lucky-loop" / "fleet-answer-origins"))
+CHANNEL_FILE = Path(os.environ.get("FLEET_ANSWER_CHANNEL")
+                    or (HOME / ".config" / "lucky-loop" / "fleet-answer-channel.sha256"))
+CHANNEL_HEADER = "x-fleet-answer-key"   # the page key's header (the Desktop sends X-Fleet-Answer-Key)
 WHO = "page — unverified"       # the server cannot know who clicked; it never writes "karl" in the log
-DONE_BY = "karl — page"         # the council's doneBy, written ONLY for a request from a declared Origin
+DONE_BY = "karl — page"         # the council's doneBy, written ONLY for a request that carried the page key
 TOKEN_TTL_S = 900
 CONFIRM_TTL_S = 90
 WRITER_TIMEOUT_S = 90
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 WORD_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 BODY_KEYS = {"id", "word", "exp", "token", "confirm_exp", "confirm"}
-HOW_TO_ENABLE = ("KEEP OFF until a channel only the page holds exists (see answer_api.py). Then: "
-                 "server: echo on > ~/.config/lucky-loop/fleet-answer-verb on the box (no restart) and declare "
-                 "the page's Origin in ~/.config/lucky-loop/fleet-answer-origins; page: set ANSWER_ON_PAGE = true "
-                 "in plugin.js and install it. All default off.")
+HOW_TO_ENABLE = ("Three switches, all default off: the page key (hermes/tools/answer-channel-rotate on the Mac "
+                 "writes the key into the Desktop and its sha256 to ~/.config/lucky-loop/fleet-answer-channel.sha256 "
+                 "on the box); the box flag (echo on > ~/.config/lucky-loop/fleet-answer-verb, read per request); "
+                 "the page flag (ANSWER_ON_PAGE = true in plugin.js, installed on the Mac).")
 
 _KEY = secrets.token_bytes(32)   # this process only; a restart invalidates every open offer
 _USED: Dict[str, float] = {}     # token -> exp, so a replay is refused before the queue is read
@@ -125,22 +139,37 @@ def _now_z() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def allowed_origins() -> List[str]:
-    """The declared Origins, one per line. Absent or empty: none — every request is refused.
-    Keep it empty while the flag is off; see the module docstring for why an Origin is not proof."""
+def _verifier() -> Optional[str]:
+    """The stored sha256 (64 hex) of the page key, or None: absent, unreadable, malformed,
+    or readable/writable by group or other (a verifier anyone may replace is no verifier)."""
     try:
-        return [ln.strip() for ln in ORIGINS_FILE.read_text(encoding="utf-8").splitlines()
-                if ln.strip() and not ln.strip().startswith("#")]
-    except OSError:
-        return []
+        st = CHANNEL_FILE.stat()
+        if st.st_mode & 0o077 or st.st_uid != os.getuid():
+            return None
+        v = CHANNEL_FILE.read_text(encoding="ascii").strip().lower()
+    except (OSError, ValueError):
+        return None
+    return v if re.fullmatch(r"[0-9a-f]{64}", v) else None
+
+
+def key_check(presented: Optional[str]) -> str:
+    """'match' | 'missing' | 'wrong' | 'no-verifier'. Hashes what arrived and compares in
+    constant time; the presented value is never stored, returned or logged."""
+    v = _verifier()
+    if v is None:
+        return "no-verifier"
+    if not presented:
+        return "missing"
+    got = hashlib.sha256(str(presented)[:512].encode("utf-8")).hexdigest()
+    return "match" if hmac.compare_digest(got, v) else "wrong"
 
 
 def log(verdict: str, cid: Optional[str], word: Optional[str], detail: str = "", client: Optional[str] = None,
-        origin: Optional[str] = None, agent: Optional[str] = None) -> None:
-    """One line per call, refusals included. Never a token, never a body beyond id and word.
-    Origin and User-Agent are logged exactly as the request claimed them (cut to 160)."""
+        origin: Optional[str] = None, agent: Optional[str] = None, key: Optional[str] = None) -> None:
+    """One line per call, refusals included. Never a token or key, never a body beyond id and word.
+    ``key`` is key_check()'s verdict only. Origin and User-Agent are logged as claimed (cut to 160)."""
     rec = {"t": _now_z(), "who": WHO, "surface": SURFACE, "id": cid, "word": word,
-           "verdict": verdict, "detail": str(detail)[:300],
+           "verdict": verdict, "detail": str(detail)[:300], "page_key": key,
            "origin": (origin or "")[:160] or None, "user_agent": (agent or "")[:160] or None}
     if client:
         rec["client"] = client
@@ -245,7 +274,7 @@ def run_writer(cid: str, word: str) -> Tuple[int, str]:
     """needs-you-write with one op. Exit: 0 recorded · 1 not recorded · 2 refused · 3 recorded, box clone NOT updated."""
     op = {"id": cid, "answer": word}
     if word != "later":
-        op["by"] = f"{DONE_BY} {word}"  # doneBy "karl — page <word>"; answer() reaches here only from a declared Origin
+        op["by"] = f"{DONE_BY} {word}"  # doneBy "karl — page <word>"; answer() reaches here only with the page key
     env = {**os.environ, "NYW_REPO": str(BRAIN), "NYW_REMOTE": "origin",
            # the writer runs ON the box clone, so the box check is this clone's own HEAD
            "NYW_BOX_CMD": f"git -C '{BRAIN}' rev-parse HEAD"}
@@ -279,22 +308,24 @@ WRITER_VERDICT = {0: (200, "recorded"), 3: (200, "recorded; this page will lag u
 
 
 def answer(body: Any, client: Optional[str] = None, now: Optional[int] = None,
-           writer=None, origin: Optional[str] = None, agent: Optional[str] = None) -> Tuple[int, Dict[str, Any]]:
+           writer=None, origin: Optional[str] = None, agent: Optional[str] = None,
+           key: Optional[str] = None) -> Tuple[int, Dict[str, Any]]:
     """The whole verb as a function: (http status, response). The route is a thin shell around it."""
     raw_id = body.get("id") if isinstance(body, dict) and isinstance(body.get("id"), str) else None
     raw_word = body.get("word") if isinstance(body, dict) and isinstance(body.get("word"), str) else None
     safe_id = raw_id if raw_id and ID_RE.match(raw_id) else None
     safe_word = raw_word if raw_word and WORD_RE.match(raw_word) else None
-    L = lambda v, c, w, d: log(v, c, w, d, client, origin, agent)
+    kv = key_check(key) if enabled() else None
+    key = None  # the value goes no further than key_check
+    L = lambda v, c, w, d: log(v, c, w, d, client, origin, agent, kv)
     if not enabled():
         L("off", safe_id, safe_word, "the verb is off on this box")
         return 404, {"ok": False, "verdict": "off", "detail": "the answer verb is off on this box"}
-    # Only a declared Origin may answer (none are declared by default). NOT proof of a human:
-    # the header is the sender's claim — the flag stays off until a page-only channel exists.
-    if not origin or origin not in allowed_origins():
-        L("refused-origin", safe_id, safe_word, "Origin not declared in " + ORIGINS_FILE.name)
+    # Only the page's channel may answer: the Mac-only key, checked against the box's sha256 of it.
+    if kv != "match":
+        L("refused-key", safe_id, safe_word, f"page key {kv}")
         return 403, {"ok": False, "verdict": "refused",
-                     "detail": "this request's Origin is not declared for answering on this box"}
+                     "detail": f"this request does not carry the page's key ({kv})"}
     with _LOCK:     # one answer at a time in this process; the file lock covers a second process
         try:
             STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -349,8 +380,22 @@ try:
         # answer() blocks on git for up to WRITER_TIMEOUT_S: off the event loop, so chat keeps running
         status, resp = await run_in_threadpool(answer, body, client=client,
                                                origin=request.headers.get("origin"),
-                                               agent=request.headers.get("user-agent"))
+                                               agent=request.headers.get("user-agent"),
+                                               key=request.headers.get(CHANNEL_HEADER))
         return JSONResponse(resp, status_code=status)
+
+    @router.get("/answer/channel")
+    async def channel_route(request: Request):
+        """Whether THIS request carried the page key — the page asks before it draws a Send
+        button, so a Desktop without the key shows why instead of a button that 403s. Writes
+        nothing; logged (verdict only, never the value) so the verifier can see the Desktop's
+        own requests arrive with page_key "match"."""
+        on = enabled()
+        kv = key_check(request.headers.get(CHANNEL_HEADER))
+        log("channel-probe", None, None, f"page key {kv}; verb {'on' if on else 'off'}",
+            request.client.host if request.client else None, request.headers.get("origin"),
+            request.headers.get("user-agent"), kv)
+        return JSONResponse({"enabled": on, "page_key": kv})
 except ImportError:  # pragma: no cover - the box always has FastAPI
     router = None
 
@@ -359,7 +404,7 @@ except ImportError:  # pragma: no cover - the box always has FastAPI
 # selftest
 # --------------------------------------------------------------------------- #
 def selftest() -> int:
-    global QUEUE_FILE, FLAG_FILE, STATE_DIR, ORIGINS_FILE, WRITER, WRITER_TIMEOUT_S
+    global QUEUE_FILE, FLAG_FILE, STATE_DIR, CHANNEL_FILE, WRITER, WRITER_TIMEOUT_S
     fails: List[str] = []
 
     def ok(cond: bool, name: str) -> None:
@@ -367,11 +412,12 @@ def selftest() -> int:
         if not cond:
             fails.append(name)
 
-    saved = (QUEUE_FILE, FLAG_FILE, STATE_DIR, ORIGINS_FILE, WRITER, WRITER_TIMEOUT_S)
+    saved = (QUEUE_FILE, FLAG_FILE, STATE_DIR, CHANNEL_FILE, WRITER, WRITER_TIMEOUT_S)
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         QUEUE_FILE, FLAG_FILE, STATE_DIR = td / "needs-you.json", td / "flag", td / "state"
-        ORIGINS_FILE = td / "origins"
+        CHANNEL_FILE = td / "channel.sha256"
+        KEY = secrets.token_urlsafe(32)   # the selftest's own page key; never the real one
         WRITER = td / "no-writer-here"   # any path that reached the real writer would fail to start, not write
         PAGE = "app://selftest-page"
         q = {"schema": 1, "items": [
@@ -396,7 +442,7 @@ def selftest() -> int:
         lines = lambda: [json.loads(x) for x in (STATE_DIR / "log.jsonl").read_text().splitlines()] \
             if (STATE_DIR / "log.jsonl").exists() else []
         A = lambda body, **kw: answer(body, client="127.0.0.1", writer=fake_writer,
-                                      **{"origin": PAGE, "agent": "selftest-agent/1", **kw})
+                                      **{"origin": PAGE, "agent": "selftest-agent/1", "key": KEY, **kw})
 
         # 1. off by default: no flag file -> 404, no offer, nothing written, the call is logged
         ok(not enabled(), "no flag file: the verb is off")
@@ -409,20 +455,36 @@ def selftest() -> int:
         FLAG_FILE.write_text("on\n")
         ok(enabled(), "a flag file that says on switches it on (read per request)")
 
-        # 1b. with the flag on, no Origin is declared by default: everything is refused 403, and logged
+        # 1b. with the flag on, the page key gates every answer: missing, wrong, no verifier -> 403, logged
         probe = {"id": "beta-2026-01-01", "word": "retry", "exp": 0, "token": "x"}
         st, r = A(probe)
-        ok(st == 403 and not calls and allowed_origins() == [], "no origins declared: even the page's Origin is refused 403")
-        ORIGINS_FILE.write_text("# the Desktop's, once a page-only channel exists\n" + PAGE + "\n")
-        st, r = A(probe, origin="http://evil.example")
-        ok(st == 403 and not calls, "an undeclared Origin is refused 403")
-        st, r = A(probe, origin=None, agent="curl/8.0")
-        ok(st == 403 and not calls, "a request with no Origin (a curl, or the Desktop's main process) is refused 403")
+        ok(st == 403 and not calls and lines()[-1]["page_key"] == "no-verifier",
+           "no verifier on file: even the right key is refused 403")
+        CHANNEL_FILE.write_text(hashlib.sha256(KEY.encode()).hexdigest() + "\n")
+        os.chmod(CHANNEL_FILE, 0o644)
+        st, r = A(probe)
+        ok(st == 403 and not calls and lines()[-1]["page_key"] == "no-verifier",
+           "a verifier group/other can read is no verifier: refused 403")
+        os.chmod(CHANNEL_FILE, 0o600)
+        st, r = A(probe, key=None, agent="curl/8.0")
+        ok(st == 403 and not calls and r["detail"].endswith("(missing)"),
+           "missing key (the session token alone, e.g. a box process): refused 403")
         last = lines()[-1]
-        ok(last["verdict"] == "refused-origin" and last["origin"] is None and last["user_agent"] == "curl/8.0",
-           "the refusal is logged with the Origin and User-Agent it claimed")
-        ok(lines()[-2]["origin"] == "http://evil.example", "a claimed Origin is logged as sent")
+        ok(last["verdict"] == "refused-key" and last["page_key"] == "missing" and last["user_agent"] == "curl/8.0",
+           "the refusal is logged with the key verdict and the User-Agent it claimed")
+        st, r = A(probe, key=KEY + "x", origin="http://evil.example")
+        ok(st == 403 and not calls and lines()[-1]["page_key"] == "wrong", "wrong key: refused 403")
+        ok(lines()[-1]["origin"] == "http://evil.example", "a claimed Origin is still logged as sent")
+        st, r = A(probe, key=hashlib.sha256(KEY.encode()).hexdigest())
+        ok(st == 403 and not calls and lines()[-1]["page_key"] == "wrong",
+           "the stored hash itself is not a key (the box cannot replay what it holds)")
+        st, r = A(probe, origin=None)
+        ok(st == 403 and r["verdict"] == "refused" and lines()[-1]["page_key"] == "match"
+           and "token" in r["detail"], "right key, no Origin (the Desktop's main process): past the gate, judged on the body")
         ok(all("karl" not in str(x.get("who")) for x in lines()), "the log never claims karl as who")
+        ok(KEY not in (STATE_DIR / "log.jsonl").read_text()
+           and hashlib.sha256(KEY.encode()).hexdigest() not in (STATE_DIR / "log.jsonl").read_text(),
+           "neither the key nor its hash ever reaches the log")
 
         # 2. offers carry exactly the card's words + later
         ob = offer(items["beta-2026-01-01"])
@@ -494,22 +556,22 @@ def selftest() -> int:
         # 6. the writer's own verdicts are passed through, not dressed up
         o2 = offer(items["delta-2026-01-01"])
         st, r = answer({"id": "delta-2026-01-01", "word": "go", "exp": o2["exp"], "token": o2["tokens"]["go"]},
-                       writer=lambda c, w: (2, "refused — delta: 'go' is not one of: keep"), origin=PAGE)
+                       writer=lambda c, w: (2, "refused — delta: 'go' is not one of: keep"), origin=PAGE, key=KEY)
         ok(st == 409 and not r["ok"] and r["verdict"] == "refused by the writer", "a writer refusal is reported as refused")
         o3 = offer(items["delta-2026-01-01"])
         st, r = answer({"id": "delta-2026-01-01", "word": "later", "exp": o3["exp"], "token": o3["tokens"]["later"]},
-                       writer=lambda c, w: (1, "not recorded — 3 pushes rejected"), origin=PAGE)
+                       writer=lambda c, w: (1, "not recorded — 3 pushes rejected"), origin=PAGE, key=KEY)
         ok(st == 502 and not r["ok"], "a writer that could not push is reported as not recorded")
         _USED.clear()  # offers minted in the same second share a token; the replay guard is per token
         o4 = offer(items["delta-2026-01-01"])
         st, r = answer({"id": "delta-2026-01-01", "word": "go", "exp": o4["exp"], "token": o4["tokens"]["go"]},
-                       writer=lambda c, w: (3, "recorded … box clone NOT updated"), origin=PAGE)
+                       writer=lambda c, w: (3, "recorded … box clone NOT updated"), origin=PAGE, key=KEY)
         ok(st == 200 and r["ok"] and r["detail"] == "recorded; this page will lag until the box clone syncs",
            "exit 3 is ok, and says the page will lag until the box clone syncs")
         _USED.clear()  # offers minted in the same second share a token; the replay guard is per token
         o5 = offer(items["delta-2026-01-01"])
         st, r = answer({"id": "delta-2026-01-01", "word": "later", "exp": o5["exp"], "token": o5["tokens"]["later"]},
-                       writer=lambda c, w: (TIMED_OUT, "killed"), origin=PAGE)
+                       writer=lambda c, w: (TIMED_OUT, "killed"), origin=PAGE, key=KEY)
         ok(st == 504 and not r["ok"] and r["verdict"] == "outcome unknown — check the queue",
            "a timed-out writer is reported as outcome unknown, never as not recorded")
 
@@ -544,7 +606,7 @@ def selftest() -> int:
         _USED.clear()  # offers minted in the same second share a token; the replay guard is per token
         o6 = offer(items["delta-2026-01-01"])
         st, r = answer({"id": "delta-2026-01-01", "word": "go", "exp": o6["exp"], "token": o6["tokens"]["go"]},
-                       writer=fake_writer, origin=PAGE)
+                       writer=fake_writer, origin=PAGE, key=KEY)
         ok(st == 503 and not r["ok"] and "not writable" in r["detail"], "an unwritable state dir answers 503 with a reason")
         STATE_DIR = keep_state
 
@@ -584,22 +646,31 @@ def selftest() -> int:
             ok(tc.post("/answer", json=base).status_code == 404, "route: 404 while the flag is off")
             FLAG_FILE.write_text("on\n")
             ok(tc.post("/answer", content=b"not json", headers={"content-type": "application/json"}).status_code == 403,
-               "route: 403 without a declared Origin, before the body is judged")
-            ok(tc.post("/answer", content=b"not json", headers={"content-type": "application/json", "origin": PAGE}).status_code == 400,
-               "route: 400 on a body that is not JSON (declared Origin)")
+               "route: 403 without the page key, before the body is judged")
+            ok(tc.post("/answer", content=b"not json",
+                       headers={"content-type": "application/json", "X-Fleet-Answer-Key": KEY + "x"}).status_code == 403,
+               "route: 403 with a wrong page key")
+            ok(tc.post("/answer", content=b"not json",
+                       headers={"content-type": "application/json", "X-Fleet-Answer-Key": KEY}).status_code == 400,
+               "route: 400 on a body that is not JSON (right page key, header read case-insensitively)")
             _USED.clear()
             stub = td / "stub-writer"   # never the real writer: a selftest must not reach the vault
             stub.write_text("import sys; sys.stdin.read(); print('recorded stub')\n")
             WRITER = stub
             o7 = offer(items["delta-2026-01-01"])
             rr = tc.post("/answer", json={"id": "delta-2026-01-01", "word": "go", "exp": o7["exp"], "token": o7["tokens"]["go"]},
-                         headers={"origin": PAGE, "user-agent": "route-test/1"})
+                         headers={"origin": PAGE, "user-agent": "route-test/1", "x-fleet-answer-key": KEY})
             WRITER = saved[4]
             ok(rr.status_code == 200 and rr.json()["verdict"] == "recorded" and lines()[-1]["user_agent"] == "route-test/1",
                "route: headers reach the log through the threadpool")
+            cr = tc.get("/answer/channel", headers={"x-fleet-answer-key": KEY, "user-agent": "probe/1"}).json()
+            ok(cr == {"enabled": True, "page_key": "match"} and lines()[-1]["verdict"] == "channel-probe"
+               and lines()[-1]["page_key"] == "match", "route: GET /answer/channel says match, logged, writes nothing")
+            ok(tc.get("/answer/channel").json()["page_key"] == "missing", "route: GET /answer/channel says missing")
+            ok(KEY not in (STATE_DIR / "log.jsonl").read_text(), "route: the key never reaches the log")
         except ImportError:
             print("  skip route checks (no FastAPI TestClient here)")
-    QUEUE_FILE, FLAG_FILE, STATE_DIR, ORIGINS_FILE, WRITER, WRITER_TIMEOUT_S = saved
+    QUEUE_FILE, FLAG_FILE, STATE_DIR, CHANNEL_FILE, WRITER, WRITER_TIMEOUT_S = saved
     print(f"selftest: {'PASS' if not fails else 'FAIL'} — {len(fails)} failure(s)")
     return 0 if not fails else 1
 

@@ -23,8 +23,8 @@
  * VERB (a), OFF. With ANSWER_ON_PAGE below false (the default) the page writes
  * nothing — `decide` in a terminal is the one answer place. See ANSWER_ON_PAGE.
  *
- * MONITOR (/monitor) is B's board with lanes by room, behind a flag that is OFF
- * by default (MONITOR_ON); its rooms are a stub until the box's gateway has them.
+ * MONITOR (/monitor) is B's board with lanes by room, behind a flag that is ON
+ * (MONITOR_ON); its rooms are the box gateway's, read live by today_api.py.
  *
  * Pure SDK-consumer work, same shape as before: a `/fleet` route + a sidebar row,
  * data from the Fleet plugin's REST router through `ctx.rest`. Plain ESM, no
@@ -61,25 +61,44 @@ const h = React.createElement
 const POLL_MS = 15000
 const IDLE_POLL_MS = 60000 // when only the status bar is listening
 const BATCH = 5
-/* VERB (a) — answer on the page. KEEP IT OFF until a channel exists that only the page
- * holds (any process on the box can read the session token and post; see answer_api.py).
- * It is on only when all three are on:
+/* VERB (a) — answer on the page. ON since slice 3 (2026-09-27): the page's channel exists.
+ * The Desktop's main process attaches X-Fleet-Answer-Key, a secret held only on the Mac (its
+ * remote-connection headers), to every request to the box; the box keeps only its sha256, so a
+ * box process holding the session token cannot answer (see answer_api.py). On only when all three are on:
  *   here:        ANSWER_ON_PAGE = true, then install this file (atomically) on the Mac;
  *   on the box:  echo on > ~/.config/lucky-loop/fleet-answer-verb  (read per request);
- *   on the box:  the page's Origin declared in ~/.config/lucky-loop/fleet-answer-origins.
- * Page flag off: no send button. Box flag off: POST /answer is 404. No Origin declared: 403.
+ *   both sides:  the page key, set by hermes/tools/answer-channel-rotate (run on the Mac).
+ * Page flag off: no send button. Box flag off: POST /answer is 404. No page key: 403.
  * Only Karl's click on that card's own button sends an answer: one card per click, and
  * a tier-3 word only after a second click that shows the card's title and the word.
  * The route takes an open card id and one word from that card's options, or `later`,
  * and nothing else. It logs time, card and word; the verifier reads that log at
  * clock-out. No key sends: the keys still only pick a word and copy its decide line. */
-const ANSWER_ON_PAGE = false
+const ANSWER_ON_PAGE = true
 let answerInFlight = false // one answer at a time, across every view: a click while one is out is dropped
+/* The page key's state as the box saw THIS Desktop's request: match | missing | wrong | no-verifier.
+ * Asked at most every 10 min (and again after a refused send); Send is drawn only on match. */
+let pageKey = null
+let pageKeyAt = 0
+function probePageKey() {
+  if (!restFn || Date.now() - pageKeyAt < 600000) return
+  pageKeyAt = Date.now()
+  restFn('/answer/channel')
+    .then(r => { pageKey = (r && r.page_key) || 'unknown' })
+    .catch(() => { pageKey = 'unreachable'; pageKeyAt = Date.now() - 540000 })
+}
+function pageKeyNote() {
+  return ANSWER_ON_PAGE && pageKey && pageKey !== 'match'
+    ? '; Send is off — the box says page key ' + pageKey + ' (hermes/tools/answer-channel-rotate --check)'
+    : '; this page writes nothing'
+}
 /* The one POST this page can make. Null when another answer is still out (the click is dropped). */
 function postAnswer(body) {
   if (answerInFlight || !restFn) return null
   answerInFlight = true
-  return restFn('/answer', { method: 'POST', body }).finally(() => { answerInFlight = false; sample() })
+  return restFn('/answer', { method: 'POST', body })
+    .catch(err => { pageKeyAt = 0; throw err }) // a refusal re-asks the key's state on the next render
+    .finally(() => { answerInFlight = false; sample() })
 }
 const STYLE_ID = 'fleet-plugin-style'
 
@@ -1462,7 +1481,7 @@ function Tray({ q, hue, pos, batch, bi, nb, qLen, pane, pick, copied, derivedN, 
         h('div', { className: 'lv-ow' }, line
           ? [h('span', { key: 'l', className: 'lv-dl' }, line),
               done ? ' — copied; paste it now' : ' — paste it in a terminal']
-          : 'pick a word — ↵ copies its decide line' + (send ? '; Send records it from here' : '; this page writes nothing')),
+          : 'pick a word — ↵ copies its decide line' + (send ? '; Send records it from here' : pageKeyNote())),
         st && st.state !== 'sending' ? h('div', { className: cls('lv-sent', st.state === 'bad' && 'lv-bad') },
           armed ? ['Tier 3 — “', h('b', { key: 't' }, keep(st.title || topic(q))), '” → ', h('b', { key: 'w' }, word),
             '. Click Confirm to send it; nothing is written until you do.']
@@ -1570,7 +1589,8 @@ function LivePage() {
       .catch(() => { /* not copied: the button keeps saying Copy */ })
   }
   // The same word again copies: at once by key, and by click only past 350 ms (a double-click is not two answers).
-  const answerOn = ANSWER_ON_PAGE && Boolean(lv && lv.answer && lv.answer.enabled)
+  if (ANSWER_ON_PAGE && lv && lv.answer && lv.answer.enabled) probePageKey()
+  const answerOn = ANSWER_ON_PAGE && Boolean(lv && lv.answer && lv.answer.enabled) && pageKey === 'match'
   const offer = answerOn && q ? (lv.answer.offers || {})[q.id] || null : null
   // verb (a): one card per click; a click while one is in flight is dropped; a tier-3 confirm
   // counts only past 400 ms after it was armed (a double-click is not two clicks).
@@ -1685,22 +1705,23 @@ function LivePage() {
 /* replace. READ-ONLY: a chip opens /live, a member's copy button copies its   */
 /* attach or status line. Nothing here starts, stops, closes or sends.         */
 /*                                                                            */
-/* FLAG, default OFF — the route, the sidebar row and the palette entry exist  */
-/* only when it is on. Switch it on by setting MONITOR_ON = true below (the     */
+/* FLAG, ON since 2026-09-27 — the route, the sidebar row and the palette entry */
+/* exist only when it is on. Switch it off by setting MONITOR_ON = false (the   */
 /* hot reload picks it up), or, without editing the file, run                   */
 /*   localStorage.setItem('fleet.monitor', 'on')                               */
 /* in the Desktop's devtools and reload the plugin. Off again: false / remove. */
 /* ------------------------------------------------------------------------ */
-const MONITOR_ON = false
+const MONITOR_ON = true
 function monitorOn() {
   if (MONITOR_ON) return true
   try { return window.localStorage.getItem('fleet.monitor') === 'on' } catch { return false }
 }
 
-/* ROOMS: STUB. The rooms do not exist yet — they arrive with the box's gateway  */
-/* (slice 2). Until then a fixed owner→room map groups the REAL agents, panes,  */
-/* units, runs and cards the page already samples, and the page says "rooms:    */
-/* stub" wherever a lane is drawn. An id matches a member exactly or as its      */
+/* ROOM_STUB: the LAST fallback. The rooms are the box gateway's (hosted Group  */
+/* Chats, created 2026-09-27), read live by today_api.py; this fixed owner→room */
+/* map is used only when the payload carries no readable rooms block, and the   */
+/* page then says "rooms: stub" wherever a lane is drawn.                      */
+/* Either way, an id matches a member exactly or as its                       */
 /* prefix ("foreman" holds "foreman-verify"); "name@host" counts as "name".      */
 /* Anything the map does not name lands in the "No room" lane, never dropped.   */
 const ROOM_STUB = [
@@ -1711,17 +1732,19 @@ const ROOM_STUB = [
   { id: 'vault', name: 'The vault', members: ['gardener'] }
 ]
 
-/* THE SOURCE — the one thing that changes when the gateway's rooms exist.     */
-/* Expected real shape (a proposal; the gateway is the one authority for rooms): */
-/*   { source: 'gateway', sampled_at: '<ISO>',                                  */
-/*     rooms: [ { id: 'r-…', name: '<the task, in words>',                      */
-/*                members: ['<agent id>', …],        // 2–6; the owner is implied */
-/*                cards:   ['<needs-you id>', …] } ] } // optional: absent, a    */
-/*                                                   // card joins its agent's  */
-/*                                                   // first room              */
-/* e.g. read it from the backend: restFn('/rooms'), into the same shape.        */
-function roomSource() {
-  return { source: 'stub', sampled_at: null, rooms: ROOM_STUB }
+/* THE SOURCE. today_api.py's `rooms` block, from the same /today sample:        */
+/*   { source: 'gateway' | 'rooms.json' | 'none', sampled_at: '<ISO>',          */
+/*     rooms: [ { id, name, members: ['<profile id>', …] } ], bots: {id: title} } */
+/* 'gateway' is the live hosted-room store (the authority); 'rooms.json' is the   */
+/* vault's copy, read only when the gateway could not be; either is used as it    */
+/* comes. Names are the box's, never this file's. With no rooms block at all (an  */
+/* older backend) or source 'none', the lanes fall back to ROOM_STUB, labelled.   */
+function roomSource(data) {
+  const rm = data && data.rooms
+  if (rm && (rm.source === 'gateway' || rm.source === 'rooms.json') && Array.isArray(rm.rooms)) {
+    return { source: rm.source, sampled_at: rm.sampled_at || null, rooms: rm.rooms, error: rm.error || null }
+  }
+  return { source: 'stub', sampled_at: null, rooms: ROOM_STUB, error: (rm && rm.error) || null }
 }
 
 const idOf = s => String(s || '').split('@')[0].trim().split(/\s/)[0]
@@ -1733,7 +1756,7 @@ const later = (a, b) => (!a ? b : !b ? a : Date.parse(b.at) > Date.parse(a.at) ?
 
 /* THE ADAPTER. Every room fact the page draws comes through here, as one view */
 /* model; the member states come from the real sample whatever the room source. */
-function getRooms(data, src = roomSource()) {
+function getRooms(data, src = roomSource(data)) {
   const ny = (data && data.needs_you) || {}
   const { today, live, parked, derived } = splitNeeds(ny)
   const panes = (data && data.agents_now && data.agents_now.rows) || []
@@ -1780,7 +1803,7 @@ function getRooms(data, src = roomSource()) {
   parked.forEach(i => place(i, 'parked'))
   const order = (a, b) => STATE_RANK[b.state] - STATE_RANK[a.state] || a.id.localeCompare(b.id)
   rooms.concat(none).forEach(r => r.members.sort(order))
-  return { source: src.source, sampled_at: src.sampled_at || (data && data.sampled_at) || null, today,
+  return { source: src.source, srcError: src.error || null, sampled_at: src.sampled_at || (data && data.sampled_at) || null, today,
     rooms, none, derivedN: derived.length, members: [...seen.keys()].sort() }
 }
 
@@ -1837,7 +1860,9 @@ function MonitorPage() {
     h('div', { className: 'lv-cb' },
       h('div', { className: 'lv-cb-l' },
         h('span', { className: 'lv-live' }, 'Monitor'),
-        stub ? h('span', { className: 'mn-tag', title: 'Rooms come from a fixed owner→room map in plugin.js until the gateway has rooms.' }, 'rooms: stub') : null,
+        stub ? h('span', { className: 'mn-tag', title: 'The box gave no readable rooms' + (v.srcError ? ' (' + v.srcError + ')' : '') + ', so the lanes use the fixed owner→room map in plugin.js.' }, 'rooms: stub')
+          : v && v.source === 'rooms.json' ? h('span', { className: 'mn-tag', title: 'The gateway could not be read' + (v.srcError ? ' (' + v.srcError + ')' : '') + '; these rooms are the vault’s copy (tools/deploy/rooms.json), not the live list.' }, 'rooms: vault copy')
+          : v ? h('span', { className: 'lv-stamp', title: 'Read live from the box gateway’s hosted-room store.' }, 'rooms: gateway · ' + hhmm(v.sampled_at)) : null,
         v ? h('span', { className: 'lv-sum' },
           v.rooms.length + ' rooms · ' + v.members.length + ' agents · ',
           h('b', null, (n ?? '?') + ' need you'), ' · ' + parkedN + ' parked',
@@ -1860,8 +1885,9 @@ function MonitorPage() {
             n === 0 ? h('div', { className: 'mn-empty' }, 'Nothing needs you. Every lane is quiet.')
               : n === null ? h('div', { className: 'mn-empty lv-warn' }, 'The queue could not be read — the needs-you counts on this page are unknown, not zero.') : null),
     h('p', { className: 'mn-note' },
-      stub ? 'Rooms: stub — the lanes group the real agents, panes, units, runs and cards of this sample by a fixed owner→room map ' +
-        'in plugin.js (ROOM_STUB). The box’s gateway replaces it; only roomSource() changes. ' : '',
+      stub ? 'Rooms: stub — the box gave no readable rooms, so the lanes group the real agents, panes, units, runs and cards of this sample ' +
+        'by a fixed owner→room map in plugin.js (ROOM_STUB). ' : v && v.source === 'rooms.json'
+        ? 'Rooms: the vault’s copy (tools/deploy/rooms.json) — the gateway could not be read, so these may not match the live rooms. ' : '',
       'States: a pane or unit reports working, blocked or failed; a run that failed or blocked in the last 24 h counts; ' +
       'a claimed board row is working; the worst wins. Read-only — a card opens Live, where the decide line is; copy buttons copy an attach or status line.'))
 }
