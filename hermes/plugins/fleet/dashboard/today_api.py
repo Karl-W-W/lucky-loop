@@ -9,8 +9,10 @@ same state as a plain-text digest an agent can paste into its context.
 
 Rules, inherited from plugin_api.py and paid for the same way:
 
-* READ-ONLY. Nothing here starts, stops, closes or sends. Where a human action
-  exists it is rendered as a copy-pasteable command.
+* READ-ONLY, except ``answer``. Nothing here starts, stops, closes or sends. Where a
+  human action exists it is rendered as a copy-pasteable command. The one exception
+  is verb (a) in ``answer_api.py`` beside this file — Karl's own word on one card,
+  OFF unless its flag is on; this module only publishes its signed offers.
 * Every sampled value carries its sample time. A snapshot without a clock is the
   bug the snapshot was meant to kill.
 * "not instrumented" is a state, distinct from zero and from failure. Sections
@@ -28,7 +30,8 @@ import os
 import re
 import statistics
 import subprocess
-from datetime import datetime, timezone
+import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -894,6 +897,194 @@ def agents_now() -> Dict[str, Any]:
     return out
 
 
+# --------------------------------------------------------------------------- #
+# live — the call (/live), served: the order, the batches, who is on stage,
+# what was answered today with its word and who gave it, the session number.
+# --------------------------------------------------------------------------- #
+LIVE_BATCH = 5   # clarify's MAX_QUESTIONS; the page asks one batch at a time
+
+
+def _answer_mod():
+    """The ONE answer_api instance (its signing key is per process), shared with plugin_api."""
+    m = sys.modules.get("fleet_answer_api")
+    if m is None:
+        import importlib.util as _ilu
+        spec = _ilu.spec_from_file_location("fleet_answer_api", str(Path(__file__).with_name("answer_api.py")))
+        m = _ilu.module_from_spec(spec)
+        sys.modules["fleet_answer_api"] = m
+        spec.loader.exec_module(m)
+    return m
+
+
+def _queue_key(i: Dict[str, Any]):
+    """The queue's own order, the same as /live's byQueue: priority, then expiry, then age, then id."""
+    p = i.get("priority")
+    return (p if isinstance(p, (int, float)) else 99, str(i.get("expiry") or "9999"),
+            str(i.get("since") or ""), str(i.get("id")))
+
+
+def live(all_items: List[Dict[str, Any]], agents_now_d: Dict[str, Any], agents_d: Dict[str, Any],
+         queue_updated_at: Optional[str] = None, today: Optional[str] = None) -> Dict[str, Any]:
+    """Everything /live used to work out in the browser, plus what the browser could not see.
+
+    * ``order`` / ``batches``: the open, unparked cards in the queue's order, cut in fives.
+    * ``agents``: per seat (a card's ``agent``), its hands, parked and expired counts, the
+      herdr pane that carries it (60 s Mac snapshot, with the snapshot's age) and its
+      newest failed run.
+    * ``done_today``: cards closed today WITH ``answer`` and ``doneBy`` — ``needs_you()``
+      returns open cards only, so the page could only say "left the queue".
+    * ``session``: rule 11's number, answered today ÷ (answered today + open now).
+    * ``answer``: verb (a)'s state; signed offers only while its flag is on.
+    """
+    today = today or _now_dt().date().isoformat()     # the box's local day, as `decide` uses the Mac's
+    tomorrow = (datetime.fromisoformat(today) + timedelta(days=1)).date().isoformat()
+    open_ = [i for i in all_items if not i.get("done")]
+    parked_ = [i for i in open_ if (i.get("parked") or {}).get("until") and str(i["parked"]["until"]) >= today]
+    parked_ids = {i.get("id") for i in parked_}
+    queue = sorted([i for i in open_ if i.get("id") not in parked_ids], key=_queue_key)
+    order = [i.get("id") for i in queue]
+    nb = max(1, -(-len(order) // LIVE_BATCH))
+    batches = [{"n": k + 1, "of": nb, "ids": order[k * LIVE_BATCH:(k + 1) * LIVE_BATCH]} for k in range(nb)]
+
+    seat = lambda i: i.get("agent") or "no agent yet"
+    rows = (agents_now_d or {}).get("rows") or []
+    mac = (agents_now_d or {}).get("mac") or {}
+    failed = [r for r in (agents_d or {}).get("items") or [] if r.get("status") in ("failed", "stopped")]
+    seats = sorted({seat(i) for i in open_})
+    agents_out = []
+    for s in seats:
+        mine = [i for i in queue if seat(i) == s]
+        pane = next((r for r in rows if r.get("host") == "mac" and r.get("name") == s), None)
+        fr = next((r for r in failed if r.get("agent") == s), None)
+        agents_out.append({
+            "seat": s,
+            "needs_you": len(mine),
+            "parked": sum(1 for i in parked_ if seat(i) == s),
+            "expired": sum(1 for i in mine if i.get("expiry") and str(i["expiry"]) < today),
+            "first": mine[0].get("id") if mine else None,
+            "state": (pane or {}).get("state") if pane else "not in a pane",
+            "pane": (pane or {}).get("where"),
+            "stale": bool(mac.get("stale")) if pane else None,
+            "shipped": not any(i.get("agent_shipped") is False for i in open_ if seat(i) == s),
+            "failed": {"t": fr.get("t"), "job": fr.get("job")} if fr else None,
+        })
+
+    # When a page answer was recorded, its log line holds the time; other paths record only the day.
+    answered_at: Dict[str, str] = {}
+    try:
+        for r in _tail_jsonl(Path(_answer_mod().STATE_DIR) / "log.jsonl", 500):
+            if str(r.get("verdict", "")).startswith("recorded") and r.get("id") and r.get("t"):
+                answered_at[str(r["id"])] = str(r["t"])
+    except Exception:
+        pass
+    done_today = []
+    for i in all_items:
+        if i.get("done") and str(i.get("doneOn") or "") == today:
+            done_today.append({
+                "id": i.get("id"), "title": i.get("title"), "ask": i.get("ask"), "agent": i.get("agent"),
+                "tier": i.get("tier"), "doneOn": i.get("doneOn"),
+                "answer": i.get("answer"), "by": i.get("doneBy") or None,
+                "answeredAt": answered_at.get(str(i.get("id"))),
+                "surface": ("page" if str(i.get("doneBy") or "").startswith("karl — page")
+                            else "phone" if "ntfy" in str(i.get("doneBy") or "")
+                            else "decide" if str(i.get("doneBy") or "").startswith("karl — decide") else None),
+            })
+    parked_today = [{"id": i.get("id"), "agent": i.get("agent"), "by": (i.get("parked") or {}).get("by"),
+                     "until": i["parked"]["until"]}
+                    for i in parked_ if (i.get("parked") or {}).get("reason") == "later"
+                    and str(i["parked"]["until"]) == tomorrow]
+
+    answered = len(done_today)
+    of = answered + len(open_)
+    A = _answer_mod()
+    on = A.enabled()
+    offers = {}
+    if on:
+        for i in queue:
+            o = A.offer(i)
+            if o:
+                offers[i.get("id")] = o
+    return {
+        "sampled_at": _now(),
+        "source": _rel(QUEUE_FILE),
+        "queue_updated_at": queue_updated_at,
+        "today": today,
+        "batch_size": LIVE_BATCH,
+        "order": order,
+        "batches": batches,
+        "open": len(open_),
+        "needs_you": len(queue),
+        "parked": len(parked_),
+        "agents": agents_out,
+        "mac_snapshot": {"synced_at": mac.get("synced_at"), "age_s": mac.get("age_s"), "stale": mac.get("stale")},
+        "done_today": done_today,
+        "parked_today": parked_today,
+        "session": {
+            "answered": answered, "of": of, "line": f"{answered}/{of}",
+            "basis": "rule 11: cards closed today (doneOn = the box's local day) ÷ (those + every card still "
+                     "open, parked included). Equals 'answered ÷ open at clock-in' when no card was filed today.",
+        },
+        "answer": {
+            "enabled": on, "surface": "page", "offers": offers,
+            "how": A.HOW_TO_ENABLE,
+        },
+    }
+
+
+def _live_digest(lv: Dict[str, Any]) -> str:
+    """/live.txt — the call as text for an agent's context window. Never an offer token."""
+    L: List[str] = []
+    s = lv.get("session") or {}
+    L.append(f"LIVE · {lv.get('sampled_at')} · session {s.get('line')} answered today · "
+             f"{lv.get('needs_you')} need you · {lv.get('parked')} parked · {lv.get('open')} open"
+             + (f" · queue updated {lv['queue_updated_at']}" if lv.get("queue_updated_at") else "")
+             + (f" · {lv['error']}" if lv.get("error") else ""))
+    L.append("  answer on the page: " + ("ON — a click on /live sends one card's word; `decide <id> <word>` works as before"
+                                         if (lv.get("answer") or {}).get("enabled")
+                                         else "off — answer with `decide <id> <word>` in a terminal"))
+    cards = {i.get("id"): i for i in lv.get("_cards", [])}
+    for b in lv.get("batches") or []:
+        if not b.get("ids"):
+            continue
+        L.append(f"BATCH {b['n']} of {b['of']}:")
+        for cid in b["ids"]:
+            i = cards.get(cid, {})
+            L.append(f"  [{i.get('agent') or 'no agent yet'} · p{i.get('priority', '?')} · tier {i.get('tier', '?')}"
+                     + (f" · wanted by {i['expiry']}" if i.get("expiry") else "") + f"] {i.get('ask') or i.get('title')}")
+            words = [str(o) for o in (i.get("options") or [])]
+            L.append(f"     decide {cid} <{'|'.join(words + ['later'])}>")
+    L.append(f"AGENTS (Mac snapshot {_age_str((lv.get('mac_snapshot') or {}).get('age_s'))}"
+             + (", STALE" if (lv.get("mac_snapshot") or {}).get("stale") else "") + "):")
+    for a in lv.get("agents") or []:
+        L.append(f"  {a['seat']:<22} {str(a['state']):<14} needs you {a['needs_you']} · parked {a['parked']}"
+                 + (f" · {a['expired']} expired" if a.get("expired") else "")
+                 + (" · no agent for this seat yet" if not a.get("shipped") else "")
+                 + (f" · failed {str(a['failed']['t'])[:16]} {a['failed']['job']}" if a.get("failed") else ""))
+    L.append(f"DONE TODAY ({lv.get('today')}): {len(lv.get('done_today') or [])}")
+    for d in lv.get("done_today") or []:
+        L.append(f"  {d['id']} = {d.get('answer') or '(no word)'}  — {d.get('by') or 'by: not recorded'}")
+    for p in lv.get("parked_today") or []:
+        L.append(f"  {p['id']} = later  — parked by {p.get('by')} until {p.get('until')}")
+    return "\n".join(L)
+
+
+def _live() -> Dict[str, Any]:
+    d = _today()
+    return d.get("live") or {"error": "live block missing"}
+
+
+@router.get("/live")
+def live_json() -> Dict[str, Any]:
+    lv = dict(_live())
+    lv.pop("_cards", None)
+    return lv
+
+
+@router.get("/live.txt", response_class=PlainTextResponse)
+def live_txt() -> str:
+    return _live_digest(_live())
+
+
 def _digest(d: Dict[str, Any]) -> str:
     L: List[str] = []
     ny, ag, go, bx = d["needs_you"], d["agents"], d["goals"], d["box"]
@@ -990,6 +1181,15 @@ def _today() -> Dict[str, Any]:
             out[name] = fn()
         except Exception as e:
             out[name] = {"error": f"{type(e).__name__}: {e}"}
+    try:
+        ny = out["needs_you"]
+        out["live"] = live(ny.get("all_items", []), out.get("agents_now") or {}, out.get("agents") or {},
+                           ny.get("updated_at"))
+        if ny.get("error"):
+            out["live"]["error"] = ny["error"]
+        out["live"]["_cards"] = [i for i in ny.get("items", [])]
+    except Exception as e:
+        out["live"] = {"error": f"{type(e).__name__}: {e}"}
     out["needs_you"].pop("all_items", None)
     n_open = len(out["needs_you"].get("items", [])) + len(out["needs_you"].get("derived", []))
     out["verdict"] = {
@@ -1008,9 +1208,80 @@ def _today() -> Dict[str, Any]:
 
 @router.get("/today")
 def today() -> Dict[str, Any]:
-    return _today()
+    d = _today()
+    if isinstance(d.get("live"), dict):
+        d["live"] = {k: v for k, v in d["live"].items() if k != "_cards"}
+    return d
 
 
 @router.get("/today.txt", response_class=PlainTextResponse)
 def today_txt() -> str:
     return _today().get("text", "")
+
+
+# --------------------------------------------------------------------------- #
+# selftest — the live block against a fixed queue (needs FastAPI importable:
+# `uv run --with fastapi python today_api.py --selftest` off the box)
+# --------------------------------------------------------------------------- #
+def _selftest() -> int:
+    fails: List[str] = []
+
+    def ok(cond: bool, name: str) -> None:
+        print(("  ok   " if cond else "  FAIL ") + name)
+        if not cond:
+            fails.append(name)
+    import tempfile
+    A = _answer_mod()
+    with tempfile.TemporaryDirectory() as td:
+        A.FLAG_FILE = Path(td) / "flag"
+        A.STATE_DIR = Path(td) / "state"
+        A.STATE_DIR.mkdir()
+        (A.STATE_DIR / "log.jsonl").write_text(json.dumps({"t": "2026-09-27T10:00:00Z", "id": "d1", "verdict": "recorded"}) + "\n")
+        items = [
+            {"id": f"c{k}", "title": f"Card {k}", "agent": "commander" if k % 2 else "panel", "tier": 1,
+             "priority": 1 if k < 3 else 2, "since": f"2026-09-{10 + k:02d}", "options": ["go", "hold"]}
+            for k in range(7)]
+        items[1]["expiry"] = "2026-09-20"
+        items[4]["parked"] = {"by": "karl", "reason": "later", "until": "2026-09-28"}
+        items.append({"id": "d1", "title": "Done one", "agent": "commander", "done": True, "doneOn": "2026-09-27",
+                      "answer": "merge", "doneBy": "karl — page merge", "tier": 3})
+        items.append({"id": "d2", "title": "Done two", "done": True, "doneOn": "2026-09-27", "answer": "go",
+                      "doneBy": "karl — decide go"})
+        items.append({"id": "d0", "title": "Done before", "done": True, "doneOn": "2026-09-26", "answer": "go"})
+        an = {"mac": {"stale": False, "age_s": 30}, "rows": [{"host": "mac", "name": "commander", "state": "working", "where": "p1"}]}
+        ag = {"items": [{"agent": "panel", "status": "failed", "t": "2026-09-27T01:30:00Z", "job": "x"}]}
+        lv = live(items, an, ag, today="2026-09-27")
+        ok(lv["order"][:3] == ["c1", "c0", "c2"], "order: priority, then expiry, then since")
+        ok("c4" not in lv["order"] and lv["parked"] == 1, "a card parked until tomorrow is out of the order")
+        ok([len(b["ids"]) for b in lv["batches"]] == [5, 1] and lv["batches"][0]["of"] == 2, "batches of five, n of m")
+        cm = next(a for a in lv["agents"] if a["seat"] == "commander")
+        pn = next(a for a in lv["agents"] if a["seat"] == "panel")
+        ok(cm["state"] == "working" and cm["expired"] == 1 and pn["state"] == "not in a pane" and pn["failed"]["job"] == "x",
+           "per-agent state from the herdr snapshot and the failed feed")
+        ok([(d["id"], d["answer"], d["by"], d["surface"]) for d in lv["done_today"]]
+           == [("d1", "merge", "karl — page merge", "page"), ("d2", "go", "karl — decide go", "decide")],
+           "done today carries the word and who gave it")
+        ok(lv["done_today"][0]["answeredAt"] == "2026-09-27T10:00:00Z" and lv["done_today"][1]["answeredAt"] is None,
+           "a page answer carries its time from the answer log; others only their day")
+        ok([p["id"] for p in lv["parked_today"]] == ["c4"], "a later today is listed as parked today")
+        ok(lv["session"]["line"] == "2/9", "session: answered today / (answered today + open)")
+        ok(lv["answer"]["enabled"] is False and lv["answer"]["offers"] == {}, "answer off: no offers")
+        A.FLAG_FILE.write_text("on\n")
+        lv2 = live(items, an, ag, today="2026-09-27")
+        ok(lv2["answer"]["enabled"] and set(lv2["answer"]["offers"]) == set(lv2["order"])
+           and sorted(lv2["answer"]["offers"]["c0"]["tokens"]) == ["go", "hold", "later"], "answer on: one offer per card in the order")
+        lv2["_cards"] = [i for i in items if not i.get("done")]
+        txt = _live_digest(lv2)
+        ok("session 2/9" in txt and "decide c1 <go|hold|later>" in txt and "d1 = merge  — karl — page merge" in txt,
+           "/live.txt carries the session, the decide lines and the receipts")
+        ok(not any(t in txt for o in lv2["answer"]["offers"].values() for t in o["tokens"].values()),
+           "/live.txt never carries an offer token")
+        ok(live([], {}, {}, today="2026-09-27")["batches"] == [{"n": 1, "of": 1, "ids": []}]
+           and live([], {}, {}, today="2026-09-27")["session"]["line"] == "0/0", "an empty queue is a state, not a crash")
+    print(f"selftest: {'PASS' if not fails else 'FAIL'} — {len(fails)} failure(s)")
+    return 0 if not fails else 1
+
+
+if __name__ == "__main__":
+    if "--selftest" in sys.argv[1:]:
+        sys.exit(_selftest())

@@ -2,7 +2,12 @@
 
 Mounted at ``/api/plugins/fleet/`` by the dashboard plugin system.
 
-READ-ONLY BY DESIGN. This surface reports; it does not control. That is not a
+READ-ONLY BY DESIGN, EXCEPT ``answer``. This surface reports; it does not control.
+The one exception is verb (a), ``POST /answer`` in ``answer_api.py``: Karl's own
+word on one open needs-you card, handed to the vault's existing writer. It ships
+OFF (404 until ``~/.config/lucky-loop/fleet-answer-verb`` says ``on``; 403 unless the
+request's Origin is declared) and must stay off until a channel exists that only the
+page holds — see answer_api.py's docstring for what is and is not enforced. That is not a
 missing feature — the standing ADR is that Hermes is interface and chat runtime,
 never orchestration, and the `/war` precedent is a read-only hub with management
 staying on the CLI. Where an action is available it is emitted as a copy-pasteable
@@ -497,3 +502,15 @@ except Exception as _e:  # never take the Fleet routes down with it
     @router.get("/today")
     def _today_unavailable() -> Dict[str, Any]:
         return {"error": f"today_api failed to load: {type(_e).__name__}: {_e}", "sampled_at": _now()}
+
+
+# --------------------------------------------------------------------------- #
+# answer — verb (a), OFF by default. Loaded through today_api's loader so both
+# modules share ONE instance (its signing key lives in that instance's memory).
+# --------------------------------------------------------------------------- #
+try:
+    _answer_mod = _today_mod._answer_mod()
+    if _answer_mod.router is not None:
+        router.include_router(_answer_mod.router)
+except Exception as _ae:  # the verb failing to load leaves every read route up, and the verb absent (404)
+    _answer_load_error = f"{type(_ae).__name__}: {_ae}"
