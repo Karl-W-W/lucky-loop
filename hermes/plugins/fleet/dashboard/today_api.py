@@ -673,9 +673,21 @@ def box(checks: Dict[str, Any]) -> Dict[str, Any]:
     timers = len([l for l in _sh("systemctl --user list-timers --all --no-legend --plain").splitlines() if l.strip()])
     ok = (checks.get("state") == "fresh" and not checks.get("failing")
           and (load1 is None or load1 < 4) and (hottest is None or hottest < 80))
+    try:
+        import shutil
+        du = shutil.disk_usage("/")
+        disk_pct = round(du.used / du.total * 100)
+    except Exception:
+        disk_pct = None
+    try:
+        uptime_s = int(float(open("/proc/uptime").read().split()[0]))
+    except Exception:
+        uptime_s = None
     return {
         "sampled_at": _now(),
         "host": os.uname().nodename,
+        "disk_pct": disk_pct,
+        "uptime_s": uptime_s,
         "ok": ok,
         "load1": load1,
         "hottest_c": round(hottest, 1) if hottest is not None else None,
@@ -1358,19 +1370,71 @@ def models(_get=None, _hermes=None) -> Dict[str, Any]:
 # holding only logs is a leftover, not a profile). ``bot`` is true when the profile carries
 # Bot Mode's ui_meta; ``title`` is the same bots map the rooms block publishes.
 # --------------------------------------------------------------------------- #
-def _profile_display_name(pf: Path) -> Optional[str]:
+def _profile_meta(pf: Path) -> Dict[str, Any]:
+    """profile.yaml's display_name and description (yaml when importable, else a line read)."""
     try:
-        for ln in pf.read_text(encoding="utf-8").splitlines():
-            m = re.match(r"^display_name:\s*(.+?)\s*$", ln)
-            if m:
-                return m.group(1).strip().strip("'\"") or None
+        raw = pf.read_text(encoding="utf-8")
+    except Exception:
+        return {}
+    try:
+        import yaml
+        m = yaml.safe_load(raw) or {}
+        return {k: str(m[k]).strip() for k in ("display_name", "description") if m.get(k)}
     except Exception:
         pass
-    return None
+    out: Dict[str, Any] = {}
+    lines = raw.splitlines()
+    for k, ln in enumerate(lines):
+        m = re.match(r"^(display_name|description):\s*(.*)$", ln)
+        if not m:
+            continue
+        val = m.group(2)
+        for cont in lines[k + 1:]:                       # folded continuation lines
+            if cont.startswith("  ") and not re.match(r"^\s*[\w-]+:\s", cont):
+                val += " " + cont.strip()
+            else:
+                break
+        out[m.group(1)] = val.strip().strip("'\"").replace("''", "'")
+    return out
+
+
+def _first_sentence(text: str, n: int = 200) -> Optional[str]:
+    t = re.sub(r"\s+", " ", re.sub(r"\*\*|`", "", text or "")).strip()
+    if not t:
+        return None
+    m = re.match(r"(.+?[.!?])(\s|$)", t)
+    t = m.group(1) if m else t
+    return t if len(t) <= n else t[:n - 1].rstrip() + "…"
+
+
+def _soul_lane(soul: Path) -> Optional[str]:
+    """The first prose paragraph of SOUL.md (headings, front matter and list markers skipped)."""
+    try:
+        lines = soul.read_text(encoding="utf-8", errors="replace").splitlines()[:80]
+    except Exception:
+        return None
+    body: List[str] = []
+    in_fm = bool(lines) and lines[0].strip() == "---"
+    for ln in lines[1:] if in_fm else lines:
+        t = ln.strip()
+        if in_fm:
+            in_fm = t != "---"
+            continue
+        if t.startswith("#") or t.startswith(">") or t.startswith("```") or not t:
+            if body:
+                break
+            continue
+        body.append(re.sub(r"^[-*]\s+", "", t))
+    return _first_sentence(" ".join(body))
 
 
 def bots(_dir: Optional[Path] = None, _titles: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-    """``{sampled_at, source, items: [{name, display_name, title, bot}]}``."""
+    """``{sampled_at, source, items: [{id, name, lane, kind, bot}]}``.
+    ``id`` is the profile dir; ``name`` the Bot title (the rooms block's bots map), else
+    profile.yaml's display_name, else the id; ``lane`` one sentence of what it does, from the
+    profile's own description, else its SOUL.md, else "" (config.yaml is never read: it can
+    hold keys). Nothing here is typed in the
+    repo: seats and lanes are the box's. ``bot`` is true for a Bot Mode profile."""
     d = _dir or HERMES_PROFILES
     titles = _bot_titles() if _titles is None else _titles
     out: Dict[str, Any] = {"sampled_at": _now(), "source": _rel(d), "items": []}
@@ -1380,10 +1444,13 @@ def bots(_dir: Optional[Path] = None, _titles: Optional[Dict[str, str]] = None) 
         pf = p / "profile.yaml"
         if not pf.exists() and not (p / "config.yaml").exists():
             continue
+        meta = _profile_meta(pf) if pf.exists() else {}
         title = titles.get(p.name)
-        out["items"].append({"name": p.name,
-                             "display_name": title or _profile_display_name(pf) or p.name,
-                             "title": title, "bot": title is not None})
+        lane = _first_sentence(meta.get("description", "")) or _soul_lane(p / "SOUL.md")
+        if not lane or _secretish(lane):
+            lane = ""
+        out["items"].append({"id": p.name, "name": title or meta.get("display_name") or p.name,
+                             "lane": lane, "kind": "hermes", "bot": title is not None})
     return out
 
 
@@ -1497,7 +1564,8 @@ def _digest(d: Dict[str, Any]) -> str:
     L.append(f"BOX: {'OK' if bx.get('ok') else 'LOOK'} · sampled {bx.get('sampled_at')} · checks {ck.get('status')} "
              f"{(ck.get('total') or 0) - len(ck.get('failing') or [])}/{ck.get('total')} ({ck.get('state')}, {ck.get('checked_at')}) "
              f"· load {bx.get('load1')} · hottest {bx.get('hottest_c')} °C · GPU {bx.get('gpu_util_pct')} % "
-             f"· failed units {len(bx.get('failed_units') or [])} {bx.get('failed_units')} · timers {bx.get('timers')}")
+             f"· failed units {len(bx.get('failed_units') or [])} {bx.get('failed_units')} · timers {bx.get('timers')}"
+             f" · disk {bx.get('disk_pct')} % · up {(bx.get('uptime_s') or 0) // 86400} d")
     bd = d.get("board") or {}
     L.append(f"BOARD: {len(bd.get('items', []))} task(s) · sampled {bd.get('sampled_at')} · "
              + (" · ".join(f"{k} {v}" for k, v in sorted((bd.get("counts") or {}).items())) or "none")
@@ -1545,9 +1613,9 @@ def _digest(d: Dict[str, Any]) -> str:
     if not (pr.get("items") or pr.get("error")):
         L.append("  (none)")
     bt = d.get("bots") or {}
-    L.append(f"BOTS: " + (", ".join(f"{b['display_name']} ({b['name']})" if b["display_name"] != b["name"] else b["name"]
-                                     for b in bt.get("items") or []) or "none")
-             + (f" · {bt['error']}" if bt.get("error") else ""))
+    L.append(f"BOTS: {len(bt.get('items') or [])}" + (f" · {bt['error']}" if bt.get("error") else ""))
+    for b in bt.get("items") or []:
+        L.append(f"  {b['id']:<14} {b['name']:<22} {b.get('lane') or '—'}")
     tm = d.get("timers") or {}
     L.append(f"TIMERS: {len(tm.get('items') or [])} · sampled {tm.get('sampled_at')}"
              + (f" · {tm['error']}" if tm.get("error") else ""))
@@ -1748,17 +1816,20 @@ def _selftest() -> int:
         raise RuntimeError("down")
     md2 = models(_get=boom2, _hermes=boom2)
     ok(md2["loaded"] is None and set(md2["errors"]) == {"loaded", "on_disk", "hermes"}, "models: all down -> three errors, no raise")
-    # bots: real profiles only; title from the bots map, else profile.yaml's display_name
+    # bots: real profiles only; name from the bots map, else display_name; lane from description, else SOUL.md
     with tempfile.TemporaryDirectory() as td:
         pd = Path(td)
-        for n, files in (("a", {"profile.yaml": "display_name: Alpha One\n"}), ("b", {"config.yaml": "x: 1\n"}),
+        for n, files in (("a", {"profile.yaml": "display_name: Alpha One\ndescription: 'Reads the queue; drafts,\n  never sends. Second.'\n"}),
+                         ("b", {"config.yaml": "x: 1\n", "SOUL.md": "# Soul\n\nYou are **B**. You check.\n"}),
                          ("c", {"logs": None}), ("d", {"profile.yaml": "display_name: 'Dee'\n"})):
             (pd / n).mkdir()
             for f, body in files.items():
                 (pd / n / f).mkdir() if body is None else (pd / n / f).write_text(body)
         bt = bots(_dir=pd, _titles={"d": "Dee Bot"})
-        ok([(b["name"], b["display_name"], b["bot"]) for b in bt["items"]]
-           == [("a", "Alpha One", False), ("b", "b", False), ("d", "Dee Bot", True)], "bots: profiles, names, the bot flag")
+        ok([(b["id"], b["name"], b["lane"], b["kind"], b["bot"]) for b in bt["items"]]
+           == [("a", "Alpha One", "Reads the queue; drafts, never sends.", "hermes", False),
+               ("b", "b", "You are B.", "hermes", False), ("d", "Dee Bot", "", "hermes", True)],
+           "bots: profiles, names, lane from description then SOUL.md, the bot flag")
     # timers: cadence from the timer's own spec
     ok(_timer_every("{ OnCalendar=*-*-* 03:30:00 ; next_elapse=Mon 2026-09-28 03:30:00 CEST }", "") == "*-*-* 03:30:00"
        and _timer_every("", "{ OnUnitActiveUSec=15min ; next_elapse=1h } { OnBootUSec=5min ; next_elapse=5min }") == "every 15min"
