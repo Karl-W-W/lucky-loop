@@ -11,12 +11,14 @@ source of truth. Install by copying:
 | `plugins/fleet/dashboard/today_api.py` | loop host, same directory | same |
 | `plugins/fleet/dashboard/answer_api.py` — verb (a), `POST /answer`, **off** by default | loop host, same directory | same |
 | `plugins/fleet/dashboard/manifest.json` | loop host, same directory | same |
-| `../scripts/herdr-live.py` — the feed for **Agents** (`/agents`) | Mac `~/.local/share/lucky-loop/herdr-live/herdr-live.py`, run by `../deploy/com.kww.herdr-live.plist` in `~/Library/LaunchAgents` | `launchctl kickstart -k gui/$(id -u)/com.kww.herdr-live` |
+| `../scripts/herdr-live.py` — the feed for **herdr agents** (`/herdr`) | Mac `~/.local/share/lucky-loop/herdr-live/herdr-live.py`, run by `../deploy/com.kww.herdr-live.plist` in `~/Library/LaunchAgents` | `launchctl kickstart -k gui/$(id -u)/com.kww.herdr-live` |
 
 Read-only by design, except `answer`: the page reports, it does not control. See
 CLAUDE.md, "The Today page and the needs-you queue".
 
-## Agents (`/agents`) — every herdr agent, live (mission v8 B3, 2026-10-02)
+## herdr agents (`/herdr`) — every herdr agent, live (mission v8 B3, 2026-10-02)
+
+Not at `/agents`: that path is the core app's own Agents view.
 
 `herdr-live.py` subscribes to herdr's own socket events on the Mac and keeps one
 Mac-local file, `~/.local/state/lucky-loop/herdr-live.json` (schema `herdr-live/1`),

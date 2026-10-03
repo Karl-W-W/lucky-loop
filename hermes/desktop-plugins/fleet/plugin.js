@@ -26,9 +26,10 @@
  * MONITOR (/monitor) is B's board with lanes by room, behind a flag that is ON
  * (MONITOR_ON); its rooms are the box gateway's, read live by today_api.py.
  *
- * AGENTS (/agents, v8 B3) is every herdr agent, live: read from a Mac-local file
+ * HERDR AGENTS (/herdr, v8 B3) is every herdr agent, live: read from a Mac-local file
  * that scripts/herdr-live.py keeps current from herdr's own event stream. See
- * the AGENTS section near the end; useHerdrLive() is the reusable data hook.
+ * the HERDR AGENTS section near the end; useHerdrLive() is the reusable data hook.
+ * Not at /agents: that path is the core app's own Agents view (AGENTS_ROUTE).
  *
  * Pure SDK-consumer work, same shape as before: a `/fleet` route + a sidebar row,
  * data from the Fleet plugin's REST router through `ctx.rest`. Plain ESM, no
@@ -450,7 +451,7 @@ const CSS = `
   .mn-lh{border-right:0;border-bottom:1px solid var(--grid)}
   .mn-pkc{border-left:0}
   .mn-cell[data-l]::before{content:attr(data-l);font:500 10px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4)}}
-/* --- Agents (/agents): every herdr agent, live (v8 B3) --- */
+/* --- herdr agents (/herdr): every herdr agent, live (v8 B3) --- */
 .agl-live{display:inline-flex;align-items:center;gap:6px;font-weight:600;opacity:1}
 .agl-live i{width:8px;height:8px;border-radius:50%;background:#4caf6d;display:inline-block}
 .agl-live.agl-stale{color:#e26d5c}
@@ -2925,7 +2926,7 @@ function CcSide() {
   let html = `<div class="sh"><span>Fleet</span></div>`
   html += `<button class="row${onLive ? ' on' : ''}" data-h="/live">${CC_IC.live}<span class="rw"><b>Live</b></span>${pill(need)}</button>`
   html += `<button class="row${loc.path === '/battlefield' ? ' on' : ''}" data-h="/battlefield">${CC_IC.bf}<span class="rw"><b>Battlefield</b><small>${M ? Object.keys(M.AG).length + ' agents · ' + M.rooms.length + ' rooms' + (failed ? ' · <span class="c-failed">' + failed + ' failed last night</span>' : '') : 'sampling…'}</small></span></button>`
-  html += `<button class="row${loc.path === '/agents' ? ' on' : ''}" data-h="/agents">${CC_IC.agents}<span class="rw"><b>Agents</b><small>${ccEsc(aglSideLine(hs))}</small></span></button>`
+  html += `<button class="row${loc.path === '/herdr' ? ' on' : ''}" data-h="/herdr">${CC_IC.agents}<span class="rw"><b>herdr agents</b><small>${ccEsc(aglSideLine(hs))}</small></span></button>`
   html += `<button class="row" data-h="/live?sheet=props">${CC_IC.prop}<span class="rw"><b>Proposals</b><small>not questions · no count</small></span></button>`
   html += `<div class="sh sub"><span>Rooms</span></div>`
   if (M) {
@@ -3010,7 +3011,7 @@ function ccBootToStage() {
   if (typeof performance !== 'undefined' && performance.now() > 60000) return // a hot reload mid-session: never yank the view
   setTimeout(() => {
     const p = ccLoc().path
-    if (!ccOurs(p) && !/^\/(settings|command-center|today|fleet|monitor|call|live-classic|agents)\b/.test(p)) navigate('/live')
+    if (!ccOurs(p) && !/^\/(settings|command-center|today|fleet|monitor|call|live-classic|herdr)\b/.test(p)) navigate('/live')
     try { if (SDK.host && typeof SDK.host.revealPane === 'function') SDK.host.revealPane('hermes-bots:pane') } catch { /* no Bots pane */ }
   }, 1200)
 }
@@ -3491,7 +3492,8 @@ const COMMAND_CENTER_THEME = {
 }
 
 /* ------------------------------------------------------------------------ */
-/* AGENTS (/agents) — every herdr agent, live (mission v8 B3, 2026-10-02).   */
+/* HERDR AGENTS (/herdr) — every herdr agent, live (mission v8 B3, 2026-10-02). */
+/* Not /agents: that path belongs to the core app's own Agents view.         */
 /* scripts/herdr-live.py on this Mac keeps ~/.local/state/lucky-loop/herdr-  */
 /* live.json current from herdr's own event stream (a state change lands in  */
 /* the file ~0.1 s after herdr announces it; a 5 s heartbeat re-samples      */
@@ -3651,7 +3653,7 @@ function AgentsLivePage() {
   const d = s.data
   if (!d) {
     return h('div', { className: 'tdy-root' },
-      h('header', null, h('h1', null, 'Agents')),
+      h('header', null, h('h1', null, 'herdr agents')),
       s.err
         ? h('div', { className: 'tdy-err' }, 'No live feed on this Mac yet (' + s.err + '). It is written by herdr-live ' +
             '(scripts/herdr-live.py, launchd com.kww.herdr-live). Today → Agents now still shows the 60 s snapshot.')
@@ -3672,7 +3674,7 @@ function AgentsLivePage() {
       s.err ? h('small', null, 'Last read: ' + s.err) : null) : null,
     h('div', { className: 'tdy-body' },
       h('header', null,
-        h('h1', null, 'Agents'),
+        h('h1', null, 'herdr agents'),
         h('div', { className: 'tdy-stamp' },
           h('span', { className: cls('agl-live', stale && 'agl-stale') }, h('i'), stale ? 'stale' : 'live'),
           h('span', null, 'sampled ' + clock(d.sampledAt) + ' · ' + (age !== null && age < 1.5 ? 'just now' : aglDur((age || 0) * 1000) + ' ago')),
@@ -3728,11 +3730,12 @@ const plugin = {
       { id: 'live-nav', area: SIDEBAR_NAV_AREA, order: 6,
         data: { codicon: 'broadcast', label: 'Live', path: '/live' } },
       // v8 B3 (2026-10-02): every herdr agent, live, from the Mac-local feed. A new row beside
-      // the others; nothing renamed or hidden (the 09-03 additive rule).
-      { id: 'agents-page', area: ROUTES_AREA, data: { path: '/agents' },
-        render: () => h(Boundary, { name: 'Agents' }, h(AgentsLivePage)) },
-      { id: 'agents-nav', area: SIDEBAR_NAV_AREA, order: 6.8,
-        data: { codicon: 'robot', label: 'Agents', path: '/agents' } },
+      // the others; nothing renamed or hidden (the 09-03 additive rule). /herdr, because /agents
+      // is the core app's own Agents view.
+      { id: 'herdr-agents-page', area: ROUTES_AREA, data: { path: '/herdr' },
+        render: () => h(Boundary, { name: 'herdr agents' }, h(AgentsLivePage)) },
+      { id: 'herdr-agents-nav', area: SIDEBAR_NAV_AREA, order: 6.8,
+        data: { codicon: 'robot', label: 'herdr agents', path: '/herdr' } },
       { id: 'page', area: ROUTES_AREA, data: { path: '/fleet' },
         render: () => h(Boundary, { name: 'Fleet' }, h(FleetPage)) },
       { id: 'nav', area: SIDEBAR_NAV_AREA, order: 55,
@@ -3781,10 +3784,10 @@ const plugin = {
         { id: 'open-live', area: PALETTE_AREA,
           data: { id: 'fleet.open-live', label: 'Open Live — the call', keywords: ['live', 'call', 'cards'],
             detail: needDetail, run: () => navigate('/live') } },
-        { id: 'open-agents', area: PALETTE_AREA,
-          data: { id: 'fleet.open-agents', label: 'Open Agents — every herdr agent, live', keywords: ['agents', 'herdr', 'panes', 'working', 'blocked'],
+        { id: 'open-herdr-agents', area: PALETTE_AREA,
+          data: { id: 'fleet.open-herdr-agents', label: 'Open herdr agents — every herdr agent, live', keywords: ['agents', 'herdr', 'panes', 'working', 'blocked'],
             detail: () => { const c = hl.data && hl.data.counts; return c ? c.total + ' agents · ' + (c.working || 0) + ' working · ' + (c.blocked || 0) + ' blocked' : 'live herdr state' },
-            run: () => navigate('/agents') } })
+            run: () => navigate('/herdr') } })
       if (monitor) {
         contributions.push({ id: 'open-monitor', area: PALETTE_AREA,
           data: { id: 'fleet.open-monitor', label: 'Open Monitor — every room at a glance', keywords: ['monitor', 'rooms', 'board'],
