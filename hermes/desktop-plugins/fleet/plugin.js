@@ -26,6 +26,10 @@
  * MONITOR (/monitor) is B's board with lanes by room, behind a flag that is ON
  * (MONITOR_ON); its rooms are the box gateway's, read live by today_api.py.
  *
+ * AGENTS (/agents, v8 B3) is every herdr agent, live: read from a Mac-local file
+ * that scripts/herdr-live.py keeps current from herdr's own event stream. See
+ * the AGENTS section near the end; useHerdrLive() is the reusable data hook.
+ *
  * Pure SDK-consumer work, same shape as before: a `/fleet` route + a sidebar row,
  * data from the Fleet plugin's REST router through `ctx.rest`. Plain ESM, no
  * build step, hot-reloaded from `~/.hermes/desktop-plugins/fleet/plugin.js`.
@@ -446,6 +450,26 @@ const CSS = `
   .mn-lh{border-right:0;border-bottom:1px solid var(--grid)}
   .mn-pkc{border-left:0}
   .mn-cell[data-l]::before{content:attr(data-l);font:500 10px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4)}}
+/* --- Agents (/agents): every herdr agent, live (v8 B3) --- */
+.agl-live{display:inline-flex;align-items:center;gap:6px;font-weight:600;opacity:1}
+.agl-live i{width:8px;height:8px;border-radius:50%;background:#4caf6d;display:inline-block}
+.agl-live.agl-stale{color:#e26d5c}
+.agl-live.agl-stale i{background:#e26d5c}
+.agl-sum{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:15px;margin:2px 0 4px;font-variant-numeric:tabular-nums}
+.agl-sum b{font-weight:650}
+.agl-sum .agl-n-blocked b{color:#d9a441}.agl-sum .agl-n-working b{color:#4caf6d}
+.agl-list{display:grid;gap:5px;margin-top:14px}
+.agl-row{display:grid;grid-template-columns:86px minmax(0,1fr) auto;gap:4px 14px;align-items:center;
+  padding:9px 12px;border:1px solid rgba(128,128,128,.2);border-radius:8px}
+.agl-row.agl-blocked{border-color:rgba(217,164,65,.6);background:rgba(217,164,65,.07)}
+.agl-row.agl-working{border-color:rgba(76,175,109,.5)}
+.agl-main{min-width:0}
+.agl-title{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agl-title .agl-name{font-weight:700;margin-right:8px}
+.agl-title .agl-held{font-style:italic;font-weight:400;opacity:.7}
+.agl-sub{font-size:11.5px;opacity:.62;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agl-ws{display:inline-block;padding:0 6px;border-radius:4px;background:rgba(128,128,128,.18);margin-right:7px}
+.agl-for{font-size:12px;opacity:.7;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
 `
 
 function injectStyle() {
@@ -2202,7 +2226,8 @@ const CC_IC = {
   prop: ccSv('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>'),
   leave: ccSv('<path d="M2.5 14.2c5.3-5 13.7-5 19 0l-2.1 2.8-4-1.5v-2.6a12 12 0 0 0-6.8 0v2.6l-4 1.5z"/>'),
   x: ccSv('<path d="M6 6l12 12M18 6L6 18"/>'),
-  lock: ccSv('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>')
+  lock: ccSv('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+  agents: ccSv('<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M7 10l3 2.5L7 15M12.5 15h4"/>')
 }
 const CC_KG = {
   claude: ccSv('<path d="M4 17l6-5-6-5M12 19h8"/>', 'kg'),
@@ -2888,6 +2913,7 @@ function makeCStage(bfRoute) {
 /* ---- the sidebar's Fleet + Rooms sections (the Bots tab, core area botsPane.after) ---- */
 function CcSide() {
   const s = useToday(false)
+  const hs = useHerdrLive() // v8 B3: the live herdr counts for the Agents row
   const loc = useCcLoc()
   useEffect(() => { injectCC() }, [])
   const M = s.data ? ccModel(s.data, null) : null
@@ -2899,6 +2925,7 @@ function CcSide() {
   let html = `<div class="sh"><span>Fleet</span></div>`
   html += `<button class="row${onLive ? ' on' : ''}" data-h="/live">${CC_IC.live}<span class="rw"><b>Live</b></span>${pill(need)}</button>`
   html += `<button class="row${loc.path === '/battlefield' ? ' on' : ''}" data-h="/battlefield">${CC_IC.bf}<span class="rw"><b>Battlefield</b><small>${M ? Object.keys(M.AG).length + ' agents · ' + M.rooms.length + ' rooms' + (failed ? ' · <span class="c-failed">' + failed + ' failed last night</span>' : '') : 'sampling…'}</small></span></button>`
+  html += `<button class="row${loc.path === '/agents' ? ' on' : ''}" data-h="/agents">${CC_IC.agents}<span class="rw"><b>Agents</b><small>${ccEsc(aglSideLine(hs))}</small></span></button>`
   html += `<button class="row" data-h="/live?sheet=props">${CC_IC.prop}<span class="rw"><b>Proposals</b><small>not questions · no count</small></span></button>`
   html += `<div class="sh sub"><span>Rooms</span></div>`
   if (M) {
@@ -2983,7 +3010,7 @@ function ccBootToStage() {
   if (typeof performance !== 'undefined' && performance.now() > 60000) return // a hot reload mid-session: never yank the view
   setTimeout(() => {
     const p = ccLoc().path
-    if (!ccOurs(p) && !/^\/(settings|command-center|today|fleet|monitor|call|live-classic)\b/.test(p)) navigate('/live')
+    if (!ccOurs(p) && !/^\/(settings|command-center|today|fleet|monitor|call|live-classic|agents)\b/.test(p)) navigate('/live')
     try { if (SDK.host && typeof SDK.host.revealPane === 'function') SDK.host.revealPane('hermes-bots:pane') } catch { /* no Bots pane */ }
   }, 1200)
 }
@@ -3463,6 +3490,207 @@ const COMMAND_CENTER_THEME = {
   colors: CC_DARK, darkColors: CC_DARK
 }
 
+/* ------------------------------------------------------------------------ */
+/* AGENTS (/agents) — every herdr agent, live (mission v8 B3, 2026-10-02).   */
+/* scripts/herdr-live.py on this Mac keeps ~/.local/state/lucky-loop/herdr-  */
+/* live.json current from herdr's own event stream (a state change lands in  */
+/* the file ~0.1 s after herdr announces it; a 5 s heartbeat re-samples      */
+/* regardless) and reads the box's herdr every 15 s. This page follows that  */
+/* file through the Desktop's own file watcher, a push, and re-reads it      */
+/* every 5 s as the floor. The file holds terminal titles, so it stays on    */
+/* this Mac; the box still sees only the 60 s shape snapshot (Today → Agents */
+/* now), unchanged. F1 (the WhatsApp-like list) reuses useHerdrLive() and    */
+/* the file's row shape (schema herdr-live/1, documented in the script).     */
+/* READ-ONLY: nothing here starts, stops, attaches, closes or sends.         */
+/* ------------------------------------------------------------------------ */
+const HERDR_LIVE_FILE = '~/.local/state/lucky-loop/herdr-live.json'
+const HERDR_LIVE_SCHEMA = 'herdr-live/1'
+const HERDR_LIVE_STALE_S = 20 // four missed 5 s heartbeats
+const HERDR_LIVE_REREAD_MS = 5000
+const hl = { data: null, err: null, readAt: null, refs: 0, watchId: null, off: null, timer: null }
+let hlSnap = { data: null, err: null, readAt: null, watching: false }
+const hlListeners = new Set()
+function hlEmit() {
+  hlSnap = { data: hl.data, err: hl.err, readAt: hl.readAt, watching: Boolean(hl.watchId && hl.watchId !== 'pending') }
+  hlListeners.forEach(l => { try { l() } catch { /* isolated */ } })
+}
+function hlDesk() {
+  try { return window.hermesDesktop || null } catch { return null }
+}
+function hlWatch() {
+  const d = hlDesk()
+  if (hl.watchId || !hl.refs || !d || typeof d.watchPreviewFile !== 'function' || typeof d.onPreviewFileChanged !== 'function') return
+  hl.watchId = 'pending'
+  Promise.resolve(d.watchPreviewFile(HERDR_LIVE_FILE))
+    .then(w => {
+      const id = (w && w.id) || null
+      if (!hl.refs) { if (id && d.stopPreviewFileWatch) Promise.resolve(d.stopPreviewFileWatch(id)).catch(() => {}); hl.watchId = null; return }
+      hl.watchId = id
+      hlEmit()
+    })
+    .catch(() => { hl.watchId = null }) // no file yet: the next re-read tries the watch again
+}
+function hlRead() {
+  const d = hlDesk()
+  if (!d || typeof d.readFileText !== 'function') { hl.err = 'this Desktop build cannot read a local file'; hlEmit(); return }
+  Promise.resolve(d.readFileText(HERDR_LIVE_FILE))
+    .then(r => {
+      if (!r || r.binary || r.truncated) throw new Error('the live file is unreadable')
+      const j = JSON.parse(r.text)
+      if (!j || j.schema !== HERDR_LIVE_SCHEMA) throw new Error('the live file is not ' + HERDR_LIVE_SCHEMA)
+      hl.data = j
+      hl.err = null
+      hl.readAt = Date.now()
+      hlEmit()
+      hlWatch()
+    })
+    .catch(e => { hl.err = String((e && e.message) || e); hl.readAt = Date.now(); hlEmit() })
+}
+function hlStart() {
+  if (hl.refs++ > 0) return
+  const d = hlDesk()
+  if (d && typeof d.onPreviewFileChanged === 'function') {
+    hl.off = d.onPreviewFileChanged(p => { if (p && hl.watchId && p.id === hl.watchId) hlRead() })
+  }
+  hlRead()
+  hl.timer = setInterval(hlRead, HERDR_LIVE_REREAD_MS)
+}
+function hlStop() {
+  if (--hl.refs > 0) return
+  if (hl.timer) clearInterval(hl.timer)
+  hl.timer = null
+  if (hl.off) { try { hl.off() } catch { /* gone */ } }
+  hl.off = null
+  const d = hlDesk()
+  if (hl.watchId && hl.watchId !== 'pending' && d && d.stopPreviewFileWatch) Promise.resolve(d.stopPreviewFileWatch(hl.watchId)).catch(() => {})
+  hl.watchId = null
+}
+const hlSubscribe = l => { hlListeners.add(l); return () => hlListeners.delete(l) }
+const hlGet = () => hlSnap
+/* The live herdr roster: { data (the file, schema herdr-live/1), err, readAt, watching }. */
+function useHerdrLive() {
+  const s = React.useSyncExternalStore(hlSubscribe, hlGet)
+  useEffect(() => { hlStart(); return hlStop }, [])
+  return s
+}
+
+const AGL_RANK = { blocked: 0, working: 1, unknown: 2, idle: 3, done: 4 }
+const AGL_TONE = { working: 'ok', blocked: 'blocked', idle: 'idle', done: 'idle', unknown: 'unknown' }
+const AGL_WORDS = ['blocked', 'working', 'idle', 'done', 'unknown']
+function aglDur(ms) {
+  const s = Math.max(0, Math.round(ms / 1000))
+  if (s < 60) return s + 's'
+  if (s < 3600) return Math.round(s / 60) + 'm'
+  if (s < 86400) { const hh = Math.floor(s / 3600); const mm = Math.round((s % 3600) / 60); return hh + 'h' + (mm ? ' ' + mm + 'm' : '') }
+  return Math.round(s / 86400) + 'd'
+}
+function aglAgeS(isoStr, now) {
+  const t = isoStr ? Date.parse(isoStr) : NaN
+  return Number.isFinite(t) ? Math.max(0, (now - t) / 1000) : null
+}
+function aglSort(a, b) {
+  return (AGL_RANK[a.state] ?? 9) - (AGL_RANK[b.state] ?? 9) ||
+    String(b.since || '').localeCompare(String(a.since || '')) || String(a.pane).localeCompare(String(b.pane))
+}
+function AgentLiveRow({ r, now, boxRead }) {
+  const t = r.since ? Date.parse(r.since) : NaN
+  const dur = Number.isFinite(t) ? aglDur(now - t) : null
+  const tab = r.tabLabel && !/^\d+$/.test(String(r.tabLabel)) ? 'tab ' + r.tabLabel : null
+  const sub = [tab, r.agent, r.pane, r.host === 'box' ? 'on the box' + (boxRead ? ', read ' + clock(boxRead) : '') : null].filter(Boolean)
+  return h('div', { role: 'listitem', className: cls('agl-row', 'agl-' + r.state) },
+    h('span', null, h('span', { className: cls('tdy-pill', 'tdy-p-' + (AGL_TONE[r.state] || 'unknown')) }, r.state)),
+    h('div', { className: 'agl-main' },
+      h('div', { className: 'agl-title', title: r.title || '' },
+        r.name ? h('span', { className: 'agl-name' }, r.name) : null,
+        r.title ? h('span', null, r.title)
+          : r.titleWithheld ? h('span', { className: 'agl-held' }, 'title withheld — it looks like a secret')
+            : r.name ? null : h('span', null, r.pane)),
+      h('div', { className: 'agl-sub' },
+        h('span', { className: 'agl-ws' }, r.workspaceLabel || r.workspace || '—'), sub.join(' · '))),
+    h('span', {
+      className: 'agl-for',
+      title: r.since ? (r.sinceExact ? 'entered this state at ' : 'in this state since at least ') + new Date(r.since).toLocaleString() : ''
+    }, dur ? (r.sinceExact ? 'for ' : 'for ≥ ') + dur : '—'))
+}
+function aglBoxLine(box, now) {
+  if (!box || !box.herdr || box.herdr === 'not read') return null
+  const read = box.sampledAt ? 'read ' + clock(box.sampledAt) + (box.everyS ? ' (every ' + box.everyS + 's)' : '') : 'not read yet'
+  if (box.herdr === 'running') return 'the box’s herdr: ' + read
+  if (box.herdr === 'not installed') return 'the box has no herdr (' + read + ')'
+  if (box.herdr === 'pending') return 'the box’s herdr: first read pending'
+  const age = aglAgeS(box.sampledAt, now)
+  return 'the box’s herdr: ' + box.herdr + (box.error ? ' (' + box.error + ')' : '') +
+    (box.sampledAt ? ' — the box rows were read at ' + clock(box.sampledAt) + ', ' + aglDur((age || 0) * 1000) + ' ago' : ' — no box rows yet')
+}
+/* The Bots-pane row's one line: the live counts, or why there are none (never a stale number as current). */
+function aglSideLine(s) {
+  const d = s && s.data
+  if (!d) return s && s.err ? 'no live feed on this Mac' : 'reading…'
+  const age = aglAgeS(d.sampledAt, Date.now())
+  if (age === null || age > HERDR_LIVE_STALE_S) return 'STALE since ' + clock(d.sampledAt)
+  const c = d.counts || {}
+  const parts = [(c.total ?? 0) + ' live']
+  if (c.blocked) parts.push(c.blocked + ' blocked')
+  if (c.working) parts.push(c.working + ' working')
+  if (!c.blocked && !c.working) parts.push('none working')
+  return parts.join(' · ')
+}
+function AgentsLivePage() {
+  const s = useHerdrLive()
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    injectStyle()
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const d = s.data
+  if (!d) {
+    return h('div', { className: 'tdy-root' },
+      h('header', null, h('h1', null, 'Agents')),
+      s.err
+        ? h('div', { className: 'tdy-err' }, 'No live feed on this Mac yet (' + s.err + '). It is written by herdr-live ' +
+            '(scripts/herdr-live.py, launchd com.kww.herdr-live). Today → Agents now still shows the 60 s snapshot.')
+        : h('p', { className: 'tdy-empty' }, 'Reading the live feed…'))
+  }
+  const age = aglAgeS(d.sampledAt, now)
+  const stale = age === null || age > HERDR_LIVE_STALE_S
+  const rows = Array.isArray(d.agents) ? d.agents.slice().sort(aglSort) : []
+  const c = d.counts || {}
+  const mac = d.mac || {}
+  const box = d.box || {}
+  const hb = (d.producer && d.producer.heartbeatS) || 5
+  const boxLine = aglBoxLine(box, now)
+  return h('div', { className: stale ? 'tdy-root tdy-stale' : 'tdy-root' },
+    stale ? h('div', { className: 'tdy-stalebar', role: 'alert' },
+      'STALE — the live feed last sampled herdr at ' + clock(d.sampledAt) + ', ' + aglDur((age || 0) * 1000) +
+      ' ago. The rows below are NOT current: herdr-live on this Mac may have stopped, or the Mac slept.',
+      s.err ? h('small', null, 'Last read: ' + s.err) : null) : null,
+    h('div', { className: 'tdy-body' },
+      h('header', null,
+        h('h1', null, 'Agents'),
+        h('div', { className: 'tdy-stamp' },
+          h('span', { className: cls('agl-live', stale && 'agl-stale') }, h('i'), stale ? 'stale' : 'live'),
+          h('span', null, 'sampled ' + clock(d.sampledAt) + ' · ' + (age !== null && age < 1.5 ? 'just now' : aglDur((age || 0) * 1000) + ' ago')),
+          h('span', null, 'pushed by herdr events · re-sampled every ' + hb + 's'),
+          h('span', null, s.watching ? 'this page follows every write' : 'this page re-reads every ' + HERDR_LIVE_REREAD_MS / 1000 + 's')),
+        h('div', { className: 'agl-sum', 'aria-label': 'agent counts' },
+          h('span', null, h('b', null, String(c.total ?? rows.length)), ' agents'),
+          AGL_WORDS.filter(w => c[w]).map(w => h('span', { key: w, className: 'agl-n-' + w }, h('b', null, String(c[w])), ' ' + w))),
+        h('p', { className: 'tdy-oneline' },
+          (c.mac ?? 0) + ' on this Mac’s herdr' + (box.herdr && box.herdr !== 'not read' ? ' · ' + (c.box ?? 0) + ' on the box’s herdr' : '') +
+          '. Every herdr workspace, as herdr itself reports it.')),
+      mac.herdr && mac.herdr !== 'running'
+        ? h('div', { className: 'flt-warnbar' }, 'This Mac’s herdr is not answering (sampled ' + clock(mac.sampledAt) + '), so no Mac row is shown.') : null,
+      boxLine ? h('p', { className: 'tdy-when' }, boxLine) : null,
+      !rows.length ? h('p', { className: 'tdy-empty' }, 'No herdr agent anywhere this page can see.')
+        : h('div', { className: 'agl-list', role: 'list', 'aria-label': 'herdr agents' },
+            rows.map(r => h(AgentLiveRow, { key: r.host + '/' + r.pane, r, now, boxRead: r.host === 'box' ? box.sampledAt : null }))),
+      h('p', { className: 'tdy-note' },
+        'Read-only: nothing here starts, stops, attaches or sends. State is herdr’s own word; “for ≥” means the agent was ' +
+        'already in that state when this feed first saw it. Titles stay on this Mac — the file never leaves it, and the ' +
+        'box still receives only the 60 s shape snapshot shown on Today → Agents now.')))
+}
+
 const plugin = {
   id: 'fleet',
   name: 'Today + Fleet',
@@ -3494,6 +3722,12 @@ const plugin = {
         data: { codicon: 'layout', label: 'Battlefield', path: '/battlefield' } },
       { id: 'live-nav', area: SIDEBAR_NAV_AREA, order: 6,
         data: { codicon: 'broadcast', label: 'Live', path: '/live' } },
+      // v8 B3 (2026-10-02): every herdr agent, live, from the Mac-local feed. A new row beside
+      // the others; nothing renamed or hidden (the 09-03 additive rule).
+      { id: 'agents-page', area: ROUTES_AREA, data: { path: '/agents' },
+        render: () => h(Boundary, { name: 'Agents' }, h(AgentsLivePage)) },
+      { id: 'agents-nav', area: SIDEBAR_NAV_AREA, order: 6.8,
+        data: { codicon: 'robot', label: 'Agents', path: '/agents' } },
       { id: 'page', area: ROUTES_AREA, data: { path: '/fleet' },
         render: () => h(Boundary, { name: 'Fleet' }, h(FleetPage)) },
       { id: 'nav', area: SIDEBAR_NAV_AREA, order: 55,
@@ -3541,7 +3775,11 @@ const plugin = {
             detail: needDetail, run: () => navigate('/today') } },
         { id: 'open-live', area: PALETTE_AREA,
           data: { id: 'fleet.open-live', label: 'Open Live — the call', keywords: ['live', 'call', 'cards'],
-            detail: needDetail, run: () => navigate('/live') } })
+            detail: needDetail, run: () => navigate('/live') } },
+        { id: 'open-agents', area: PALETTE_AREA,
+          data: { id: 'fleet.open-agents', label: 'Open Agents — every herdr agent, live', keywords: ['agents', 'herdr', 'panes', 'working', 'blocked'],
+            detail: () => { const c = hl.data && hl.data.counts; return c ? c.total + ' agents · ' + (c.working || 0) + ' working · ' + (c.blocked || 0) + ' blocked' : 'live herdr state' },
+            run: () => navigate('/agents') } })
       if (monitor) {
         contributions.push({ id: 'open-monitor', area: PALETTE_AREA,
           data: { id: 'fleet.open-monitor', label: 'Open Monitor — every room at a glance', keywords: ['monitor', 'rooms', 'board'],

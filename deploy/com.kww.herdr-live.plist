@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  herdr-live (mission v8 B3): keeps ~/.local/state/lucky-loop/herdr-live.json current for the
+  Desktop's Agents page. Runs the INSTALLED copy of scripts/herdr-live.py, not a checkout, so a
+  branch switch in any worktree cannot change what runs; compare the two with sha256.
+  Install:   mkdir -p ~/.local/share/lucky-loop/herdr-live
+             cp scripts/herdr-live.py ~/.local/share/lucky-loop/herdr-live/herdr-live.py
+             cp deploy/com.kww.herdr-live.plist ~/Library/LaunchAgents/
+             launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.kww.herdr-live.plist
+  Undo:      launchctl bootout gui/$(id -u)/com.kww.herdr-live
+             rm ~/Library/LaunchAgents/com.kww.herdr-live.plist
+  The 60 s shape snapshot (com.kww.herdr-snapshot) is separate and untouched by either.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.kww.herdr-live</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/python3</string>
+    <string>/Users/kww/.local/share/lucky-loop/herdr-live/herdr-live.py</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/kww/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/kww/.local/state/lucky-loop/herdr-live.out</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/kww/.local/state/lucky-loop/herdr-live.out</string>
+</dict>
+</plist>
