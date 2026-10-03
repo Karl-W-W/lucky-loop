@@ -3614,13 +3614,18 @@ function AgentLiveRow({ r, now, boxRead }) {
 }
 function aglBoxLine(box, now) {
   if (!box || !box.herdr || box.herdr === 'not read') return null
-  const read = box.sampledAt ? 'read ' + clock(box.sampledAt) + (box.everyS ? ' (every ' + box.everyS + 's)' : '') : 'not read yet'
-  if (box.herdr === 'running') return 'the box’s herdr: ' + read
-  if (box.herdr === 'not installed') return 'the box has no herdr (' + read + ')'
   if (box.herdr === 'pending') return 'the box’s herdr: first read pending'
   const age = aglAgeS(box.sampledAt, now)
+  const when = box.sampledAt ? clock(box.sampledAt) + ', ' + aglDur((age || 0) * 1000) + ' ago' : null
+  // the day-after rule: a box read older than three intervals is said, never shown as current
+  const late = age !== null && Number(box.everyS) > 0 && age > 3 * Number(box.everyS)
+  if (box.herdr === 'running') {
+    return 'the box’s herdr: ' + (late ? 'STALE — last read ' + when : 'read ' + clock(box.sampledAt) + ' (a line every ' + box.everyS + 's)')
+  }
+  if (box.herdr === 'not installed') return 'the box has no herdr (read ' + (when || 'not yet') + ')'
+  if (box.herdr === 'not running') return 'the box’s herdr is not running (read ' + (when || 'not yet') + ')'
   return 'the box’s herdr: ' + box.herdr + (box.error ? ' (' + box.error + ')' : '') +
-    (box.sampledAt ? ' — the box rows were read at ' + clock(box.sampledAt) + ', ' + aglDur((age || 0) * 1000) + ' ago' : ' — no box rows yet')
+    (when ? ' — the box rows were read at ' + when : ' — no box rows yet')
 }
 /* The Bots-pane row's one line: the live counts, or why there are none (never a stale number as current). */
 function aglSideLine(s) {

@@ -10,8 +10,10 @@ it changes. F1 (the WhatsApp-like agent list) reads the same file; the row shape
     every agent pane, plus pane/tab/workspace lifecycle). A state change is re-sampled 0.1 s
     after herdr announces it. A heartbeat re-samples every 5 s regardless, so a missed event
     costs at most 5 s, and `sampledAt` moving proves this producer is alive.
-  * The box's herdr (the foreman opens tabs there): read every 15 s over the same ssh alias the
-    60 s snapshot uses (`dgx-remote`), read-only. A failed read keeps the last rows, dated.
+  * The box's herdr (the foreman opens tabs there): ONE long ssh session over the same alias the
+    60 s snapshot uses (`dgx-remote`), which prints a line every 15 s; read-only. One login per
+    session, not one per read, and the session is reopened after a drop. A failed or silent
+    session keeps the last rows, dated, and the page says how old they are.
 
 MAC-LOCAL BY DESIGN. The file carries terminal titles, and titles never leave this Mac: the
 2026-09-16 L3 rule lets only SHAPE cross to the box (scripts/herdr-snapshot.sh still does that,
@@ -48,10 +50,17 @@ STATES = ("working", "blocked", "idle", "done", "unknown")
 GLOBAL_EVENTS = ("pane.created", "pane.closed", "pane.exited", "pane.agent_detected",
                  "tab.created", "tab.closed", "tab.renamed",
                  "workspace.created", "workspace.closed", "workspace.renamed")
-# The remote side of the box read. herdr prints one JSON document per command; `@@` splits them.
-BOX_CMD = ('export PATH="$HOME/.local/bin:$PATH"; command -v herdr >/dev/null 2>&1 || { echo NOHERDR; exit 0; }; '
-           'herdr agent list 2>/dev/null; echo; echo @@; herdr tab list 2>/dev/null; echo; echo @@; '
-           'herdr workspace list 2>/dev/null')
+def box_stream_cmd(every_s: float) -> str:
+    """The remote side of the box read: ONE ssh session printing a line per read, `every_s` apart.
+    Each line is herdr's agent list, tab list and workspace list as compact JSON, tab-separated.
+    The loop ends by itself when the session is gone (printf fails on the closed pipe)."""
+    n = str(max(5, int(every_s)))
+    return ('export PATH="$HOME/.local/bin:$PATH"; command -v herdr >/dev/null 2>&1 || { echo NOHERDR; exit 0; }; '
+            'while :; do '
+            'a=$(herdr agent list 2>/dev/null | tr -d "\\n"); t=$(herdr tab list 2>/dev/null | tr -d "\\n"); '
+            'w=$(herdr workspace list 2>/dev/null | tr -d "\\n"); '
+            'printf "%s\\t%s\\t%s\\n" "${a:-null}" "${t:-null}" "${w:-null}" || exit 0; '
+            'sleep ' + n + '; done')
 
 # --- the box's secret rule, copied from hermes/plugins/fleet/dashboard/today_api.py --------------
 _SECRETISH_RE = re.compile(
@@ -143,15 +152,11 @@ def sample_mac(sock_path: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Di
     return agents, tabs, wss
 
 
-def sample_box(host: str) -> Optional[Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]]:
-    """None when the box has no herdr. Raises on ssh failure. stderr is never read into a log."""
-    r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host, BOX_CMD],
-                       stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=25)
-    if r.returncode != 0:
-        raise RuntimeError("ssh exit %d" % r.returncode)
-    if r.stdout.strip() == "NOHERDR":
+def parse_box_line(line: str) -> Optional[Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]]:
+    """One line of the box session. None when the box has no herdr; raises when its herdr does not answer."""
+    if line.strip() == "NOHERDR":
         return None
-    parts = [p.strip() for p in r.stdout.split("\n@@\n")]
+    parts = line.rstrip("\n").split("\t")
     try:
         agents = json.loads(parts[0])["result"]["agents"]
     except Exception:
@@ -330,28 +335,47 @@ class Live:
         self.log_once("mac", "up", "mac herdr answering")
         return {str(a.get("pane_id")) for a in agents if a.get("pane_id")}
 
-    # ---- the box, on its own thread: an ssh round trip must never delay a Mac event ----
+    # ---- the box, on its own thread: one long ssh session; it must never delay a Mac event ----
     def box_loop(self) -> None:
-        delay = 0.0
-        while not self.stop.wait(delay):
+        while not self.stop.is_set():
+            lines = 0
             try:
-                got = sample_box(self.cfg.box_host)
-                with self.box_lock:
-                    if got is None:
-                        self.box.update({"herdr": "not installed", "agents": [], "tabs": {}, "wss": {}, "error": None})
-                    else:
-                        self.box.update({"herdr": "running", "agents": got[0], "tabs": got[1], "wss": got[2], "error": None})
-                    self.box["sampledAt"] = iso()
-                self.log_once("box", "up", "box herdr read ok")
-                delay = self.cfg.box_every_s
+                # stderr is never read: an ssh error line can carry a host name, and none goes to the log
+                proc = subprocess.Popen(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
+                                         "-o", "ServerAliveInterval=20", "-o", "ServerAliveCountMax=3",
+                                         self.cfg.box_host, box_stream_cmd(self.cfg.box_every_s)],
+                                        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                        text=True, bufsize=1)
+                for line in proc.stdout:
+                    lines += 1
+                    try:
+                        got = parse_box_line(line)
+                        if got is None:
+                            upd = {"herdr": "not installed", "agents": [], "tabs": {}, "wss": {}, "error": None}
+                        else:
+                            upd = {"herdr": "running", "agents": got[0], "tabs": got[1], "wss": got[2], "error": None}
+                        self.log_once("box", "up", "box herdr read ok (one ssh session, a line every %ds)"
+                                      % int(self.cfg.box_every_s))
+                    except RuntimeError as e:
+                        upd = {"herdr": "not running", "agents": [], "tabs": {}, "wss": {}, "error": str(e)}
+                        self.log_once("box", "herdr-down", "box herdr not answering")
+                    with self.box_lock:
+                        self.box.update(upd)
+                        self.box["sampledAt"] = iso()
+                    self.box_dirty.set()
+                    if self.stop.is_set():
+                        break
+                proc.kill()
+                proc.wait(timeout=5)
+                msg = "ssh session ended (exit %s) after %d line(s)" % (proc.returncode, lines)
             except Exception as e:
-                msg = str(e) if isinstance(e, RuntimeError) else type(e).__name__
-                with self.box_lock:
-                    # keep the last rows: they are dated by box.sampledAt, and the page says how old
-                    self.box.update({"herdr": "unreachable", "error": msg[:80]})
-                self.log_once("box", "down", "box herdr unreadable: " + msg[:80])
-                delay = max(self.cfg.box_every_s, 60.0)
+                msg = "ssh session failed: " + type(e).__name__
+            with self.box_lock:
+                # keep the last rows: they are dated by box.sampledAt, and the page says how old
+                self.box.update({"herdr": "unreachable", "error": msg[:80]})
+            self.log_once("box", "down", "box herdr unreadable: " + msg[:80])
             self.box_dirty.set()
+            self.stop.wait(15.0 if lines > 1 else 60.0)  # a long session that dropped: retry soon
 
     # ---- events ----
     def subscribe(self, panes: set) -> socket.socket:
@@ -630,6 +654,21 @@ def selftest() -> int:
     ok(doc is not None, "a missed event is caught by the next heartbeat")
     log = open(cfg.log, encoding="utf-8").read() if os.path.exists(cfg.log) else ""
     ok("Fix the build" not in log and "0123456789abcdef" not in log, "the log holds no title")
+    ok(parse_box_line("NOHERDR\n") is None, "a box without herdr parses as none")
+    line = "\t".join(json.dumps(x) for x in (
+        {"result": {"agents": [{"pane_id": "w9:p1", "agent_status": "idle"}]}},
+        {"result": {"tabs": [{"tab_id": "w9:t1", "label": "x"}]}},
+        {"result": {"workspaces": [{"workspace_id": "w9", "label": "box-ws", "number": 1}]}})) + "\n"
+    got = parse_box_line(line)
+    ok(got is not None and got[0][0]["pane_id"] == "w9:p1" and got[2]["w9"]["label"] == "box-ws",
+       "a box session line parses into agents, tabs and workspaces")
+    try:
+        parse_box_line("null\tnull\tnull\n")
+        ok(False, "a box whose herdr is down raises")
+    except RuntimeError:
+        ok(True, "a box whose herdr is down raises, so the page says not running")
+    cmd = box_stream_cmd(15)
+    ok("while :" in cmd and "sleep 15" in cmd and cmd.count("herdr ") == 4, "the box session loops: one login, a line every 15 s")
     fake.close()
     doc = wait_for(lambda x: x.get("mac", {}).get("herdr") == "not running", 4.0)
     ok(doc is not None and doc["counts"]["mac"] == 0, "herdr gone: the file says so, with no stale rows")
