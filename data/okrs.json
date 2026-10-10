@@ -63,7 +63,7 @@
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/loop-runs.json",
-            "computedAt": "2026-09-27T20:32:44.843Z",
+            "computedAt": "2026-10-10T21:53:05.961Z",
             "passes": 6,
             "fixturesExcluded": 1,
             "docTypes": [
@@ -91,7 +91,7 @@
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/ci-runs.json",
-            "computedAt": "2026-09-27T20:32:44.843Z",
+            "computedAt": "2026-10-10T21:53:05.961Z",
             "cleanDays": 9,
             "windowDays": 51,
             "cleanFrom": "2026-09-10",
@@ -110,14 +110,14 @@
           "derived": {
             "by": "scripts/gen-okr-derived.mjs",
             "from": "data/loop-runs.json",
-            "computedAt": "2026-09-27T20:32:44.843Z",
+            "computedAt": "2026-10-10T21:53:05.961Z",
             "streak": 2,
-            "idle": 17,
-            "nights": 19,
+            "idle": 30,
+            "nights": 32,
             "lastCounted": "2026-09-23",
             "lastReset": null,
             "snapshotGeneratedAt": "2026-09-24T01:50:05Z",
-            "note": "2/7 consecutive converged nights since 2026-09-08→09 · 17 of 19 night(s) idle (skipped) · last counted 2026-09-23 · snapshot 2026-09-24T01:50:05Z"
+            "note": "2/7 consecutive converged nights since 2026-09-08→09 · 30 of 32 night(s) idle (skipped) · last counted 2026-09-23 · snapshot 2026-09-24T01:50:05Z"
           }
         }
       ]
