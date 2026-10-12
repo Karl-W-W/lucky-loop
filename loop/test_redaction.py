@@ -27,6 +27,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+import check_artifacts  # noqa: E402
 import redact  # noqa: E402
 from graph import vocabulary  # noqa: E402
 from redact import source_tokens, verify_clean, verify_no_source_tokens  # noqa: E402
@@ -78,6 +79,45 @@ CLEAN = {
 }
 
 
+# NAMED EXEMPTIONS — loop/check_artifacts.py's EXEMPT table waives one RULE at one
+# exact PATH in one artifact, and the sha7 entry additionally only when the value has
+# the shape of a short SHA. A waiver that is wider than it claims is a leak with a
+# green tick next to it, so each boundary gets a case. Every value here is FICTIONAL —
+# never the row that actually tripped the gate.
+#
+# Context (2026-10-12): `digits` is \b\d{6,}\b and `sha7` is a 7-character short SHA,
+# so about one commit in 27 writes one made only of decimal digits. One such row in
+# data/ci-runs.json refused every artifact-return run from 2026-09-28T02:35Z.
+#
+# Expected outcome of each case, as the three states apply_exemptions() can produce:
+#   none   — verify_clean found nothing at all
+#   waived — found, and the EXEMPT table waived every finding
+#   kept   — found, and at least one finding survived (the gate still refuses)
+EXEMPTIONS = [
+    ("all-digit sha7, the CI snapshot", "data/ci-runs.json",
+     {"runs": [{"sha7": "4209317"}]}, "waived"),
+    ("the same digits in `workflow`", "data/ci-runs.json",
+     {"runs": [{"workflow": "4209317"}]}, "kept"),
+    ("9 digits in sha7 (not a short SHA)", "data/ci-runs.json",
+     {"runs": [{"sha7": "420931755"}]}, "kept"),
+    ("an e-mail parked in sha7", "data/ci-runs.json",
+     {"runs": [{"sha7": "billing@example.com"}]}, "kept"),
+    ("all-digit sha7, another artifact", "data/loop-runs.json",
+     {"runs": [{"sha7": "4209317"}]}, "kept"),
+    ("an ordinary hex sha7", "data/ci-runs.json",
+     {"runs": [{"sha7": "a1b2c3d"}]}, "none"),
+]
+
+
+def exemption_outcome(rel: str, payload: dict) -> tuple[str, list[str], list[str]]:
+    """Run gate 1 plus the EXEMPT table over one payload; classify the result."""
+    found = verify_clean(payload)
+    kept, waived = check_artifacts.apply_exemptions(rel, found, payload)
+    if not found:
+        return "none", kept, waived
+    return ("kept" if kept else "waived"), kept, waived
+
+
 def wrap(text: str) -> dict:
     """Shape a candidate string like a real artifact so the walkers see it."""
     return {"nodes": [{"node": "act", "output": {"humanSummary": text}}]}
@@ -127,6 +167,16 @@ def main() -> int:
             failures += 1
         else:
             print(f"  clean    {label:26}")
+
+    print("\nNAMED EXEMPTIONS — the waiver must be exactly as narrow as it claims:")
+    for label, rel, payload, expect in EXEMPTIONS:
+        got, kept, waived = exemption_outcome(rel, payload)
+        if got == expect:
+            print(f"  {got:7}  {label:34} {rel}")
+        else:
+            print(f"  WRONG    {label:34} expected {expect}, got {got}"
+                  f" (kept={len(kept)}, waived={len(waived)})")
+            failures += 1
 
     print("\nPOSITIVE — the committed artifact must be clean:")
     runs_path = Path(args.runs)
