@@ -9,5 +9,5 @@ if ! /usr/bin/curl -s -o /dev/null --max-time 1 http://127.0.0.1:$PORT/; then
   nohup /usr/local/bin/node $HERE/../bridge/server.mjs >>$STATE/bridge.log 2>&1 &
   for i in {1..30}; do /usr/bin/curl -s -o /dev/null --max-time 1 http://127.0.0.1:$PORT/ && break; sleep 0.2; done
 fi
-TOKEN=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["token"])' $STATE/bridge.json)
+TOKEN=$(/usr/local/bin/node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).token' $STATE/bridge.json)
 /usr/bin/open "http://127.0.0.1:$PORT/#t=$TOKEN"
