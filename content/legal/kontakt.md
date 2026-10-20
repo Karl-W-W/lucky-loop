@@ -6,7 +6,7 @@
 > Support: send the e-mail address you paid with, what happened and when, and which document or "NEEDS YOU" card it concerns. Never send passwords.
 > Cancelling: an e-mail is enough; it takes effect at the end of the billing month already paid, no minimum term. The setup fee is refundable in full until work begins.
 > Data-subject requests (GDPR): name the right you want to exercise and the e-mail address you used with us. We reply within one month at the latest.
-> Honest status on 22 September 2026: no paying customer yet; the hosted loop runs on our own machine in Munich and has processed five documents, one of them synthetic.
+> Honest status on 27 September 2026: no paying customer yet; the hosted loop runs on our own machine in Munich and has processed seven documents, one of them synthetic.
 > A full English version follows the German text below.
 
 ## So erreichen Sie uns
@@ -38,8 +38,8 @@ Damit wir Ihnen eine brauchbare Antwort geben können, schreiben Sie bitte:
 - welche wiederkehrende Arbeit ein Agenten-Team übernehmen soll (zum Beispiel E-Mail-Triage, Rechnungen, Verwaltung) und wie viel davon pro Monat anfällt,
 - welche Entscheidungen Sie weiterhin selbst treffen wollen („NEEDS YOU“) und welche nicht.
 
-**Ehrlicher Stand am 22. September 2026.** Lucky Loop hat noch keinen zahlenden Kunden. Der gehostete Loop läuft unbeaufsichtigt auf unserem eigenen,
-dauerhaft laufenden Rechner in München und hat bisher fünf Dokumente verarbeitet (Verwaltung und Abrechnung: Rechnungen, Belege, Umsatzsteuerrechnungen und sonstige Dokumente),
+**Ehrlicher Stand am 27. September 2026.** Lucky Loop hat noch keinen zahlenden Kunden. Der gehostete Loop läuft unbeaufsichtigt auf unserem eigenen,
+dauerhaft laufenden Rechner in München und hat bisher sieben Dokumente verarbeitet (Verwaltung und Abrechnung: Rechnungen, Belege, Umsatzsteuerrechnungen und sonstige Dokumente),
 davon eines ein synthetisches Testdokument. Unser eigener Mail-Triage-Agent hat eine bewertete Runde abgeschlossen. Jeder Kunden-Loop wird von einem Menschen
 eingerichtet und betreut. Der Quellcode ist öffentlich: [github.com/Karl-W-W/lucky-loop](https://github.com/Karl-W-W/lucky-loop).
 Wir sagen Ihnen offen, ob Lucky Loop für Ihren Fall heute schon taugt.
@@ -116,8 +116,8 @@ So that we can give you a useful answer, please tell us:
 - which recurring work an agent team should take over (for example e-mail triage, bills, admin) and roughly how much of it there is per month,
 - which decisions you want to keep making yourself ("NEEDS YOU") and which you do not.
 
-**Honest status on 22 September 2026.** Lucky Loop has no paying customer yet. The hosted loop runs unattended on our own always-on machine in Munich
-and has processed five documents so far (admin and billing: invoices, receipts, VAT invoices and other documents), one of them a synthetic test document.
+**Honest status on 27 September 2026.** Lucky Loop has no paying customer yet. The hosted loop runs unattended on our own always-on machine in Munich
+and has processed seven documents so far (admin and billing: invoices, receipts, VAT invoices and other documents), one of them a synthetic test document.
 Our own mail-triage agent has completed one graded lap. Every customer loop is set up and tended by a human.
 The source code is public: [github.com/Karl-W-W/lucky-loop](https://github.com/Karl-W-W/lucky-loop). We will tell you plainly whether Lucky Loop is already a fit for your case.
 

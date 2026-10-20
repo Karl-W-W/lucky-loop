@@ -2,7 +2,7 @@
 
 > These terms govern the two products of Karl Würfel, München, Germany: Lucky Loop Hosted (a monthly subscription) and the one-time setup of a custom system. The German text is binding.
 > We sell to businesses only (Unternehmer, § 14 BGB). Consumers cannot order; there is no statutory right of withdrawal. No outcomes are guaranteed and no legal or tax advice is given.
-> As of 22 September 2026 the hosted loop runs on our own always-on machine in Munich with local models (Ollama), has processed five documents (one synthetic) and has no paying customer yet.
+> As of 27 September 2026 the hosted loop runs on our own always-on machine in Munich with local models (Ollama), has processed seven documents (one synthetic) and has no paying customer yet.
 > Every customer loop is set up and tended by a human. Anything that needs a decision is put to you as a "NEEDS YOU" card; you decide.
 > Prices: Lucky Loop Hosted €499 per month, billed monthly in advance; setup from €2,500 one-time, quoted before the order and invoiced at order. Net prices, plus VAT where applicable.
 > Payment by SEPA direct debit or card via Stripe. The subscription can be cancelled to the end of any month with no minimum term; the paid month runs out, no partial refund.
@@ -62,8 +62,8 @@ wird dem Kunden als Entscheidungsvorlage („NEEDS YOU“-Karte) auf dem bei der
 Die Sprachmodelle laufen lokal auf dieser Maschine (Ollama); kein Cloud-KI-Dienst erhält heute Dokumente des Kunden.
 Der Kunde braucht keine eigene Installation und kein Nutzerkonto; es gibt keinen Login. Jeder Kunden-Loop wird von einem Menschen eingerichtet und betreut.
 
-(d) **Entwicklungsstand.** Lucky Loop ist ein neues Produkt. Zum Stand dieser AGB (22. September 2026) läuft der gehostete Loop unbeaufsichtigt auf unserer Maschine in München
-und hat fünf Dokumente verarbeitet (Verwaltung und Abrechnung: Rechnungen, Belege, Umsatzsteuerrechnungen und sonstige Dokumente), davon eines ein synthetisches Testdokument.
+(d) **Entwicklungsstand.** Lucky Loop ist ein neues Produkt. Zum Stand dieser AGB (27. September 2026) läuft der gehostete Loop unbeaufsichtigt auf unserer Maschine in München
+und hat sieben Dokumente verarbeitet (Verwaltung und Abrechnung: Rechnungen, Belege, Umsatzsteuerrechnungen und sonstige Dokumente), davon eines ein synthetisches Testdokument.
 Unser eigener Mail-Triage-Agent hat eine bewertete Runde abgeschlossen. Es gibt noch keinen zahlenden Kunden. Der Kunde bestellt in Kenntnis dieses Standes.
 
 (e) **Keine Ergebnisgarantie.** Die Agenten arbeiten mit KI-Modellen. Deren Ergebnisse können unvollständig, veraltet oder falsch sein.

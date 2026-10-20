@@ -41,9 +41,20 @@ Then exactly these sections:
 ## 1b. Update the queue
 
 Every OPEN DECISION above must exist in the vault's `queue/needs-you.json` (`id`,
-`priority`, `title`, `why`, `command`, `since`, `source`, `owner`, `done: false`).
+`priority`, `title`, `why`, `command`, `since`, `source`, `owner`, `done: false`), plus
+the three Live Session fields, or the card drops the lint below N/N:
+- `agent` — the seat that acts on Karl's word: one of the seats listed in the vault's
+  `tools/needs-you-lint.py`. `commander` holds any card no seat fits.
+- `ask_kind` — `DO` (a step for Karl's hands), `PASTE` (a value Karl enters at its
+  destination; the value never enters the vault) or `CHECK` (look, then decide).
+- `ask` — the question in 140 characters or fewer, with no value in it.
+
+A tier-3 card also carries `closes_by: decision` and `options` whose FIRST word is the
+no-op (`hold`, `changes`, `keep-…`); `done` and `pasted` are never its default.
 Add what is missing; rewrite `updatedAt`; **never set `done`** — only Karl closes an
-item. Commit and push the vault to the bare (`origin`), then fast-forward the DGX tree,
+item. Fields on a card that already exists change only through the vault's
+`tools/needs-you-write`. Then run `python3 ~/brain/tools/needs-you-lint.py` and fix what
+it names. Commit and push the vault to the bare (`origin`), then fast-forward the DGX tree,
 or the Today page keeps rendering the old queue.
 
 ## 2. Log to the vault

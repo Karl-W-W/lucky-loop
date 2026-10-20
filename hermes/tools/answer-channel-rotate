@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+"""answer-channel-rotate — (re)make verb (a)'s page key on both sides. Run on the MAC.
+
+The page key is the channel only the page holds (see answer_api.py's docstring):
+
+* a fresh random secret (``secrets.token_urlsafe(32)``, 256 bits) is written to
+  ``~/.config/lucky-loop/fleet-answer-channel.key`` (mode 600, outside any repo), and
+  into the Hermes Desktop's remote-connection headers as ``X-Fleet-Answer-Key`` for
+  the box's URL — ``connections.json`` (the live registry) and ``connection.json``
+  (the v1 fallback) under ``~/Library/Application Support/Hermes``. The Desktop's main
+  process attaches those headers to every request it sends to that URL
+  (``headersForRemoteRequest`` in ``fetchJson``); it re-reads both files by mtime, so
+  no restart is needed. Both files are backed up first (mode 600, beside them).
+* only ``sha256(secret)`` crosses to the box, on stdin over ssh, into
+  ``~/.config/lucky-loop/fleet-answer-channel.sha256`` (mode 600, atomic rename).
+
+The secret is never printed, never passed on a command line, never sent to the box.
+This file holds no secret and belongs in the repo.
+
+Usage:
+    answer-channel-rotate            rotate both sides (old key stops working at once)
+    answer-channel-rotate --check    compare the Mac's key, the Desktop's header and the box's hash
+    answer-channel-rotate --dry-run  say what would change, change nothing
+    answer-channel-rotate --prune    only when --check passes: delete key backups whose one difference
+                                     from the live file is a retired key (each body is read first)
+
+After a rotate that checks out, the same prune runs by itself: the backups exist for a failed
+rotate, and once the new key works they are only an old key in plaintext.
+
+Env: ANSWER_CHANNEL_HOST (default dgx-remote), ANSWER_CHANNEL_URL (default
+http://127.0.0.1:9119), HERMES_DESKTOP_DATA (default ~/Library/Application Support/Hermes).
+Exit: 0 ok · 1 failed · 2 refused (nothing changed).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import secrets
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+HEADER = "X-Fleet-Answer-Key"
+HOST = os.environ.get("ANSWER_CHANNEL_HOST", "dgx-remote")
+URL = os.environ.get("ANSWER_CHANNEL_URL", "http://127.0.0.1:9119").rstrip("/")
+DATA = Path(os.environ.get("HERMES_DESKTOP_DATA") or (Path.home() / "Library" / "Application Support" / "Hermes"))
+REGISTRY = DATA / "connections.json"
+V1 = DATA / "connection.json"
+POLICY = DATA / "secure-token-storage.json"
+KEY_FILE = Path.home() / ".config" / "lucky-loop" / "fleet-answer-channel.key"
+BOX_FILE = "~/.config/lucky-loop/fleet-answer-channel.sha256"
+
+
+def die(msg: str, code: int = 2) -> None:
+    print(f"answer-channel-rotate: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def write_600(path: Path, text: str) -> None:
+    """Atomic write, mode 600 from the first byte."""
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix="." + path.name + ".")
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def sha(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+def same_url(u: object) -> bool:
+    return isinstance(u, str) and u.rstrip("/") == URL
+
+
+def desktop_values() -> list:
+    """The page-key header value(s) the Desktop holds for URL, per file (plain encoding only)."""
+    out = []
+    for f in (REGISTRY, V1):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        blocks = [c for c in d.get("connections", []) if isinstance(c, dict)] if f == REGISTRY else [d.get("remote") or {}]
+        for b in blocks:
+            if same_url(b.get("url")):
+                h = (b.get("headers") or {}).get(HEADER)
+                out.append((f.name, h.get("value") if isinstance(h, dict) and h.get("encoding") == "plain" else None))
+    return out
+
+
+def box_hash() -> str:
+    p = subprocess.run(["ssh", HOST, f"cat {BOX_FILE} 2>/dev/null; stat -c %a {BOX_FILE} 2>/dev/null"],
+                       capture_output=True, text=True, timeout=30)
+    return p.stdout.strip()
+
+
+def check() -> int:
+    try:
+        key = KEY_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        key = ""
+    mode = oct(KEY_FILE.stat().st_mode & 0o777) if KEY_FILE.exists() else "absent"
+    want = sha(key) if key else None
+    ok = bool(key) and mode == "0o600"
+    print(f"mac key file:  {'present' if key else 'ABSENT'} ({mode})")
+    for name, v in desktop_values() or [("desktop", None)]:
+        good = bool(v) and v == key
+        ok &= good
+        print(f"desktop {name}: {'matches the key file' if good else 'MISSING or DIFFERENT'}")
+    lines = box_hash().splitlines()
+    got, bmode = (lines + ["", ""])[:2]
+    good = bool(want) and got == want and bmode == "600"
+    ok &= good
+    print(f"box verifier:  {'matches (600)' if good else 'MISSING, DIFFERENT or not 600'}"
+          + (f" · sha256 {want[:8]}…" if good else ""))
+    print("check: " + ("PASS" if ok else "FAIL"))
+    return 0 if ok else 1
+
+
+def rotate(dry: bool) -> int:
+    try:
+        if json.loads(POLICY.read_text(encoding="utf-8")).get("on"):
+            die("the Desktop's secure token storage is ON: its headers must be safeStorage envelopes, "
+                "which only the Desktop can write. Set the key in Settings -> Connections instead.")
+    except (OSError, ValueError):
+        pass
+    reg = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    hits = [c for c in reg.get("connections", []) if isinstance(c, dict)
+            and c.get("kind") in ("remote", "cloud") and same_url(c.get("url"))]
+    if not hits:
+        die(f"no remote connection for {URL} in {REGISTRY.name}; nothing changed")
+    v1 = None
+    try:
+        v1 = json.loads(V1.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
+    v1_hit = bool(v1 and same_url((v1.get("remote") or {}).get("url")))
+    print(f"will set {HEADER} on {len(hits)} registry connection(s) for {URL}"
+          + (" and the v1 remote block" if v1_hit else "") + f"; key file {KEY_FILE}; box {HOST}:{BOX_FILE}")
+    if dry:
+        print("dry run: nothing changed")
+        return 0
+
+    key = secrets.token_urlsafe(32)
+    envelope = {"encoding": "plain", "value": key}   # the Desktop's own format while secure storage is off
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    for f in (REGISTRY, V1) if v1_hit else (REGISTRY,):
+        bak = f.with_name(f.name + ".bak-" + stamp)
+        shutil.copy2(f, bak)
+        os.chmod(bak, 0o600)
+        print(f"backed up {f.name} -> {bak.name}")
+
+    # 1. the Mac's own copy, then the Desktop's headers; 2. the box's hash, last.
+    # In between, answers are refused (fail closed), never accepted on a half-made key.
+    write_600(KEY_FILE, key + "\n")
+    for c in hits:
+        c["headers"] = {**(c.get("headers") or {}), HEADER: envelope}
+    write_600(REGISTRY, json.dumps(reg, indent=2))
+    if v1_hit:
+        v1["remote"]["headers"] = {**(v1["remote"].get("headers") or {}), HEADER: envelope}
+        write_600(V1, json.dumps(v1, indent=2))
+
+    remote = ("umask 077 && mkdir -p ~/.config/lucky-loop && "
+              f"t=$(mktemp ~/.config/lucky-loop/.channel.XXXXXX) && cat > \"$t\" && chmod 600 \"$t\" && mv \"$t\" {BOX_FILE}")
+    p = subprocess.run(["ssh", HOST, remote], input=sha(key) + "\n", capture_output=True, text=True, timeout=30)
+    if p.returncode != 0:
+        die(f"the box's verifier was NOT written (ssh exit {p.returncode}); the Mac holds the new key, "
+            "so answers are refused until this is re-run", 1)
+    key = None
+    rc = check()
+    if rc == 0:
+        prune_key_backups()
+    return rc
+
+
+def _strip_key(obj: object) -> object:
+    """The JSON with every X-Fleet-Answer-Key header removed (to compare a backup with the live file)."""
+    if isinstance(obj, dict):
+        return {k: _strip_key(v) for k, v in obj.items()
+                if not (k == HEADER and isinstance(v, (dict, str)))}
+    if isinstance(obj, list):
+        return [_strip_key(v) for v in obj]
+    return obj
+
+
+def _holds_key(obj: object) -> bool:
+    if isinstance(obj, dict):
+        return any(k == HEADER or _holds_key(v) for k, v in obj.items())
+    if isinstance(obj, list):
+        return any(_holds_key(v) for v in obj)
+    return False
+
+
+def prune_key_backups() -> int:
+    """After a rotate that checked out: delete the backups that hold an OLD page key in plaintext.
+
+    Each backup's BODY is read first. It is deleted only when (a) it parses, (b) it holds a page
+    key header, and (c) with every page-key header removed it is identical to the live file with
+    its header removed -- i.e. the only thing it preserves is a dead key. A backup that differs in
+    anything else, or holds no key, or does not parse, is kept and named for a human. Returns the
+    number deleted.
+    """
+    gone = 0
+    for live in (REGISTRY, V1):
+        try:
+            cur = _strip_key(json.loads(live.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+        for bak in sorted(live.parent.glob(live.name + ".bak-*")):
+            try:
+                body = json.loads(bak.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                print(f"kept {bak.name}: unreadable; look at it by hand")
+                continue
+            if not _holds_key(body):
+                continue  # a pre-channel backup: no key in it, not ours to remove
+            if _strip_key(body) != cur:
+                print(f"kept {bak.name}: holds an old key AND differs from {live.name} in more than the key; "
+                      "look at it by hand before deleting")
+                continue
+            bak.unlink()
+            gone += 1
+            print(f"deleted {bak.name}: its only difference from {live.name} was a retired key")
+    return gone
+
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    if "-h" in args or "--help" in args:
+        print(__doc__)
+        sys.exit(0)
+    if "--check" in args:
+        sys.exit(check())
+    if "--prune" in args:
+        sys.exit(0 if check() == 0 and prune_key_backups() >= 0 else 1)
+    sys.exit(rotate("--dry-run" in args))
