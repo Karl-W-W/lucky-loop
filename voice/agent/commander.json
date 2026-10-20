@@ -17,7 +17,10 @@
         "built_in_tools": {
           "language_detection": {
             "name": "language_detection",
-            "description": ""
+            "description": "Switch language when Karl switches between German, English and Russian.",
+            "params": {
+              "system_tool_type": "language_detection"
+            }
           }
         }
       }
@@ -148,10 +151,12 @@
         ],
         "properties": {
           "pane": {
-            "type": "string"
+            "type": "string",
+            "description": "commander, a pane name, or a pane id."
           },
           "question": {
-            "type": "string"
+            "type": "string",
+            "description": "The question, in Karl's words."
           }
         }
       }
@@ -166,7 +171,8 @@
         ],
         "properties": {
           "goal": {
-            "type": "string"
+            "type": "string",
+            "description": "What the new lane should achieve, in Karl's words."
           }
         }
       }

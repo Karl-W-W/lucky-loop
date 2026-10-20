@@ -22,6 +22,8 @@ export function buildBody({ llm, voiceId } = {}) {
     type: "client",
     expects_response: true,
     response_timeout_secs: t.name === "card_answer" ? 90 : 20,
+    // A few words ("Checking.") while the tool runs: first audio does not wait on the Mac.
+    pre_tool_speech: t.name === "end_call" ? "off" : "force",
     ...t,
   }));
   if (voiceId) cc.tts.voice_id = voiceId;
