@@ -76,9 +76,9 @@ async function handle(req, res) {
 
   if (req.method === "GET" && STATIC[url.pathname]) {
     const [file, type] = STATIC[url.pathname];
-    let text = readFileSync(join(PAGE, file), "utf8");
-    if (file === "index.html") text = text.replace("__LL_TOKEN__", TOKEN);
-    return send(res, 200, text, type);
+    // The page carries no token: `bin/call` opens it with the token in the URL fragment,
+    // read from bridge.json (mode 600), so a GET from anywhere else gets nothing usable.
+    return send(res, 200, readFileSync(join(PAGE, file), "utf8"), type);
   }
   if (req.method === "GET" && url.pathname === "/vendor/elevenlabs.js") {
     return send(res, 200, readFileSync(VENDOR, "utf8"), "text/javascript; charset=utf-8");
@@ -99,7 +99,7 @@ async function handle(req, res) {
     const callId = `call-${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
     // Keep the Mac awake for the life of the call: caffeinate exits when the call ends.
     const caf = spawn("/usr/bin/caffeinate", ["-dimsu", "-t", String(4 * 3600)], { stdio: "ignore" });
-    calls.set(callId, { started: Date.now(), caffeinate: caf });
+    calls.set(callId, { started: Date.now(), seen: Date.now(), caffeinate: caf });
     T.logEvent({ callId }, { type: "session", agent_id: id });
     return send(res, 200, { signedUrl: signed_url, callId });
   }
@@ -122,7 +122,10 @@ async function handle(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/events") {
-    const { callId, events } = await body(req);
+    const { callId, events, said } = await body(req);
+    const call = calls.get(callId);
+    if (call) call.seen = Date.now();
+    if (said) T.hearUser(callId, said);
     for (const ev of (events || []).slice(0, 500)) T.logEvent({ callId }, { type: "timing", ...ev });
     return send(res, 200, { ok: true });
   }
@@ -149,8 +152,19 @@ const server = createServer((req, res) => {
   handle(req, res).catch((e) => send(res, 500, { error: String(e.message || e).slice(0, 300) }));
 });
 
+// A tab closed without hanging up stops sending heartbeats: let the Mac sleep again.
+setInterval(() => {
+  for (const [id, c] of calls) {
+    if (Date.now() - c.seen > 60_000) {
+      c.caffeinate.kill();
+      calls.delete(id);
+      T.logEvent({ callId: id }, { type: "abandoned" });
+    }
+  }
+}, 15_000).unref();
+
 server.listen(PORT, "127.0.0.1", () => {
-  writeFileSync(join(T.STATE, "bridge.json"), JSON.stringify({ pid: process.pid, port: PORT, at: new Date().toISOString() }), { mode: 0o600 });
+  writeFileSync(join(T.STATE, "bridge.json"), JSON.stringify({ pid: process.pid, port: PORT, token: TOKEN, at: new Date().toISOString() }), { mode: 0o600 });
   console.log(`voice bridge on http://127.0.0.1:${PORT}/ (pid ${process.pid})`);
 });
 

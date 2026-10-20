@@ -1,7 +1,7 @@
 // The Commander's client tools, executed on the Mac. The page calls these over 127.0.0.1;
 // every result is short, redacted text meant to be summarised aloud, never read out.
 import { execFile } from "node:child_process";
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, renameSync, unlinkSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { clip, redact } from "./redact.mjs";
@@ -92,7 +92,7 @@ const parked = (i) => i.parked?.until && String(i.parked.until) >= today();
 const RISKY = /public|publish|push|merge|deploy|spend|pay|price|stripe|secret|key|token|delet|send|mail|outreach|real data|client|legal/i;
 
 export function isRisky(card) {
-  return Number(card.tier) >= 3 || RISKY.test(`${card.title} ${card.ask} ${card.default}`);
+  return Number(card.tier) >= 3 || RISKY.test(`${card.title} ${card.ask} ${card.why} ${card.default} ${(card.options || []).join(" ")}`);
 }
 
 export function mapWord(card, spoken) {
@@ -127,53 +127,90 @@ export async function cards_list() {
   };
 }
 
-export async function card_answer({ id, word, note = "", confirmed = false, excerpt = "" }, ctx = {}) {
+// A spoken "confirm" is proven by Karl's own transcribed words, not by a flag the model sets:
+// the page posts every final user transcript here, and a risky answer is recorded only when one
+// of them says confirm AFTER the bridge issued the echo for that exact card and word.
+const heard = new Map();    // callId -> [{at, text}]
+const echoes = new Map();   // `${callId}|${id}|${answer}` -> issued at (ms)
+const CONFIRM = /\b(confirm(ed)?|best(ä|ae)tig\w*|подтвер\w*)\b/i;
+
+export function hearUser(callId, text) {
+  if (!callId || !text) return;
+  const list = heard.get(callId) || [];
+  list.push({ at: Date.now(), text: String(text).slice(0, 500) });
+  heard.set(callId, list.slice(-50));
+}
+
+function confirmedSince(callId, since) {
+  return (heard.get(callId) || []).some((h) => h.at > since && CONFIRM.test(h.text));
+}
+
+async function commander(text, ctx) {
+  try { return (await tell({ pane: "commander", text }, ctx)).sent === true; } catch { return false; }
+}
+
+export async function card_answer({ id, word, note = "", excerpt = "" }, ctx = {}) {
   const { hub, q } = await queueCopy();
   const card = q.items.find((i) => i.id === id);
   if (!card) return { recorded: false, reason: `no card with id ${id}` };
   if (card.done) return { recorded: false, reason: `already closed (${card.answer || "no word"})` };
   const spoken = String(word || "").toLowerCase();
   if (spoken === "change") {
-    await tell({ pane: "commander", text: `[voice ${now()}] Karl wants a CHANGE on card ${id}: ${note || excerpt}` }, ctx);
-    logEvent(ctx, { type: "card_change", id, note });
-    return { recorded: false, routed: "commander", say: "Sent the change to the commander; the card stays open." };
+    const sent = await commander(`[voice ${now()}] Karl wants a CHANGE on card ${id}: ${note || excerpt}`, ctx);
+    logEvent(ctx, { type: "card_change", id, note, sent });
+    return { recorded: false, say: sent ? "Sent the change to the commander; the card stays open." : "I could not reach the commander; the card stays open." };
   }
   const answer = mapWord(card, spoken);
   if (!answer) return { recorded: false, reason: `say one of: ${(card.options || []).join(", ")}, later, or change` };
-  if (isRisky(card) && answer !== "hold" && answer !== "later" && !confirmed) {
-    return { recorded: false, needs_confirm: true,
-      say: `This one is ${card.tier >= 3 ? "tier " + card.tier : "sensitive"}: ${redact(clip(card.ask || card.title, 160))}. Say "confirm" to record "${answer}".` };
+  const key = `${ctx.callId}|${id}|${answer}`;
+  if (isRisky(card) && answer !== "hold" && answer !== "later") {
+    const issued = echoes.get(key);
+    if (!issued || !confirmedSince(ctx.callId, issued)) {
+      if (!issued) echoes.set(key, Date.now());
+      return { recorded: false, needs_confirm: true,
+        say: `Echo this in one sentence: ${card.tier >= 3 ? "tier " + card.tier : "sensitive"}, ${redact(clip(card.ask || card.title, 160))}, answer "${answer}". Ask Karl to say "confirm", then call card_answer again with the same id and word.` };
+    }
+    echoes.delete(key);
   }
   const quote = redact(clip(excerpt || word, 160)).replace(/["\n]/g, " ");
   const by = `karl by voice, source=voice, call ${ctx.callId || "?"} at ${now()}: "${quote}"${note ? " · note: " + redact(clip(note, 200)) : ""}`;
   const op = { id, answer, by };
-  const r = hub ? await run(NYW,["--message", `voice: ${id} = ${answer}`], { input: JSON.stringify([op]), timeout: 60_000 }) : { code: 1, stdout: "", stderr: "hub not current" };
-  logEvent(ctx, { type: "card_answer", id, answer, code: r.code, spooled: !hub || undefined });
+  if (!hub) return spool(op, ctx, "the hub is unreachable or behind the Mac's vault");
+  const r = await run(NYW, ["--message", `voice: ${id} = ${answer}`], { input: JSON.stringify([op]), timeout: 75_000 });
+  logEvent(ctx, { type: "card_answer", id, answer, code: r.code });
   if (r.code === 0 || r.code === 3) {
-    await tell({ pane: "commander", text: `[voice ${now()}] Karl answered card ${id} = ${answer} by voice (recorded on the hub). Execute it.${note ? " Note: " + note : ""}` }, ctx);
-    return { recorded: true, answer, say: `Recorded: ${answer}. The commander has it.` };
+    const sent = await commander(`[voice ${now()}] Karl answered card ${id} = ${answer} by voice (recorded on the hub). Execute it.${note ? " Note: " + note : ""}`, ctx);
+    return { recorded: true, answer, say: sent ? `Recorded: ${answer}. The commander has it.` : `Recorded: ${answer}, but I could not reach the commander.` };
   }
   if (r.code === 2) return { recorded: false, reason: redact(clip(r.stdout + r.stderr, 300)) };
-  // The hub (the box) is down: keep the word, never lose it, tell the commander.
+  if (r.code === 1 && /not recorded|push|fetch|ssh|connect/i.test(r.stdout + r.stderr)) return spool(op, ctx, "the push to the hub failed");
+  return { recorded: false, reason: `the queue tool failed (exit ${r.code}); nothing recorded, nothing spooled` };
+}
+
+async function spool(op, ctx, why) {
   appendFileSync(SPOOL, JSON.stringify({ at: now(), op, call: ctx.callId }) + "\n", { mode: 0o600 });
-  await tell({ pane: "commander", text: `[voice ${now()}] Karl answered card ${id} = ${answer} by voice. The hub was unreachable, so it is SPOOLED in ${SPOOL}; replay with voice/bin/replay-answers when the box is back.` }, ctx);
-  return { recorded: "spooled", answer, say: "The box is down, so I kept your answer locally; it goes into the queue the moment the box is back." };
+  logEvent(ctx, { type: "card_answer", id: op.id, answer: op.answer, spooled: true });
+  const sent = await commander(`[voice ${now()}] Karl answered card ${op.id} = ${op.answer} by voice. Not on the hub (${why}): SPOOLED in ${SPOOL}. After you push the vault's master to origin, run voice/bin/replay-answers.`, ctx);
+  return { recorded: "spooled", answer: op.answer, say: `Kept locally, because ${why}; it goes into the queue once the commander has pushed the vault.${sent ? "" : " I could not reach the commander."}` };
 }
 
 export async function replaySpool() {
   if (!existsSync(SPOOL)) return { replayed: 0, left: 0 };
   const { hub } = await queueCopy();
   if (!hub) return { replayed: 0, refused: "the hub is unreachable, or the vault's master is ahead of origin: the commander pushes master first" };
-  const lines = readFileSync(SPOOL, "utf8").split("\n").filter(Boolean);
+  // Move the spool aside first, so an answer spooled during the replay is never overwritten.
+  const work = SPOOL + `.replaying-${process.pid}`;
+  renameSync(SPOOL, work);
   const left = [];
   let replayed = 0;
-  for (const l of lines) {
+  for (const l of readFileSync(work, "utf8").split("\n").filter(Boolean)) {
     const { op } = JSON.parse(l);
-    const r = await run(NYW, ["--message", `voice (replayed): ${op.id} = ${op.answer}`], { input: JSON.stringify([op]), timeout: 60_000 });
+    const r = await run(NYW, ["--message", `voice (replayed): ${op.id} = ${op.answer}`], { input: JSON.stringify([op]), timeout: 75_000 });
     if (r.code === 0 || r.code === 3 || r.code === 2) replayed++; // 2 = refused, e.g. already closed: nothing to keep
     else left.push(l);
   }
-  writeFileSync(SPOOL, left.map((l) => l + "\n").join(""), { mode: 0o600 });
+  if (left.length) appendFileSync(SPOOL, left.map((l) => l + "\n").join(""), { mode: 0o600 });
+  unlinkSync(work);
   return { replayed, left: left.length };
 }
 

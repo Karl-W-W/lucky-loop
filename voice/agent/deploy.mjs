@@ -21,7 +21,7 @@ export function buildBody({ llm, voiceId } = {}) {
   cc.agent.prompt.tools = spec.client_tools.map((t) => ({
     type: "client",
     expects_response: true,
-    response_timeout_secs: 20,
+    response_timeout_secs: t.name === "card_answer" ? 90 : 20,
     ...t,
   }));
   if (voiceId) cc.tts.voice_id = voiceId;

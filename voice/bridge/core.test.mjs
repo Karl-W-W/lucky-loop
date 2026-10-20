@@ -50,3 +50,16 @@ test("tier 3 and public/spend/delete words need a spoken confirm", () => {
   assert.equal(isRisky({ tier: 1, title: "merge the legal pages" }), true);
   assert.equal(isRisky({ tier: 1, title: "rename a pane", ask: "", default: "" }), false);
 });
+
+test("a risky answer needs Karl's own transcribed confirm after the echo", async () => {
+  const { card_answer, hearUser } = await import("./tools.mjs");
+  // The real queue is read but never written here: the gate refuses before any write.
+  const ctx = { callId: "call-gate-test" };
+  const id = "legal-pages-merge-2026-10-12";
+  hearUser(ctx.callId, "confirm"); // said BEFORE the echo: must not count
+  const a = await card_answer({ id, word: "approve", excerpt: "approve" }, ctx);
+  if (a.reason?.startsWith("no card") || a.reason?.startsWith("already closed")) return; // card gone: nothing to test
+  assert.equal(a.needs_confirm, true);
+  const b = await card_answer({ id, word: "approve", excerpt: "confirm" }, ctx);
+  assert.equal(b.needs_confirm, true, "the model saying confirm is not Karl saying it");
+});
