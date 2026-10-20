@@ -25,7 +25,7 @@ export function buildBody({ llm, voiceId } = {}) {
     // A few words ("Checking.") while the tool runs: first audio does not wait on the Mac.
     pre_tool_speech: t.name === "end_call" ? "off" : "force",
     ...t,
-  }));
+  })).concat(spec.system_tools || []);
   if (voiceId) cc.tts.voice_id = voiceId;
   return { name: spec.name, conversation_config: cc, platform_settings: spec.platform_settings };
 }

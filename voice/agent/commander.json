@@ -13,16 +13,7 @@
       "prompt": {
         "llm": "claude-haiku-5-5",
         "temperature": 0.3,
-        "max_tokens": 300,
-        "built_in_tools": {
-          "language_detection": {
-            "name": "language_detection",
-            "description": "Switch language when Karl switches between German, English and Russian.",
-            "params": {
-              "system_tool_type": "language_detection"
-            }
-          }
-        }
+        "max_tokens": 300
       }
     },
     "tts": {
@@ -199,6 +190,16 @@
       "parameters": {
         "type": "object",
         "properties": {}
+      }
+    }
+  ],
+  "system_tools": [
+    {
+      "type": "system",
+      "name": "language_detection",
+      "description": "Switch language when Karl switches between German, English and Russian.",
+      "params": {
+        "system_tool_type": "language_detection"
       }
     }
   ]
