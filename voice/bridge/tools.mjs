@@ -74,13 +74,17 @@ export async function resolvePane(target) {
 // ---------- the queue ----------
 
 async function queueCopy() {
-  // The hub is the box. When it is down, say so and read the newest local copy.
+  // The hub is the box. needs-you-write reads origin/master, so the hub copy is only usable
+  // when it is reachable AND the Mac's master is not ahead of it (the commander can commit
+  // closes on master while the box is down; origin/master would then reopen them). Otherwise
+  // read master, and card_answer spools instead of writing.
   const f = await run("git", ["-C", BRAIN, "-c", "core.sshCommand=ssh -o BatchMode=yes -o ConnectTimeout=5",
     "fetch", "-q", "origin", "master"], { timeout: 15_000 });
-  const ref = f.code ? "master" : "origin/master";
-  const s = await run("git", ["-C", BRAIN, "show", `${ref}:queue/needs-you.json`]);
+  const ahead = await run("git", ["-C", BRAIN, "rev-list", "--count", "origin/master..master"]);
+  const hub = f.code === 0 && ahead.code === 0 && ahead.stdout.trim() === "0";
+  const s = await run("git", ["-C", BRAIN, "show", `${hub ? "origin/master" : "master"}:queue/needs-you.json`]);
   if (s.code) throw new Error("cannot read the queue");
-  return { hub: f.code === 0, q: JSON.parse(s.stdout) };
+  return { hub, q: JSON.parse(s.stdout) };
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -124,7 +128,7 @@ export async function cards_list() {
 }
 
 export async function card_answer({ id, word, note = "", confirmed = false, excerpt = "" }, ctx = {}) {
-  const { q } = await queueCopy();
+  const { hub, q } = await queueCopy();
   const card = q.items.find((i) => i.id === id);
   if (!card) return { recorded: false, reason: `no card with id ${id}` };
   if (card.done) return { recorded: false, reason: `already closed (${card.answer || "no word"})` };
@@ -143,8 +147,8 @@ export async function card_answer({ id, word, note = "", confirmed = false, exce
   const quote = redact(clip(excerpt || word, 160)).replace(/["\n]/g, " ");
   const by = `karl by voice, source=voice, call ${ctx.callId || "?"} at ${now()}: "${quote}"${note ? " · note: " + redact(clip(note, 200)) : ""}`;
   const op = { id, answer, by };
-  const r = await run(NYW, ["--message", `voice: ${id} = ${answer}`], { input: JSON.stringify([op]), timeout: 60_000 });
-  logEvent(ctx, { type: "card_answer", id, answer, code: r.code });
+  const r = hub ? await run(NYW,["--message", `voice: ${id} = ${answer}`], { input: JSON.stringify([op]), timeout: 60_000 }) : { code: 1, stdout: "", stderr: "hub not current" };
+  logEvent(ctx, { type: "card_answer", id, answer, code: r.code, spooled: !hub || undefined });
   if (r.code === 0 || r.code === 3) {
     await tell({ pane: "commander", text: `[voice ${now()}] Karl answered card ${id} = ${answer} by voice (recorded on the hub). Execute it.${note ? " Note: " + note : ""}` }, ctx);
     return { recorded: true, answer, say: `Recorded: ${answer}. The commander has it.` };
@@ -158,6 +162,8 @@ export async function card_answer({ id, word, note = "", confirmed = false, exce
 
 export async function replaySpool() {
   if (!existsSync(SPOOL)) return { replayed: 0, left: 0 };
+  const { hub } = await queueCopy();
+  if (!hub) return { replayed: 0, refused: "the hub is unreachable, or the vault's master is ahead of origin: the commander pushes master first" };
   const lines = readFileSync(SPOOL, "utf8").split("\n").filter(Boolean);
   const left = [];
   let replayed = 0;
