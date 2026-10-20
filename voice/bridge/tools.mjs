@@ -1,7 +1,7 @@
 // The Commander's client tools, executed on the Mac. The page calls these over 127.0.0.1;
 // every result is short, redacted text meant to be summarised aloud, never read out.
 import { execFile } from "node:child_process";
-import { appendFileSync, mkdirSync, readFileSync, renameSync, unlinkSync, existsSync } from "node:fs";
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { clip, redact } from "./redact.mjs";
@@ -127,12 +127,15 @@ export async function cards_list() {
   };
 }
 
-// A spoken "confirm" is proven by Karl's own transcribed words, not by a flag the model sets:
-// the page posts every final user transcript here, and a risky answer is recorded only when one
-// of them says confirm AFTER the bridge issued the echo for that exact card and word.
+// A spoken "confirm" is proven by Karl's own transcribed words, not by a flag the model sets.
+// One echo is pending per call, for one card and one word. Only the FIRST thing Karl says after
+// it, within 60 s, can confirm it, and only if that utterance is a bare confirm (a "yes" or
+// "please" around it is fine; any negation refuses). Either way the echo is then spent.
 const heard = new Map();    // callId -> [{at, text}]
-const echoes = new Map();   // `${callId}|${id}|${answer}` -> issued at (ms)
-const CONFIRM = /\b(confirm(ed)?|best(ä|ae)tig\w*|подтвер\w*)\b/i;
+const pending = new Map();  // callId -> {key, at}
+const CONFIRM_WINDOW_MS = 60_000;
+const CONFIRM_WORD = /^(?:(?:yes|yeah|ja|да|ok|okay)[\s,.!]*)?(?:i\s+)?(?:confirm(?:ed)?|bestätigt|bestätige|ich\s+bestätige|подтверждаю|подтверждено)(?:[\s,.!]*(?:please|bitte|пожалуйста))?[\s.!]*$/iu;
+const NEGATION = /(?<![\p{L}])(?:no|not|don'?t|can'?t|never|nicht|kein\w*|nein|не|нет)(?![\p{L}])/iu;
 
 export function hearUser(callId, text) {
   if (!callId || !text) return;
@@ -141,8 +144,16 @@ export function hearUser(callId, text) {
   heard.set(callId, list.slice(-50));
 }
 
-function confirmedSince(callId, since) {
-  return (heard.get(callId) || []).some((h) => h.at > since && CONFIRM.test(h.text));
+export function isBareConfirm(text) {
+  const t = String(text || "").trim();
+  return CONFIRM_WORD.test(t) && !NEGATION.test(t);
+}
+
+// "confirmed" | "waiting" (nothing said yet, still in the window) | "spent"
+function confirmState(callId, p) {
+  const next = (heard.get(callId) || []).find((h) => h.at > p.at);
+  if (!next) return Date.now() - p.at <= CONFIRM_WINDOW_MS ? "waiting" : "spent";
+  return next.at - p.at <= CONFIRM_WINDOW_MS && isBareConfirm(next.text) ? "confirmed" : "spent";
 }
 
 async function commander(text, ctx) {
@@ -164,13 +175,16 @@ export async function card_answer({ id, word, note = "", excerpt = "" }, ctx = {
   if (!answer) return { recorded: false, reason: `say one of: ${(card.options || []).join(", ")}, later, or change` };
   const key = `${ctx.callId}|${id}|${answer}`;
   if (isRisky(card) && answer !== "hold" && answer !== "later") {
-    const issued = echoes.get(key);
-    if (!issued || !confirmedSince(ctx.callId, issued)) {
-      if (!issued) echoes.set(key, Date.now());
+    const p = pending.get(ctx.callId);
+    const state = p && p.key === key ? confirmState(ctx.callId, p) : null;
+    if (state === "waiting") return { recorded: false, needs_confirm: true, say: "Still waiting for Karl to say confirm." };
+    if (state !== "confirmed") {
+      // A new echo replaces any other pending one: only the latest card can be confirmed.
+      pending.set(ctx.callId, { key, at: Date.now() });
       return { recorded: false, needs_confirm: true,
         say: `Echo this in one sentence: ${card.tier >= 3 ? "tier " + card.tier : "sensitive"}, ${redact(clip(card.ask || card.title, 160))}, answer "${answer}". Ask Karl to say "confirm", then call card_answer again with the same id and word.` };
     }
-    echoes.delete(key);
+    pending.delete(ctx.callId);
   }
   const quote = redact(clip(excerpt || word, 160)).replace(/["\n]/g, " ");
   const by = `karl by voice, source=voice, call ${ctx.callId || "?"} at ${now()}: "${quote}"${note ? " · note: " + redact(clip(note, 200)) : ""}`;
@@ -195,6 +209,11 @@ async function spool(op, ctx, why) {
 }
 
 export async function replaySpool() {
+  // A replay that crashed leaves SPOOL.replaying-<pid>: fold it back in first, never lose it.
+  for (const f of readdirSync(STATE).filter((n) => n.startsWith("pending-answers.jsonl.replaying-"))) {
+    appendFileSync(SPOOL, readFileSync(join(STATE, f), "utf8"), { mode: 0o600 });
+    unlinkSync(join(STATE, f));
+  }
   if (!existsSync(SPOOL)) return { replayed: 0, left: 0 };
   const { hub } = await queueCopy();
   if (!hub) return { replayed: 0, refused: "the hub is unreachable, or the vault's master is ahead of origin: the commander pushes master first" };

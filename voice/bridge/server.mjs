@@ -155,7 +155,7 @@ const server = createServer((req, res) => {
 // A tab closed without hanging up stops sending heartbeats: let the Mac sleep again.
 setInterval(() => {
   for (const [id, c] of calls) {
-    if (Date.now() - c.seen > 60_000) {
+    if (Date.now() - c.seen > 180_000) { // hidden tabs throttle timers to ~1/min
       c.caffeinate.kill();
       calls.delete(id);
       T.logEvent({ callId: id }, { type: "abandoned" });
