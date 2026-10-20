@@ -1,0 +1,73 @@
+/* The War Room's dark command-center tokens, trimmed to what one call screen needs. */
+:root {
+  --surface: #0b0f14;
+  --panel: #121820;
+  --grid: #222b36;
+  --ink: #e6edf3;
+  --ink-2: #9aa7b4;
+  --series-blue: #4c8dff;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: 16px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.call {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 16px 48px;
+  display: grid;
+  gap: 24px;
+}
+
+h1 { margin: 0; font-size: 22px; font-weight: 600; }
+h2 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: .06em; }
+.muted { color: var(--ink-2); font-weight: 400; text-transform: none; letter-spacing: 0; }
+.state { margin: 4px 0 0; color: var(--ink-2); }
+.state.live { color: var(--ok); }
+.state.err { color: var(--bad); }
+
+.call-btn {
+  justify-self: center;
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  border: 1px solid var(--grid);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow .12s, background .12s;
+}
+.call-btn:focus-visible { outline: 2px solid var(--series-blue); outline-offset: 4px; }
+.call-btn[aria-pressed="true"] { background: #2a1214; border-color: var(--bad); }
+.call-btn.speaking { box-shadow: 0 0 0 10px rgba(76, 141, 255, .18); }
+.call-btn.hearing { box-shadow: 0 0 0 10px rgba(63, 185, 80, .18); }
+
+.captions, .fleet {
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+.captions ol { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow-y: auto; }
+.captions li { padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.captions li:last-child { border-bottom: 0; }
+.captions .who { color: var(--ink-2); font-size: 13px; margin-right: 6px; }
+
+.fleet ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fleet li { display: flex; gap: 8px; align-items: baseline; font-size: 14px; overflow-wrap: anywhere; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--ink-2); }
+.dot.working { background: var(--series-blue); }
+.dot.idle { background: var(--ok); }
+.dot.blocked { background: var(--warn); }

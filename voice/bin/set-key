@@ -1,0 +1,11 @@
+#!/bin/zsh
+# Karl's one hidden paste: the ElevenLabs API key goes straight into the login Keychain.
+# `security … -w` as the LAST option prompts with echo off, so the key never touches argv,
+# shell history, the clipboard history of this script, or a file.
+set -e
+SERVICE=lucky-loop.elevenlabs
+ACCOUNT=voice-bridge
+print "Paste your ElevenLabs API key and press Enter (nothing will show). Then paste it once more."
+print "Key permissions it needs: ElevenAgents (read + write) and Voices (read)."
+/usr/bin/security add-generic-password -U -s $SERVICE -a $ACCOUNT -l "Lucky Loop voice bridge (ElevenLabs)" -w
+/usr/bin/security find-generic-password -s $SERVICE -a $ACCOUNT >/dev/null && print "Saved in the Keychain. You can close this window."

@@ -1,0 +1,18 @@
+{
+  "name": "lucky-loop-voice",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Call: a Mac-local voice line to the fleet (ElevenAgents + a 127.0.0.1 bridge).",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "bridge": "node bridge/server.mjs",
+    "test": "node --test bridge/*.test.mjs",
+    "agent:plan": "node agent/deploy.mjs",
+    "agent:deploy": "node agent/deploy.mjs --apply",
+    "measure": "node agent/measure.mjs"
+  },
+  "dependencies": {
+    "@elevenlabs/client": "1.26.0"
+  }
+}

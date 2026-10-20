@@ -1,0 +1,47 @@
+#!/usr/bin/env node
+// C7, key hygiene: the ElevenLabs key lives only in the Keychain.
+// Reads the key from the Keychain into memory, then counts files containing it in the repo
+// (with its whole git history), the vault, the voice state folder, shell history and the live
+// process table. It prints counts and paths only, never the key or a line containing it.
+// Also proves the bridge listens on 127.0.0.1 only.
+import { execFileSync, spawnSync } from "node:child_process";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { readKey } from "../bridge/keychain.mjs";
+
+const H = homedir();
+const key = await readKey();
+const PORT = process.env.LL_VOICE_PORT || "4711";
+let fail = 0;
+
+function grepFiles(label, paths) {
+  const r = spawnSync("grep", ["-rlF", "--binary-files=text", "-f", "-", ...paths], { input: key + "\n", encoding: "utf8" });
+  const hits = r.stdout.split("\n").filter(Boolean);
+  console.log(`${hits.length ? "FAIL" : "ok  "} ${label}: ${hits.length} file(s)${hits.length ? " — " + hits.join(", ") : ""}`);
+  if (hits.length) fail++;
+}
+
+grepFiles("repo working trees", [join(H, "Projects/lucky-loop"), join(H, "Projects/lucky-loop-voice")].map((p) => p));
+grepFiles("vault", [join(H, "brain")]);
+grepFiles("voice state + logs", [join(H, ".local/state/lucky-loop"), join(H, "logs")]);
+grepFiles("shell history", [join(H, ".zsh_history"), join(H, ".bash_history"), join(H, ".zsh_sessions")]);
+
+for (const repo of ["Projects/lucky-loop", "Projects/lucky-loop-voice"]) {
+  const r = spawnSync("git", ["-C", join(H, repo), "log", "--all", "-p", "--no-color"], { encoding: "utf8", maxBuffer: 1 << 30 });
+  const hit = r.stdout.includes(key);
+  console.log(`${hit ? "FAIL" : "ok  "} git history of ${repo}: ${hit ? "contains the key" : "clean"}`);
+  if (hit) fail++;
+}
+
+const ps = execFileSync("ps", ["-axww", "-o", "args="], { encoding: "utf8" });
+const inArgs = ps.includes(key);
+console.log(`${inArgs ? "FAIL" : "ok  "} process args: ${inArgs ? "the key is on a command line" : "clean"}`);
+if (inArgs) fail++;
+
+const l = spawnSync("lsof", ["-nP", `-iTCP:${PORT}`, "-sTCP:LISTEN"], { encoding: "utf8" }).stdout.split("\n").slice(1).filter(Boolean);
+const bad = l.filter((x) => !/127\.0\.0\.1:/.test(x));
+console.log(`${bad.length || !l.length ? "FAIL" : "ok  "} bridge listen: ${l.length ? l.map((x) => x.split(/\s+/)[8]).join(", ") : "not running"}`);
+if (bad.length || !l.length) fail++;
+
+console.log(fail ? `C7 FAIL (${fail})` : "C7 PASS");
+process.exit(fail ? 1 : 0);

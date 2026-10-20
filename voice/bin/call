@@ -1,0 +1,12 @@
+#!/bin/zsh
+# `call`: start the voice bridge (127.0.0.1 only) if it is not running, then open the call page.
+set -e
+HERE=${0:A:h}
+STATE=$HOME/.local/state/lucky-loop/voice
+PORT=${LL_VOICE_PORT:-4711}
+mkdir -p $STATE && chmod 700 $STATE
+if ! /usr/bin/curl -s -o /dev/null --max-time 1 http://127.0.0.1:$PORT/; then
+  nohup /usr/local/bin/node $HERE/../bridge/server.mjs >>$STATE/bridge.log 2>&1 &
+  for i in {1..30}; do /usr/bin/curl -s -o /dev/null --max-time 1 http://127.0.0.1:$PORT/ && break; sleep 0.2; done
+fi
+/usr/bin/open "http://127.0.0.1:$PORT/"

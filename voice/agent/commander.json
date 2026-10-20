@@ -1,0 +1,116 @@
+{
+  "name": "Commander (Lucky Loop voice)",
+  "voice_preference": ["Brian", "George", "Daniel", "Adam"],
+  "conversation_config": {
+    "agent": {
+      "first_message": "Commander here. Want the status, or straight to the cards?",
+      "language": "en",
+      "prompt": {
+        "llm": "claude-haiku-5-5",
+        "temperature": 0.3,
+        "max_tokens": 300,
+        "built_in_tools": {
+          "language_detection": { "name": "language_detection", "description": "" }
+        }
+      }
+    },
+    "tts": {
+      "model_id": "eleven_v4_turbo",
+      "stability": 0.5,
+      "similarity_boost": 0.8
+    },
+    "turn": {
+      "turn_eagerness": "eager",
+      "speculative_turn": true
+    },
+    "conversation": {
+      "max_duration_seconds": 3600,
+      "client_events": [
+        "conversation_initiation_metadata", "ping", "audio", "interruption", "user_transcript",
+        "agent_response", "agent_response_correction", "client_tool_call", "vad_score"
+      ]
+    },
+    "language_presets": {
+      "de": { "overrides": { "agent": { "first_message": "Commander hier. Erst der Stand, oder gleich die Karten?", "language": "de" } } },
+      "ru": { "overrides": { "agent": { "first_message": "Командир на связи. Сначала статус или сразу карточки?", "language": "ru" } } }
+    }
+  },
+  "platform_settings": {
+    "auth": { "enable_auth": true }
+  },
+  "client_tools": [
+    {
+      "name": "fleet_status",
+      "description": "Live state of every agent pane: working, idle or blocked, and which is the commander.",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "cards_list",
+      "description": "The open decision cards in Karl's queue, most urgent first, with options and whether a spoken confirm is needed.",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "card_answer",
+      "description": "Record Karl's spoken answer on one card through the queue tool.",
+      "parameters": {
+        "type": "object",
+        "required": ["id", "word", "excerpt"],
+        "properties": {
+          "id": { "type": "string", "description": "The card's full id from cards_list." },
+          "word": { "type": "string", "description": "approve, hold, change, later, or one of the card's options." },
+          "note": { "type": "string", "description": "What to change, or any condition Karl attached." },
+          "confirmed": { "type": "boolean", "description": "True only if Karl said confirm after your one-sentence echo." },
+          "excerpt": { "type": "string", "description": "Karl's own words for this answer, verbatim." }
+        }
+      }
+    },
+    {
+      "name": "tell",
+      "description": "Send Karl's words verbatim to an agent pane. Use pane 'commander' for the commander.",
+      "parameters": {
+        "type": "object",
+        "required": ["pane", "text"],
+        "properties": {
+          "pane": { "type": "string", "description": "commander, a pane name, or a pane id." },
+          "text": { "type": "string", "description": "Exactly what Karl said to pass on." }
+        }
+      }
+    },
+    {
+      "name": "ask",
+      "description": "Ask an agent pane a question. Returns at once; the answer arrives later as a (fleet, not Karl) message.",
+      "parameters": {
+        "type": "object",
+        "required": ["pane", "question"],
+        "properties": {
+          "pane": { "type": "string" },
+          "question": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "spawn_lane",
+      "description": "Karl wants new work started. Routed to the commander, who decides how.",
+      "parameters": {
+        "type": "object",
+        "required": ["goal"],
+        "properties": { "goal": { "type": "string" } }
+      }
+    },
+    {
+      "name": "box_health",
+      "description": "Whether the DGX box is reachable and its main services are up.",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "okr_status",
+      "description": "The objectives and key results as recorded in the repo.",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "end_call",
+      "description": "Hang up after your closing line. Saves the call for the vault.",
+      "parameters": { "type": "object", "properties": {} }
+    }
+  ]
+}

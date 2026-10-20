@@ -1,0 +1,4 @@
+#!/bin/zsh
+# Card answers spoken while the box (the queue hub) was down are spooled on this Mac.
+# This puts them into the queue through needs-you-write, and keeps any that still fail.
+exec /usr/local/bin/node -e 'import("'${0:A:h}'/../bridge/tools.mjs").then(T => T.replaySpool()).then(r => console.log(JSON.stringify(r)))'
