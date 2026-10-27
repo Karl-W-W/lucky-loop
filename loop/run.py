@@ -72,6 +72,28 @@ def write_json(path: Path, payload) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+REFUSALS_TO_RETIRE = 3
+
+
+def record_refusal(out_dir: Path, key: str, item: Path) -> int:
+    """Count one redaction refusal for this content hash; retire the item at three.
+
+    A refused record is never written, so the attempt count after a non-converged
+    pass (which reads the written runs) cannot see it: one item the gate always
+    refused wedged the queue from 18 Oct for 1,383 ticks with another item waiting
+    behind it. Refusals are counted beside the runs, keyed by the content hash, and
+    the item moves to .failed/ like a non-converged pass. Nothing is published
+    either way. Returns the count after this refusal.
+    """
+    path = out_dir / ".redaction-refusals.json"
+    refusals = load_json(path, {})
+    refusals[key] = refusals.get(key, 0) + 1
+    write_json(path, refusals)
+    if refusals[key] >= REFUSALS_TO_RETIRE:
+        consume_item(item, "failed")
+    return refusals[key]
+
+
 def pick_item(inbox: Path) -> Path | None:
     """Exactly one item per pass — the first by name. Returns None if there is
     nothing to do.
@@ -268,6 +290,9 @@ def main() -> int:
         print("REDACTION FAILURE — refusing to write. Violations:", file=sys.stderr)
         for v in violations:
             print(f"  {v}", file=sys.stderr)
+        count = record_refusal(out_dir, key, item)
+        if count >= REFUSALS_TO_RETIRE:
+            print(f"{count} redaction refusals — moved {item.name} to .failed/", file=sys.stderr)
         return EXIT_FAIL
 
     runs["runs"].insert(0, record)

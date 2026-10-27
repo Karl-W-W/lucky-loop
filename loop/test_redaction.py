@@ -199,6 +199,29 @@ def main() -> int:
             print(f"  WRONG    {label:34} expected {'refused' if expect_refused else 'passed'}")
             failures += 1
 
+    print("\nREFUSED ITEMS RETIRE — a refusal counts, the third moves the item to .failed/:")
+    import tempfile
+
+    import run
+
+    with tempfile.TemporaryDirectory() as tmp:
+        inbox, out = Path(tmp) / "inbox", Path(tmp) / "out"
+        inbox.mkdir()
+        item, other = inbox / "item-001.txt", inbox / "item-002.txt"
+        item.write_text("fictional", encoding="utf-8")
+        other.write_text("fictional", encoding="utf-8")
+        seen = []
+        for _ in range(run.REFUSALS_TO_RETIRE):
+            seen.append((run.record_refusal(out, "aaaa", item), item.exists()))
+        run.record_refusal(out, "bbbb", other)
+        want = [(1, True), (2, True), (3, False)]
+        retired = (inbox / ".failed" / item.name).exists()
+        if seen == want and retired and other.exists() and run.pick_item(inbox) == other:
+            print("  retired  after 3 refusals; another hash keeps its own count; the queue advances")
+        else:
+            print(f"  WRONG    refusals {seen} (want {want}), retired={retired}, other={other.exists()}")
+            failures += 1
+
     print("\nNAMED EXEMPTIONS — the waiver must be exactly as narrow as it claims:")
     for label, rel, payload, expect in EXEMPTIONS:
         got, kept, waived = exemption_outcome(rel, payload)
