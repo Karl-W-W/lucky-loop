@@ -1,9 +1,164 @@
 {
-  "generatedAt": 1789045366000,
-  "builtAt": 1789047828135,
+  "generatedAt": 1790090746000,
+  "builtAt": 1790091493465,
   "source": "git",
   "shallow": false,
   "commits": [
+    {
+      "sha": "80ab22081e4a61d689aa1f05948069e9b99d9e71",
+      "t": 1790090746000,
+      "msg": "feat(site): the Stripe-minimum — price card, Impressum, Datenschutz, AGB, Kontakt, footer, legal gate"
+    },
+    {
+      "sha": "bf75a07d36321bce0924ef5a18a237fe676bb04a",
+      "t": 1790082778000,
+      "msg": "chore(data): refresh the ops and loop snapshots (heartbeats 10/10, needs-you 24, laps 1; loop idle, 5 passes)"
+    },
+    {
+      "sha": "d696b08c8adb59004307c46f3bf8f46b21a40bbe",
+      "t": 1789751619000,
+      "msg": "handoff 2026-09-18 correction: the queue count was pre-filing"
+    },
+    {
+      "sha": "847de7ad8c2897dd33b134a4dfd586765a27d962",
+      "t": 1789751525000,
+      "msg": "handoff 2026-09-18: the second project's deliverable was wrong, and two audits proved the brief itself carried the bug"
+    },
+    {
+      "sha": "21bddcba27b376a39c78420027745ef78d07626f",
+      "t": 1789674508000,
+      "msg": "handoff 2026-09-17 addendum: the zoetrope card checked the wrong binary name — the renderer was installed and tested all along; the brew blocker under it is Xcode, not the classifier"
+    },
+    {
+      "sha": "e063e60057a3a469e4849a91b1be0c2c9f31819b",
+      "t": 1789674112000,
+      "msg": "handoff 2026-09-17 section 13: the canonical clock-out block — the box landed 2 rows unattended and refused a third, board 25/11 open, queue 13, rules 11-16, seven panes restored, a second project onboarded"
+    },
+    {
+      "sha": "1bbdaa86d2a625aff45f9ac30fa2bd9f01c2459c",
+      "t": 1789656329000,
+      "msg": "handoff 2026-09-17 part 2: seven panes restored by session id with what each owes; five stayed closed; AGENT-OS rules 11-16 filed; zoetrope stated plainly (plugin and keybinding live, binary missing); the transcript finding is a board row; where the two days of compute actually went"
+    },
+    {
+      "sha": "617a06f944e30485883a88f600539a61490afc25",
+      "t": 1789654632000,
+      "msg": "handoff 2026-09-17: addendum — the box landed a commander-written row unattended (claimed 13:45Z, verified 14:11Z) and wrote its own first card; my-big-game onboarded as the second project; workspaces restored after the sweep closed them"
+    },
+    {
+      "sha": "7bf2dab7895419015a465c55ca113bee8cbc785a",
+      "t": 1789653167000,
+      "msg": "handoff 2026-09-17: name the untracked leftovers in polysignal too (meta-mandala/), not just platform"
+    },
+    {
+      "sha": "0efe521ced79cf5cfc6f099299c5596f0a316170",
+      "t": 1789653099000,
+      "msg": "handoff 2026-09-17: addendum — the foreman is a third writer to the vault; commit from the Mac while a run is active, and the recovery if a run dies on its branch"
+    },
+    {
+      "sha": "ef2996d539f2d07116ad70185be0cf9448e1d498",
+      "t": 1789652859000,
+      "msg": "handoff 2026-09-17 (commander clock-out, exit 0): every past session closed — 09-16 lanes concluded with their verify lines, scorecard re-verified, four predictions graded and held; 13 panes read, captured with resume ids and closed, roster ghost-free; five repos consistent; five pieces of unfinished work moved from panes to the board; the foreman claimed one of them unattended at 13:45Z"
+    },
+    {
+      "sha": "9aeeab00a2fafcf1075fe9b361c4749e018f11cd",
+      "t": 1789575132000,
+      "msg": "handoff 2026-09-16 (commander clock-out, exit 0, two lanes STALLED by name): Karl's session plan run to its exit word — scorecard six rows Now→After with proofs; L3, L5, L6d verified by a second agent, L2 verified, L1 stalled on the seating card, L4 stalled with file:line proof, L6b/c/e/g done, L6f reapply 50 ok / 1 drift; rule 10 adopted and exercised three times; the plan limit at 90 %"
+    },
+    {
+      "sha": "9e6032c45ee01bc4df41b28a9236b52cb1fcfd5e",
+      "t": 1789574598000,
+      "msg": "okrs: derive O3/KR3 (zero gate failures) from a committed CI snapshot; scripts/sync-ci.mjs writes data/ci-runs.json"
+    },
+    {
+      "sha": "caa8ac2fdba1d088bcd271c6ed08cb01b6def472",
+      "t": 1789574498000,
+      "msg": "today: box rows are a roster (project-unit allowlist) and every block carries its sample time (panel's slot, Karl's plan 2026-09-16)"
+    },
+    {
+      "sha": "ad87ecb9d698679fdebefc257cbe1c91d2bfd9b9",
+      "t": 1789574419000,
+      "msg": "gates: OKR gate in CI — derived KRs must match their committed snapshot; the port test runs the Python definition"
+    },
+    {
+      "sha": "a83e19a00c050c7070e01a2062dfc242fec178ba",
+      "t": 1789574065000,
+      "msg": "okrs: derive O3/KR4 and O3/KR1 at build time from data/loop-runs.json; /war shows derived vs declared"
+    },
+    {
+      "sha": "0ee29a64dd68277c27fa1697808ec5b8c70dd932",
+      "t": 1789574063000,
+      "msg": "today: AGENTS NOW — one roster, Mac herdr panes (60 s snapshot) + box units (Karl's plan 2026-09-16, L3)"
+    },
+    {
+      "sha": "99f49e924afd3b2fa78370b8828342ea9710dfab",
+      "t": 1789564651000,
+      "msg": "loop-publish: status snapshot — 5 pass(es) on the host"
+    },
+    {
+      "sha": "2490f34e124b9386dc19aa655c6e77a8a7faf89d",
+      "t": 1789505849000,
+      "msg": "handoff 2026-09-15 evening (commander, exit 1): situational-awareness brief Q0–Q4 by council; scanner night heartbeat built by truth and VERIFIED by truth-verify 20:48Z (PR #4, box restarted 20:14:47Z); the board on the Today page; the reboot re-armed the retired Mac publisher and the classifier refused the de-arm — carded; AUTONOMY: retired means renamed"
+    },
+    {
+      "sha": "89cae0d2616a3d5c0c15086a4142783fe005bd8d",
+      "t": 1789503004000,
+      "msg": "Today page: block 5 THE BOARD — queue/tasks.json as it is (Karl's word 2026-09-15: \"put the board on the Today page\")"
+    },
+    {
+      "sha": "e0fa578e0db200343c6ead589fd63b4e2125d5c6",
+      "t": 1789501923000,
+      "msg": "Merge pull request #1 from Karl-W-W/loop/artifact-return"
+    },
+    {
+      "sha": "27238342a916eb0399d3aa5809267192ab07faf2",
+      "t": 1789492179000,
+      "msg": "artifact-return: status snapshot — 5 pass(es) on the host"
+    },
+    {
+      "sha": "c9960523c8cc7228b82179d7726cac8b079adcef",
+      "t": 1789491134000,
+      "msg": "handoff 2026-09-15 (commander clock-out, exit 1): five days of green Action runs and PR #1 still open; the vault's master frozen since 09-11 behind a foreman branch, secured and carded; gates on a bot PR wait for approval"
+    },
+    {
+      "sha": "53b058e2ada6618fc82f39992558359c609927f9",
+      "t": 1789490982000,
+      "msg": "artifact-return docs: on a bot-pushed PR gates.yml only queues and waits for approval (action_required, observed 09-11 to 09-15); the PR's check is the job summary; canvas regenerated"
+    },
+    {
+      "sha": "67623f6b0aaf4631916a7450d6c3d2317f4f092c",
+      "t": 1789050773000,
+      "msg": "handoff 2026-09-10 (commander clock-out): scoreboard 6/6, exit 0 — the hop left the Mac, the Action opens its own PR, marker proven, herdr 0.9.0 both hosts, Worker live; ops-status snapshot"
+    },
+    {
+      "sha": "24022aa1b5c283f75f38ba4c689b71b08f9202b8",
+      "t": 1789050622000,
+      "msg": "artifact-return docs: gates.yml DOES run on the Action-opened PR (observed on PR #2, 2026-09-10) — the four places that claimed otherwise corrected; canvas regenerated"
+    },
+    {
+      "sha": "e81fe1432892b5ccb867d1751cb0954ceb355ca7",
+      "t": 1789050243000,
+      "msg": "O3/KR4: 7 consecutive unattended converged nights — the definition as code in today_api.py (_converged_nights: night = 20:00Z→08:00Z, night 1 = 2026-09-08→09, every pass converged = +1, any other end = reset, idle = skipped); declared as a dated snapshot in okrs.json"
+    },
+    {
+      "sha": "4a20637dc56378075099850829fab291d62bc538",
+      "t": 1789050243000,
+      "msg": "artifact-return --test: the synthetic pass is shaped like a real one; the marker word was itself a source token (test_redaction refused it) — the marker lives in gate.json only"
+    },
+    {
+      "sha": "5b6646876faef69c644e42655e5283c027173905",
+      "t": 1789049967000,
+      "msg": "artifact-return: the council builder's test — --test <branch> stages one synthetic pass on a mirror branch; the Action takes mirror_ref/pr_branch inputs and shows the drift gate red before regeneration; canvas regenerated (the hop node mirrors main())"
+    },
+    {
+      "sha": "7026dff008c41a09575bb95e59b4322a5d2cfad8",
+      "t": 1789047938000,
+      "msg": "artifact-return: name the repo setting when PR creation is refused; the branch is pushed either way"
+    },
+    {
+      "sha": "b021839ca5c20323e43676698b4277ac1b2357b7",
+      "t": 1789047829000,
+      "msg": "artifact-return: the hop leaves the Mac — host stages redacted artifacts + gate.json in a private mirror, an Action verifies, gates and opens a PR (Karl's word 2026-09-10: action)"
+    },
     {
       "sha": "75e56980951aa80999c32b90b412d73af1c91aa0",
       "t": 1789045366000,

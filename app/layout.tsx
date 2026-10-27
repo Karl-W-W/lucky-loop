@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SITE_URL } from "./lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +31,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   // Required for the relative image URLs the opengraph-image convention emits;
   // without it a relative URL-based metadata field is a build error.
-  metadataBase: new URL("https://lucky-loop-one.vercel.app"),
+  metadataBase: new URL(SITE_URL),
   title: "Lucky Loop",
   description:
     "An agent harness being built in public: an autonomous loop for everyday admin. Objectives, commits and deploys are published on the Lucky Loop War Room.",

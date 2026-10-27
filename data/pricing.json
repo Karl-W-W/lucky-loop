@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "about": "What is sold, to whom, at what price and how it is charged — Karl's numbers of 2026-09-22. CONTENT, not code: scripts/check-legal.mjs refuses a build when a number is missing or zero, when the audience is not business-only, or when the AGB do not carry the same amounts. paymentLink stays empty until Karl pastes a Stripe Payment Link (test mode until the account is verified); while it is empty the price card's button is a mailto.",
+  "currency": "EUR",
+  "audience": "business",
+  "hosted": {
+    "name": "Lucky Loop Hosted",
+    "monthlyEur": 499,
+    "billing": "monthly in advance",
+    "cancellation": "to the end of any month, no minimum term"
+  },
+  "setup": {
+    "name": "Setup of a custom system",
+    "fromEur": 2500,
+    "billing": "one-time, quoted individually before the order, invoiced at order",
+    "refund": "refundable until work begins"
+  },
+  "methods": ["SEPA direct debit", "card"],
+  "processor": "Stripe",
+  "vatNote": "Prices are net; VAT is added where applicable.",
+  "paymentLink": "",
+  "updatedAt": "2026-09-22"
+}
