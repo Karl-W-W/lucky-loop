@@ -33,6 +33,8 @@
  * Each Mac row has a Call button and the header has Call the room (2026-10-27): a press
  * only OPENS the voice page of the Mac-local bridge (voice/ in lucky-loop-voice) in the
  * browser, with that agent pre-selected; the call starts when Karl presses Call there.
+ * Standup sits beside Call the room: the same page, and the call opens with the front desk
+ * reading what needs Karl, what the agents did and the box (from dgx-today --brief).
  *
  * Pure SDK-consumer work, same shape as before: a `/fleet` route + a sidebar row,
  * data from the Fleet plugin's REST router through `ctx.rest`. Plain ESM, no
@@ -3605,10 +3607,11 @@ function aglSort(a, b) {
  * nothing else; the call starts when Karl presses Call on that page. Box rows get no button: the
  * bridge reaches only this Mac's herdr. */
 const VOICE_OPEN = 'http://127.0.0.1:4711/open'
-function aglCall(pane) {
+function aglCall(pane, standup) {
   const d = hlDesk()
   if (!d || typeof d.openExternal !== 'function') return
-  Promise.resolve(d.openExternal(VOICE_OPEN + (pane ? '?to=' + encodeURIComponent(pane) : ''))).catch(() => {})
+  const q = standup ? '?standup=1' : pane ? '?to=' + encodeURIComponent(pane) : ''
+  Promise.resolve(d.openExternal(VOICE_OPEN + q)).catch(() => {})
 }
 function AgentLiveRow({ r, now, boxRead }) {
   const t = r.since ? Date.parse(r.since) : NaN
@@ -3709,7 +3712,9 @@ function AgentsLivePage() {
         h('div', { className: 'agl-callrow' },
           h('button', { type: 'button', className: 'tdy-btn', onClick: () => aglCall(null),
             title: 'Open a voice call to the front desk, which routes by name' }, 'Call the room'),
-          h('small', null, 'opens the voice page on this Mac; a row’s Call puts you straight through to that agent'))),
+          h('button', { type: 'button', className: 'tdy-btn', onClick: () => aglCall(null, true),
+            title: 'Open a call that starts with the front desk reading what needs you, what the agents did and the box' }, 'Standup'),
+          h('small', null, 'opens the voice page on this Mac; a row’s Call puts you straight through to that agent; Standup opens with the morning brief'))),
       mac.herdr && mac.herdr !== 'running'
         ? h('div', { className: 'flt-warnbar' }, 'This Mac’s herdr is not answering (sampled ' + clock(mac.sampledAt) + '), so no Mac row is shown.') : null,
       boxLine ? h('p', { className: 'tdy-when' }, boxLine) : null,
