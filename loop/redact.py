@@ -188,6 +188,21 @@ def verify_clean(obj: Any, path: str = "$") -> list[str]:
     return _walk(obj, path, lambda text, at: [f"{at}: {kind}" for kind in find_violations(text)])
 
 
+# The graph's own node names. run.py writes them as the `node` label of every
+# record ({"node": "act", ...}): constants of this code, never lifted from a
+# document. They were missing from the gate-2 allow-list, so a source item whose
+# text held one of them capitalised as a word deny-listed the record's
+# own structure and refused every pass on that item (2026-10-27, exit 3 on every
+# tick). Kept equal to graph.NODE_HINTS by test_redaction.py.
+#
+# This is NOT a vocabulary entry. Adding them to vocabulary() would also let a
+# document's capitalised word through in free text — a rationale or a summary — where it
+# may be part of a name. The waiver covers one key, `node`, and only when the WHOLE
+# value is exactly one of these five; the same word anywhere else is still refused.
+NODE_NAMES = frozenset({"perceive", "decide", "act", "evaluate", "adapt"})
+_NODE_LABEL = re.compile(r"\.node$")
+
+
 def source_tokens(raw: str, allowed: set[str]) -> set[str]:
     """Proper-noun-shaped tokens lifted from the source document.
 
@@ -217,6 +232,8 @@ def verify_no_source_tokens(obj: Any, forbidden: set[str], path: str = "$") -> l
     """
 
     def check(text: str, at: str) -> list[str]:
+        if text in NODE_NAMES and _NODE_LABEL.search(at):
+            return []
         return [
             f"{at}: source token {word!r}"
             for word in re.findall(r"[A-Za-z][A-Za-z0-9&.\-]*", text)
