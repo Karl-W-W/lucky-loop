@@ -94,7 +94,7 @@ ARTIFACTS = [
 # and timestamps only, by construction — but "by construction" is a claim about
 # today's writer, and the gate is what keeps it true of every future one.
 
-# A NAMED, VISIBLE EXEMPTION. Read the reason before adding a second one.
+# NAMED, VISIBLE EXEMPTIONS — two of them now. Read both reasons before adding a third.
 #
 # data/ci-runs.json repeats a GitHub repo slug on every row, and the owner half of a slug
 # is an account name: `Karl-W-W/lucky-loop`. So the by-name half of gate 1 fires once per
@@ -118,14 +118,90 @@ ARTIFACTS = [
 # by the account owner and is public the moment the repository is, and narrowing the waiver to
 # one literal string would hard-code an account name into a world-readable file, which is the
 # exact trade the gitignored deny-list exists to refuse.
-EXEMPT: dict[str, list[tuple[re.Pattern, str]]] = {
-    # $.gates[0].repo, $.runs[12].repo — the slug of a public repository, not a person.
-    "data/ci-runs.json": [(re.compile(r"^\$\.(gates|runs)\[\d+\]\.repo$"), "name")],
+#
+# SECOND ENTRY, 2026-10-12 — ci-runs.json's `digits` rule at $.runs[n].sha7.
+#
+# The same shape of failure as the first entry, found the same way: on the box, not in CI.
+# `sha7` is `String(head_sha).slice(0, 7)` in scripts/sync-ci.mjs, i.e. a short SHA out of the
+# public GitHub API, and a short SHA is hexadecimal — so roughly one commit in 27 ((10/16)^7)
+# has one written only with decimal digits. The `digits` rule is \b\d{6,}\b, which reads any
+# such row as a 6+-digit identifier. ONE row of 39 in the 2026-09-27 snapshot was one, and that
+# one field refused every artifact-return run from 2026-09-28T02:35:03Z onward — 701 consecutive
+# red runs, 4 loop passes held on the host — while CI stayed green, because CI runs the pattern
+# half and that half fires here too but the courier is the only thing that acts on it.
+#
+# What is waived is one RULE at one exact PATH, and ONLY when the value has the shape of a short
+# SHA: exactly 7 lowercase hex characters. That is why apply_exemptions() takes the parsed
+# payload — it resolves the violation's path back to its value, and it FAILS CLOSED, keeping the
+# violation whenever the path does not resolve or the value is any other shape. Every other rule
+# at sha7 (an e-mail parked there stays a violation), the digits rule at every other path, and
+# every other artifact are untouched. Waivers are counted in the status line, as above.
+#
+# ITS LIMIT, said plainly: a 7-digit NUMBER written into sha7 would pass the digits rule under
+# this waiver, because 7 decimal digits are also 7 lowercase hex characters — the shape test
+# cannot tell a short SHA from a 7-digit invoice reference. What bounds that is the writer:
+# only scripts/sync-ci.mjs writes this field, from the public API's head_sha. A different writer
+# at this path is a reason to revisit this entry, not to widen it.
+#
+# NOT DONE, deliberately: `sha7` is NOT added to redact.py's SAFE_KEYS. That set exempts a key's
+# whole scalar value from EVERY rule in EVERY artifact, so it would also waive an e-mail, an
+# IBAN or a deny-listed name stored under any field named sha7 anywhere. The narrow fix is here.
+EXEMPT: dict[str, list[tuple[re.Pattern, str, "object | None"]]] = {
+    "data/ci-runs.json": [
+        # $.gates[0].repo, $.runs[12].repo — the slug of a public repository, not a person.
+        (re.compile(r"^\$\.(gates|runs)\[\d+\]\.repo$"), "name", None),
+        # $.runs[34].sha7 — a short SHA that happens to carry no hex letters.
+        (re.compile(r"^\$\.runs\[\d+\]\.sha7$"), "digits", lambda v: _is_short_sha(v)),
+    ],
 }
 
+SHORT_SHA_RE = re.compile(r"^[0-9a-f]{7}$")
 
-def apply_exemptions(rel: str, found: list[str]) -> tuple[list[str], list[str]]:
-    """Split `path: kind` violations into (kept, waived) for one artifact."""
+
+def _is_short_sha(value: object) -> bool:
+    """True only for exactly 7 lowercase hex characters, as a string."""
+    return isinstance(value, str) and bool(SHORT_SHA_RE.match(value))
+
+
+# Walker paths look like `$.runs[34].sha7`. Key findings look like `$.runs[34].<key 'sha7'>`,
+# which this deliberately cannot resolve (there is no such key), so they fail closed.
+_PATH_STEP = re.compile(r"\.([^.\[\]]+)|\[(\d+)\]")
+_UNRESOLVED = object()
+
+
+def resolve_path(payload: object, at: str) -> object:
+    """Value at a walker-produced JSON path, or `_UNRESOLVED`. Never raises."""
+    if not at.startswith("$"):
+        return _UNRESOLVED
+    pos = 1
+    cur: object = payload
+    while pos < len(at):
+        step = _PATH_STEP.match(at, pos)
+        if not step:
+            return _UNRESOLVED
+        key, index = step.group(1), step.group(2)
+        if index is not None:
+            if not isinstance(cur, list) or int(index) >= len(cur):
+                return _UNRESOLVED
+            cur = cur[int(index)]
+        else:
+            if not isinstance(cur, dict) or key not in cur:
+                return _UNRESOLVED
+            cur = cur[key]
+        pos = step.end()
+    return cur
+
+
+def apply_exemptions(
+    rel: str, found: list[str], payload: object = None
+) -> tuple[list[str], list[str]]:
+    """Split `path: kind` violations into (kept, waived) for one artifact.
+
+    A rule whose third element is not None is VALUE-CONDITIONAL: the path is
+    resolved against `payload` and the violation is kept unless the value passes.
+    Omitting `payload` therefore waives nothing conditional, which is the safe
+    direction.
+    """
     rules = EXEMPT.get(rel)
     if not rules:
         return found, []
@@ -133,7 +209,18 @@ def apply_exemptions(rel: str, found: list[str]) -> tuple[list[str], list[str]]:
     waived: list[str] = []
     for v in found:
         at, _, kind = v.rpartition(": ")
-        (waived if any(kind == k and pat.match(at) for pat, k in rules) else kept).append(v)
+        exempt = False
+        for pat, k, value_ok in rules:
+            if kind != k or not pat.match(at):
+                continue
+            if value_ok is None:
+                exempt = True
+                break
+            value = resolve_path(payload, at)
+            if value is not _UNRESOLVED and value_ok(value):
+                exempt = True
+                break
+        (waived if exempt else kept).append(v)
     return kept, waived
 
 
@@ -196,7 +283,7 @@ def main() -> int:
         found = verify_clean(payload)
         if forbidden:
             found += verify_no_source_tokens(payload, forbidden)
-        found, waived = apply_exemptions(rel, found)
+        found, waived = apply_exemptions(rel, found, payload)
         waivers += len(waived)
         note = f" ({len(waived)} exempt)" if waived else ""
         if found:
