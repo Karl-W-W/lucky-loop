@@ -30,6 +30,9 @@
  * that scripts/herdr-live.py keeps current from herdr's own event stream. See
  * the HERDR AGENTS section near the end; useHerdrLive() is the reusable data hook.
  * Not at /agents: that path is the core app's own Agents view (AGENTS_ROUTE).
+ * Each Mac row has a Call button and the header has Call the room (2026-10-27): a press
+ * only OPENS the voice page of the Mac-local bridge (voice/ in lucky-loop-voice) in the
+ * browser, with that agent pre-selected; the call starts when Karl presses Call there.
  *
  * Pure SDK-consumer work, same shape as before: a `/fleet` route + a sidebar row,
  * data from the Fleet plugin's REST router through `ctx.rest`. Plain ESM, no
@@ -460,7 +463,7 @@ const CSS = `
 .agl-sum b{font-weight:650}
 .agl-sum .agl-n-blocked b{color:#d9a441}.agl-sum .agl-n-working b{color:#4caf6d}
 .agl-list{display:grid;gap:5px;margin-top:14px}
-.agl-row{display:grid;grid-template-columns:86px minmax(0,1fr) auto;gap:4px 14px;align-items:center;
+.agl-row{display:grid;grid-template-columns:86px minmax(0,1fr) auto auto;gap:4px 14px;align-items:center;
   padding:9px 12px;border:1px solid rgba(128,128,128,.2);border-radius:8px}
 .agl-row.agl-blocked{border-color:rgba(217,164,65,.6);background:rgba(217,164,65,.07)}
 .agl-row.agl-working{border-color:rgba(76,175,109,.5)}
@@ -470,6 +473,8 @@ const CSS = `
 .agl-title .agl-held{font-style:italic;font-weight:400;opacity:.7}
 .agl-sub{font-size:11.5px;opacity:.62;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .agl-ws{display:inline-block;padding:0 6px;border-radius:4px;background:rgba(128,128,128,.18);margin-right:7px}
+.agl-call{min-width:58px}.agl-callrow{display:flex;align-items:center;gap:10px;margin:8px 0 2px}
+.agl-callrow small{opacity:.62}
 .agl-for{font-size:12px;opacity:.7;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
 `
 
@@ -3594,6 +3599,17 @@ function aglSort(a, b) {
   return (AGL_RANK[a.state] ?? 9) - (AGL_RANK[b.state] ?? 9) ||
     String(b.since || '').localeCompare(String(a.since || '')) || String(a.pane).localeCompare(String(b.pane))
 }
+/* Call: the voice bridge on this Mac (127.0.0.1 only). The page holds no token: /open answers a
+ * navigation the OS browser started (Sec-Fetch-Site: none) with the call page and the token in
+ * its fragment, so the secret stays in the bridge's state file. The press opens a browser tab and
+ * nothing else; the call starts when Karl presses Call on that page. Box rows get no button: the
+ * bridge reaches only this Mac's herdr. */
+const VOICE_OPEN = 'http://127.0.0.1:4711/open'
+function aglCall(pane) {
+  const d = hlDesk()
+  if (!d || typeof d.openExternal !== 'function') return
+  Promise.resolve(d.openExternal(VOICE_OPEN + (pane ? '?to=' + encodeURIComponent(pane) : ''))).catch(() => {})
+}
 function AgentLiveRow({ r, now, boxRead }) {
   const t = r.since ? Date.parse(r.since) : NaN
   const dur = Number.isFinite(t) ? aglDur(now - t) : null
@@ -3612,7 +3628,11 @@ function AgentLiveRow({ r, now, boxRead }) {
     h('span', {
       className: 'agl-for',
       title: r.since ? (r.sinceExact ? 'entered this state at ' : 'in this state since at least ') + new Date(r.since).toLocaleString() : ''
-    }, dur ? (r.sinceExact ? 'for ' : 'for ≥ ') + dur : '—'))
+    }, dur ? (r.sinceExact ? 'for ' : 'for ≥ ') + dur : '—'),
+    r.host === 'mac'
+      ? h('button', { type: 'button', className: 'tdy-btn agl-call', title: 'Open a voice call straight to ' + (r.name || r.pane) + ' (you press Call on the page that opens)',
+          onClick: () => aglCall(r.pane) }, 'Call')
+      : h('span', null))
 }
 function aglBoxLine(box, now) {
   if (!box || !box.herdr || box.herdr === 'not read') return null
@@ -3685,7 +3705,11 @@ function AgentsLivePage() {
           AGL_WORDS.filter(w => c[w]).map(w => h('span', { key: w, className: 'agl-n-' + w }, h('b', null, String(c[w])), ' ' + w))),
         h('p', { className: 'tdy-oneline' },
           (c.mac ?? 0) + ' on this Mac’s herdr' + (box.herdr && box.herdr !== 'not read' ? ' · ' + (c.box ?? 0) + ' on the box’s herdr' : '') +
-          '. Every herdr workspace, as herdr itself reports it.')),
+          '. Every herdr workspace, as herdr itself reports it.'),
+        h('div', { className: 'agl-callrow' },
+          h('button', { type: 'button', className: 'tdy-btn', onClick: () => aglCall(null),
+            title: 'Open a voice call to the front desk, which routes by name' }, 'Call the room'),
+          h('small', null, 'opens the voice page on this Mac; a row’s Call puts you straight through to that agent'))),
       mac.herdr && mac.herdr !== 'running'
         ? h('div', { className: 'flt-warnbar' }, 'This Mac’s herdr is not answering (sampled ' + clock(mac.sampledAt) + '), so no Mac row is shown.') : null,
       boxLine ? h('p', { className: 'tdy-when' }, boxLine) : null,
@@ -3693,7 +3717,7 @@ function AgentsLivePage() {
         : h('div', { className: 'agl-list', role: 'list', 'aria-label': 'herdr agents' },
             rows.map(r => h(AgentLiveRow, { key: r.host + '/' + r.pane, r, now, boxRead: r.host === 'box' ? box.sampledAt : null }))),
       h('p', { className: 'tdy-note' },
-        'Read-only: nothing here starts, stops, attaches or sends. State is herdr’s own word; “for ≥” means the agent was ' +
+        'Read-only: nothing here starts, stops, attaches or sends; Call only opens the voice page, and the call starts when you press Call there. State is herdr’s own word; “for ≥” means the agent was ' +
         'already in that state when this feed first saw it. Titles stay on this Mac — the file never leaves it, and the ' +
         'box still receives only the 60 s shape snapshot shown on Today → Agents now.')))
 }
