@@ -109,6 +109,22 @@ EXEMPTIONS = [
 ]
 
 
+# NODE LABELS — gate 2 must not refuse the record's own structure, and must still
+# refuse the same word everywhere else. Context (2026-10-27): a source item held a
+# graph node name capitalised as a word, so that name was deny-listed and the record's
+# own {"node": ...} label refused every pass on that item. The deny-list here is
+# built from a FICTIONAL line, never from the item that tripped it.
+NODE_LABEL_SOURCE = "Notice under the Example Act from Nordlicht Stromversorgung"
+NODE_LABELS = [
+    ("the record's own node label", {"nodes": [{"node": "act", "output": {}}]}, False),
+    ("published shape, one level deeper", {"runs": [{"nodes": [{"node": "act"}]}]}, False),
+    ("the word in free text", {"nodes": [{"node": "act", "output": {"humanSummary": "Act notice"}}]}, True),
+    ("the word under another key", {"category": "act"}, True),
+    ("a name glued to the label", {"nodes": [{"node": "act Nordlicht"}]}, True),
+    ("the word as a key name", {"act": "ok"}, True),
+]
+
+
 def exemption_outcome(rel: str, payload: dict) -> tuple[str, list[str], list[str]]:
     """Run gate 1 plus the EXEMPT table over one payload; classify the result."""
     found = verify_clean(payload)
@@ -167,6 +183,21 @@ def main() -> int:
             failures += 1
         else:
             print(f"  clean    {label:26}")
+
+    print("\nNODE LABELS — the record's structure passes, the same word elsewhere does not:")
+    from graph import NODE_HINTS
+
+    if set(NODE_HINTS) != getattr(redact, "NODE_NAMES", frozenset()):
+        print(f"  DRIFT    redact.NODE_NAMES != graph nodes {sorted(NODE_HINTS)}")
+        failures += 1
+    label_deny = source_tokens(NODE_LABEL_SOURCE, vocabulary())
+    for label, obj, expect_refused in NODE_LABELS:
+        refused = bool(verify_no_source_tokens(obj, label_deny))
+        if refused == expect_refused:
+            print(f"  {'refused' if refused else 'passed':8} {label}")
+        else:
+            print(f"  WRONG    {label:34} expected {'refused' if expect_refused else 'passed'}")
+            failures += 1
 
     print("\nNAMED EXEMPTIONS — the waiver must be exactly as narrow as it claims:")
     for label, rel, payload, expect in EXEMPTIONS:
