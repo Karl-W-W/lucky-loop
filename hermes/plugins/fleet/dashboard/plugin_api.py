@@ -515,3 +515,22 @@ try:
         router.include_router(_answer_mod.router)
 except Exception as _ae:  # the verb failing to load leaves every read route up, and the verb absent (404)
     _answer_load_error = f"{type(_ae).__name__}: {_ae}"
+
+
+# --------------------------------------------------------------------------- #
+# office — the incubator grid (office.json) and the box's board (board.html),
+# served as the consolidator wrote them. Read-only; lives in office_api.py.
+# --------------------------------------------------------------------------- #
+try:
+    import importlib.util as _oilu
+    _ospec = _oilu.spec_from_file_location("fleet_office_api", str(Path(__file__).with_name("office_api.py")))
+    _office_mod = _oilu.module_from_spec(_ospec)
+    _ospec.loader.exec_module(_office_mod)
+    router.include_router(_office_mod.router)
+except Exception as _oe:  # never take the Fleet routes down with it
+    _office_load_error = f"{type(_oe).__name__}: {_oe}"   # a string: `_oe` is unbound after this block
+
+    @router.get("/office")
+    def _office_unavailable() -> Dict[str, Any]:
+        return {"schema": None, "sampled_at": None, "error": f"office_api failed to load: {_office_load_error}",
+                "served": {"served_at": _now(), "stale": True}}
