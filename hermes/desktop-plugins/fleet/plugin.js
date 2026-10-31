@@ -521,9 +521,12 @@ const CSS = `
 .of-srcs{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:11.5px;opacity:.62;margin-top:12px;font-variant-numeric:tabular-nums}
 .of-bad{color:#e26d5c;opacity:1}
 .of-nw{white-space:nowrap}
-.of-grade{font-size:11px;opacity:.8;margin-top:5px;padding-top:4px;border-top:1px dashed rgba(128,128,128,.28);line-height:1.35;font-variant-numeric:tabular-nums}
-.of-vstrip{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;font-size:12.5px;margin:10px 0 4px;padding:7px 11px;
-  border:1px solid rgba(128,128,128,.26);border-radius:8px;background:rgba(128,128,128,.05);font-variant-numeric:tabular-nums}
+.of-grade{font-size:11px;opacity:.8;margin-top:5px;padding-top:4px;border-top:1px dashed rgba(128,128,128,.28);line-height:1.35;
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.of-vstrip{font-size:12.5px;margin:10px 0 4px;padding:7px 11px;border:1px solid rgba(128,128,128,.26);border-radius:8px;
+  background:rgba(128,128,128,.05);font-variant-numeric:tabular-nums}
+.of-vrow{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 16px}
+.of-vrow+.of-vrow{margin-top:6px;padding-top:6px;border-top:1px solid rgba(128,128,128,.16)}
 .of-vstrip b{font-weight:650}.of-vstrip small{opacity:.62}
 .of-vlabel{font-size:10px;text-transform:uppercase;letter-spacing:.09em;opacity:.65;font-weight:600}
 .of-boardwrap{display:inline-block;border:1px solid rgba(128,128,128,.3);border-radius:12px;overflow:hidden;background:#000;margin-top:12px}
@@ -3816,13 +3819,16 @@ const ofState = c => (c && OF_STATES.includes(c.state) ? c.state : 'unknown')
 const ofWord = st => (st === 'none' ? 'no agent' : st === 'unknown' ? 'unknown' : st)
 const ofCap = s => String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1)
 
-/* Seat grading, when the box's office.json carries it (the 2026-10-31 verification contract):
+/* Seat grading, when the box's office.json carries it (the 2026-10-31 verification contract, as the box writes it):
  *   agents[].verification = { seat_claude: "<passed>/<total>" | null, seat_local: "<passed>/<total>" | null,
- *                             threshold_met_local: true | false | null, graded_on }
- *   verification = { replay: { claude: {agree, n, wilson_lb}, local: {agree, n, wilson_lb},
- *                              baseline_recommendation: {agree, n} }, graded_on }
- * Both blocks are optional: absent draws nothing; null reads "no data" (never 0), with the box's own note
- * beside it when it wrote one. This page computes none of these numbers — it prints what the file says. */
+ *                             threshold_met_local: true | false | null, graded_on, probe, note }
+ *   verification = { replay: { claude | local: {agree, n, wilson_lb, eligible, seat},
+ *                              baseline_recommendation: {agree, n, coverage}, gate: {min_n, min_wilson_lb} },
+ *                    seats: {agents, threshold_met_local, threshold_missed_local, probes}, graded_on, note }
+ * Every field is optional: absent draws nothing; null reads "no data" (never 0). An agent with no seat score at
+ * all is "not graded" — its grid cell stays as it was and the Agents table gives the box's reason. A cell shows
+ * the scores only; the box's long note lives in the cell's tooltip and the Agents table, never in the grid.
+ * This page computes none of these numbers — it prints what the file says. */
 const ofDay = s => {
   if (!s) return null
   const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(s)) ? s + 'T12:00:00' : s)
@@ -3836,36 +3842,67 @@ const ofPct = v => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v <
 const OF_DATE_RE = /(\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?Z?)?|\d{1,2} [A-Z][a-z]{2}(?: \(\d+d ago\))?)/
 const ofKeepDates = s => String(s).split(OF_DATE_RE).map((part, i) => (i % 2 ? h('span', { key: i, className: 'of-nw' }, part) : part))
 const ofSeat = v => (v === null || v === undefined || v === '' ? 'no data' : String(v))
+const ofHas = x => x !== null && x !== undefined && x !== ''
+const ofIsNum = x => typeof x === 'number' && Number.isFinite(x)
 function ofGrade(v) {
   if (!v || typeof v !== 'object') return null
-  const bar = v.threshold_met_local === true ? 'meets its bar' : v.threshold_met_local === false ? 'below its bar' : 'bar: no data'
+  const bar = v.probe === true ? 'a probe: code decides, no bar'
+    : v.threshold_met_local === true ? 'meets its bar' : v.threshold_met_local === false ? 'below its bar' : 'bar: no data'
   return {
+    graded: ofHas(v.seat_claude) || ofHas(v.seat_local),
     scores: 'Claude ' + ofSeat(v.seat_claude) + ' · local ' + ofSeat(v.seat_local) + ', ' + bar,
-    graded: v.graded_on ? 'graded ' + ofDay(v.graded_on) : 'grading date: no data',
+    day: v.graded_on ? ofDay(v.graded_on) : null,
     note: v.note ? String(v.note) : null,
   }
 }
+const ofGradeLine = g => 'seat evals' + (g.day ? ', ' + g.day : ' (date: no data)') + ': ' + g.scores
 
-/* The replay strip: how often each seat picked your own answer on cards you decided, as the file says it. */
-function OfficeReplayStrip({ v }) {
+/* The strip under the stamp: the replay (how often each seat picked your own answer on cards you decided)
+ * and the box's own seat-eval counts. Both rows print the file; neither is computed here. */
+function OfficeVerifyStrip({ v }) {
   if (!v || typeof v !== 'object') return null
-  const r = v.replay && typeof v.replay === 'object' ? v.replay : {}
-  const seat = (k, label, withLb) => {
-    const x = r[k]
-    if (!x || typeof x !== 'object' || typeof x.agree !== 'number' || typeof x.n !== 'number') {
+  const r = v.replay && typeof v.replay === 'object' ? v.replay : null
+  const sz = v.seats && typeof v.seats === 'object' ? v.seats : null
+  const seat = (k, label) => {
+    const x = r && r[k]
+    if (!x || typeof x !== 'object' || !ofIsNum(x.agree) || !ofIsNum(x.n)) {
       return h('span', { key: k }, label + ': no data' + (x && x.note ? ' — ' + x.note : ''))
     }
-    const lb = ofPct(x.wilson_lb)
-    return h('span', { key: k }, label + ' ', h('b', null, x.agree + '/' + x.n),
-      withLb ? h('small', null, ' · lower bound ' + (lb || 'no data')) : null, x.note ? h('small', null, ' — ' + x.note) : null)
+    const bits = []
+    if ('wilson_lb' in x) bits.push('lower bound ' + (ofPct(x.wilson_lb) || 'no data'))
+    if (typeof x.eligible === 'boolean') bits.push(x.eligible ? 'eligible' : 'not eligible')
+    if (ofIsNum(x.coverage)) bits.push(x.coverage + ' carried one')
+    return h('span', { key: k, title: x.seat ? String(x.seat) : undefined }, label + ' ', h('b', null, x.agree + '/' + x.n),
+      bits.length ? h('small', null, ' · ' + bits.join(' · ')) : null, x.note ? h('small', null, ' — ' + x.note) : null)
   }
-  return h('div', { className: 'of-vstrip', 'aria-label': 'replay against your decisions' },
-    h('span', { className: 'of-vlabel' }, 'Replay vs your decisions'),
-    seat('claude', 'Claude seat agreed', true),
-    seat('local', 'local seat agreed', true),
-    seat('baseline_recommendation', 'the card’s own recommendation', false),
-    h('small', null, v.graded_on ? 'graded ' + ofDay(v.graded_on) : 'grading date: no data'),
-    v.note || r.note ? h('small', null, String(v.note || r.note)) : null)
+  const gate = r && r.gate && typeof r.gate === 'object' ? r.gate : null
+  const day = v.graded_on ? 'graded ' + ofDay(v.graded_on) : 'grading date: no data'
+  const rows = []
+  if (r) {
+    rows.push(h('div', { key: 'r', className: 'of-vrow' },
+      h('span', { className: 'of-vlabel' }, 'Replay vs your decisions'),
+      seat('claude', 'Claude seat agreed'),
+      seat('local', 'local seat agreed'),
+      seat('baseline_recommendation', 'the card’s own recommendation'),
+      gate ? h('small', null, 'gate: lower bound ≥ ' + (ofPct(gate.min_wilson_lb) || 'no data') + ' on ≥ ' +
+        (ofIsNum(gate.min_n) ? gate.min_n : 'no data') + ' cards') : null,
+      h('small', null, day),
+      r.note ? h('small', null, String(r.note)) : null))
+  }
+  if (sz) {
+    rows.push(h('div', { key: 's', className: 'of-vrow' },
+      h('span', { className: 'of-vlabel' }, 'Seat evals'),
+      h('span', null, 'agents graded: ', h('b', null, ofNum(sz.agents))),
+      h('span', null, 'local seat meets its bar: ', h('b', null, ofNum(sz.threshold_met_local))),
+      h('span', null, 'misses it: ', h('b', null, ofNum(sz.threshold_missed_local))),
+      'probes' in sz ? h('span', null, 'probes, where code decides: ', h('b', null, ofNum(sz.probes))) : null,
+      !r || (sz.graded_on || null) !== (v.graded_on || null) ? h('small', null, sz.graded_on ? 'graded ' + ofDay(sz.graded_on) : day) : null,
+      h('small', null, 'per agent: in its grid cell and in Agents below')))
+  }
+  if (!rows.length) rows.push(h('div', { key: 'e', className: 'of-vrow' }, h('span', { className: 'of-vlabel' }, 'Verification'),
+    h('span', null, 'office.json carries a verification block with no replay and no seat counts'), h('small', null, day)))
+  return h('div', { className: 'of-vstrip', 'aria-label': 'how the seats were graded' }, rows,
+    v.note ? h('div', { className: 'of-vrow' }, h('small', null, String(v.note))) : null)
 }
 
 /* The two bars every read page here can show: the refresh failed, or the file itself is old. */
@@ -3890,11 +3927,12 @@ function OfficeCell({ c, pname, dname, grade }) {
   const note = c && c.note ? String(c.note) : st === 'unknown' ? 'state "' + String(c && c.state) + '" is not in office v1' : ''
   return h('td', { className: 'of-cell of-' + st, 'aria-label': pname + ' · ' + dname + ': ' + ofWord(st) + (note ? ' — ' + note : ''),
     title: [c && c.agent_id, c && c.source, c && c.last_output_at ? 'last output ' + when(c.last_output_at) : null, note,
-      grade ? 'seat evals, ' + grade.graded + ': ' + grade.scores + (grade.note ? ' — ' + grade.note : '') : null].filter(Boolean).join('\n') },
+      grade ? (grade.graded ? ofGradeLine(grade) : 'seat evals: not graded') + (grade.note ? ' — ' + grade.note : '') : null]
+      .filter(Boolean).join('\n') },
     h('div', { className: 'of-cellhead' }, h('i', { className: 'of-dot of-dot-' + st, 'aria-hidden': true }), ofWord(st)),
     c && c.agent_id ? h('div', { className: 'of-agent' }, String(c.agent_id)) : null,
     note && note !== 'no agent' ? h('div', { className: 'of-note' }, ofKeepDates(note)) : null,
-    grade ? h('div', { className: 'of-grade' }, ofKeepDates('seat evals, ' + grade.graded + ': ' + grade.scores + (grade.note ? ' — ' + grade.note : ''))) : null)
+    grade && grade.graded ? h('div', { className: 'of-grade' }, ofKeepDates(ofGradeLine(grade))) : null)
 }
 
 function OfficeDetail({ p, discs }) {
@@ -3938,9 +3976,9 @@ function OfficeAgents({ agents, names }) {
           h('td', { className: 'flt-dim' }, a.last_output_at ? ago(a.last_output_at) : 'never on record'),
           h('td', { className: 'flt-desc' }, a.note || '—'),
           h('td', { className: 'flt-desc' }, ck ? (ck.state || '?') + (ck.line ? ' — ' + ck.line : '') : 'not reported'),
-          h('td', { className: g ? 'flt-desc' : 'flt-dim' }, g
-            ? [g.scores, h('div', { key: 'd', className: 'flt-detail' }, g.graded + (g.note ? ' — ' + g.note : ''))]
-            : 'not graded'))
+          h('td', { className: g && g.graded ? 'flt-desc' : 'flt-dim' }, g && g.graded
+            ? [g.scores, h('div', { key: 'd', className: 'flt-detail' }, (g.day ? 'graded ' + g.day : 'grading date: no data') + (g.note ? ' — ' + g.note : ''))]
+            : ['not graded', g && g.note ? h('div', { key: 'd', className: 'flt-detail' }, g.note) : null]))
       }))))
 }
 
@@ -4008,7 +4046,7 @@ function makeOfficePage(rest) {
       h('div', { className: 'tdy-body' },
         head,
         sv.schema_note ? h('div', { className: 'flt-warnbar' }, sv.schema_note + ' — a cell this page cannot read shows as unknown.') : null,
-        h(OfficeReplayStrip, { v: d.verification }),
+        h(OfficeVerifyStrip, { v: d.verification }),
         h('div', { className: 'of-sum', 'aria-label': 'slot counts' },
           h('span', null, h('b', null, String(projects.length)), projects.length === 1 ? ' project' : ' projects'),
           counted
