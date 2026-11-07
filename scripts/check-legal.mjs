@@ -86,22 +86,44 @@ const DOC_WORDS = {
   other: /sonstig|other document/i, reminder: /Mahnung|reminder/i, statement: /Kontoauszug|statement/i, notice: /Bescheid|notice/i,
 };
 const NUM_WORDS = { 1: "ein|one", 2: "zwei|two", 3: "drei|three", 4: "vier|four", 5: "fünf|five", 6: "sechs|six", 7: "sieben|seven", 8: "acht|eight", 9: "neun|nine", 10: "zehn|ten" };
+
+// A FLOOR, not an equality (2026-11-07). The equality rule deadlocked the publish hop twice:
+// every new pass moved the derived count, the Action's PR went red on this gate, and only a
+// hand edit plus a public push could free it (stale since 2026-10-27; the 16-document fix of
+// 10-29 was itself stale at 20 passes before anyone merged it). A dated sentence ("Mit Stand
+// vom …, N Dokumente") stays TRUE as the loop grows; what would make it false is claiming MORE
+// than the loop did, or naming a document type the loop never processed. So: the stated count
+// must exist and be <= the derived total; every type the loop processed must be named or
+// covered by "sonstige/other documents"; a named type the loop never saw is refused.
+const WORD_NUM = Object.fromEntries(Object.entries(NUM_WORDS).flatMap(([n, w]) => w.split("|").map((x) => [x.toLowerCase(), Number(n)])));
+export function maturityProblems(texts, d) {
+  const out = [];
+  const total = d.passes + (d.fixturesExcluded || 0);
+  const types = d.docTypes || [];
+  for (const page of ["agb", "kontakt"]) {
+    const s = texts[page]; if (!s) continue;
+    const counts = [...s.matchAll(/(\d+|[a-zäöü]+)\s+(Dokumente|documents)\s+(verarbeitet|processed)/gi)]
+      .map((m) => (/^\d+$/.test(m[1]) ? Number(m[1]) : WORD_NUM[m[1].toLowerCase()]))
+      .filter((n) => Number.isInteger(n));
+    if (!counts.length) out.push(`content/legal/${page}.md: the maturity sentence states no document count ("N Dokumente verarbeitet")`);
+    for (const n of counts) if (n > total) out.push(`content/legal/${page}.md: claims ${n} documents, but the loop derived only ${total} — the page overstates`);
+    const para = s.split(/\n\s*\n/).filter((p) => /(Dokumente|documents)\s+(verarbeitet|processed)/i.test(p)).join("\n");
+    const covered = DOC_WORDS.other.test(para);
+    for (const t of types) {
+      const re = DOC_WORDS[t];
+      if (re && !re.test(para) && !covered) out.push(`content/legal/${page}.md: derived document type "${t}" is neither named nor covered by "sonstige Dokumente"`);
+    }
+    for (const [t, re] of Object.entries(DOC_WORDS)) {
+      if (t !== "other" && !types.includes(t) && re.test(para) && !(t === "invoice" && types.includes("vat-invoice"))) out.push(`content/legal/${page}.md: names "${t}", a document type the loop never processed`);
+    }
+  }
+  return out;
+}
 try {
   const okrs = JSON.parse(read("data/okrs.json") || "{}");
   const kr1 = (okrs.objectives || []).find((o) => o.id === "O3")?.keyResults?.find((k) => k.id === "KR1");
   const d = kr1 && kr1.derived;
-  if (d && Number.isInteger(d.passes)) {
-    const total = d.passes + (d.fixturesExcluded || 0);
-    const totalRe = new RegExp(`\\b(${total}|${NUM_WORDS[total] || total})\\b`, "i");
-    for (const page of ["agb", "kontakt"]) {
-      const s = texts[page]; if (!s) continue;
-      if (!totalRe.test(s)) problems.push(`content/legal/${page}.md: does not carry the derived pass count (${total}) — data/okrs.json O3/KR1.derived moved; update the maturity sentence`);
-      for (const t of d.docTypes || []) {
-        const re = DOC_WORDS[t];
-        if (re && !re.test(s)) problems.push(`content/legal/${page}.md: derived document type "${t}" is not named in the maturity sentence`);
-      }
-    }
-  }
+  if (d && Number.isInteger(d.passes)) problems.push(...maturityProblems(texts, d));
 } catch (e) { problems.push(`data/okrs.json: unreadable for the maturity check (${e.message})`); }
 
 if (problems.length) {
