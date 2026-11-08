@@ -11,9 +11,24 @@ source of truth. Install by copying:
 | `plugins/fleet/dashboard/today_api.py` | loop host, same directory | same |
 | `plugins/fleet/dashboard/answer_api.py` — verb (a), `POST /answer`, **off** by default | loop host, same directory | same |
 | `plugins/fleet/dashboard/manifest.json` | loop host, same directory | same |
+| `../scripts/herdr-live.py` — the feed for **herdr agents** (`/herdr`) | Mac `~/.local/share/lucky-loop/herdr-live/herdr-live.py`, run by `../deploy/com.kww.herdr-live.plist` in `~/Library/LaunchAgents` | `launchctl kickstart -k gui/$(id -u)/com.kww.herdr-live` |
 
 Read-only by design, except `answer`: the page reports, it does not control. See
 CLAUDE.md, "The Today page and the needs-you queue".
+
+## herdr agents (`/herdr`) — every herdr agent, live (mission v8 B3, 2026-10-02)
+
+Not at `/agents`: that path is the core app's own Agents view.
+
+`herdr-live.py` subscribes to herdr's own socket events on the Mac and keeps one
+Mac-local file, `~/.local/state/lucky-loop/herdr-live.json` (schema `herdr-live/1`),
+current: a state change lands in the file about 0.1 s after herdr announces it, a 5 s
+heartbeat re-samples anyway, and the box's herdr is read every 15 s over ssh. The
+page follows that file through the Desktop's own file watcher, plus a 5 s re-read, and
+flags it STALE past 20 s. The file carries terminal titles, so it never leaves the Mac:
+the box still gets only the 60 s shape snapshot (`scripts/herdr-snapshot.sh`, unchanged)
+behind Today's "Agents now". `useHerdrLive()` in `plugin.js` and the file's row shape
+are what the WhatsApp-like agent list reuses. Check: `python3 scripts/herdr-live.py --check`.
 
 `today_api.py` also serves the `live` block (in `/today`, and alone at `/live`) and
 `/live.txt`: the open cards in the queue's order cut in fives, each owner's state from
