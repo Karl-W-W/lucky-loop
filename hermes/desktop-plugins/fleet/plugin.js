@@ -36,6 +36,11 @@
  * Standup sits beside Call the room: the same page, and the call opens with the front desk
  * reading what needs Karl, what the agents did and the box (from dgx-today --brief).
  *
+ * OFFICE (/office, 2026-10-31) is the incubator: every project × the six disciplines, read
+ * from the box's office.json (office_api.py serves it; loop-factory's office.py writes it every
+ * 15 min). It re-derives nothing and names nothing: projects arrive from the box. Its link opens
+ * /office-board, the box's phone board shown as a picture. See the OFFICE section near the end.
+ *
  * Pure SDK-consumer work, same shape as before: a `/fleet` route + a sidebar row,
  * data from the Fleet plugin's REST router through `ctx.rest`. Plain ESM, no
  * build step, hot-reloaded from `~/.hermes/desktop-plugins/fleet/plugin.js`.
@@ -478,6 +483,54 @@ const CSS = `
 .agl-call{min-width:58px}.agl-callrow{display:flex;align-items:center;gap:10px;margin:8px 0 2px}
 .agl-callrow small{opacity:.62}
 .agl-for{font-size:12px;opacity:.7;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+/* --- office (/office): the incubator grid, read from the box's office.json; the plugin's own state colours --- */
+.of-sum{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:15px;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.of-sum b{font-weight:650}
+.of-sum .of-n-active b{color:#4caf6d}.of-sum .of-n-stale b{color:#d9a441}
+.of-legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;opacity:.78;margin:8px 0 4px;align-items:center}
+.of-legend span{display:inline-flex;align-items:center;gap:6px}
+.of-dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;box-sizing:border-box}
+.of-dot-active{background:#4caf6d}
+.of-dot-stale{background:#d9a441}
+.of-dot-none{background:none;border:1.5px solid rgba(128,128,128,.75)}
+.of-dot-unknown{background:none;border:1.5px dashed #e26d5c}
+.of-scroll{overflow-x:auto;margin-top:6px}
+.of-grid{width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed;min-width:880px}
+.of-grid thead th{font-size:10px;text-transform:uppercase;letter-spacing:.09em;opacity:.6;font-weight:600;text-align:left;padding:2px 9px}
+.of-grid thead th.of-projcol{width:180px}
+.of-grid tbody th{vertical-align:top;text-align:left;font-weight:400;padding:8px 10px;border:1px solid rgba(128,128,128,.24);
+  border-radius:7px;background:rgba(128,128,128,.05)}
+.of-pname{font-size:14px;font-weight:650;overflow-wrap:anywhere}
+.of-psub{font-size:11px;opacity:.6;margin-top:2px}
+.of-pcount{font-size:11.5px;opacity:.78;margin-top:4px;font-variant-numeric:tabular-nums}
+.of-cell{vertical-align:top;padding:7px 9px;border:1px solid rgba(128,128,128,.2);border-radius:7px;font-size:12px;min-width:0}
+.of-cell.of-active{border-color:rgba(76,175,109,.5);background:rgba(76,175,109,.07)}
+.of-cell.of-stale{border-color:rgba(217,164,65,.55);background:rgba(217,164,65,.08)}
+.of-cell.of-none{border-style:dashed;opacity:.5}
+.of-cell.of-unknown{border-color:rgba(226,109,92,.55)}
+.of-cellhead{display:flex;align-items:center;gap:7px;font-weight:600}
+.of-agent{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;opacity:.82;margin-top:3px;overflow-wrap:anywhere}
+.of-note{font-size:11.5px;opacity:.72;margin-top:3px;line-height:1.35;overflow-wrap:anywhere}
+.of-link{font:inherit;font-size:13.5px;font-weight:600;color:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.of-linkrow{margin:14px 0 0;font-size:12.5px}
+.of-linkrow small{opacity:.62;margin-left:8px}
+.of-detail{border:1px solid rgba(128,128,128,.22);border-radius:8px;padding:8px 12px;margin-bottom:6px}
+.of-detail summary{cursor:pointer;font-weight:600;font-size:13.5px}
+.of-detail summary small{font-weight:400;opacity:.6;margin-left:8px}
+.of-ids{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;opacity:.82;overflow-wrap:anywhere;margin:6px 0 2px}
+.of-srcs{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:11.5px;opacity:.62;margin-top:12px;font-variant-numeric:tabular-nums}
+.of-bad{color:#e26d5c;opacity:1}
+.of-nw{white-space:nowrap}
+.of-grade{font-size:11px;opacity:.8;margin-top:5px;padding-top:4px;border-top:1px dashed rgba(128,128,128,.28);line-height:1.35;
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.of-vstrip{font-size:12.5px;margin:10px 0 4px;padding:7px 11px;border:1px solid rgba(128,128,128,.26);border-radius:8px;
+  background:rgba(128,128,128,.05);font-variant-numeric:tabular-nums}
+.of-vrow{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 16px}
+.of-vrow+.of-vrow{margin-top:6px;padding-top:6px;border-top:1px solid rgba(128,128,128,.16)}
+.of-vstrip b{font-weight:650}.of-vstrip small{opacity:.62}
+.of-vlabel{font-size:10px;text-transform:uppercase;letter-spacing:.09em;opacity:.65;font-weight:600}
+.of-boardwrap{display:inline-block;border:1px solid rgba(128,128,128,.3);border-radius:12px;overflow:hidden;background:#000;margin-top:12px}
+.of-boardwrap iframe{display:block;border:0;width:390px;pointer-events:none;background:#000}
 `
 
 function injectStyle() {
@@ -3727,17 +3780,401 @@ function AgentsLivePage() {
         'box still receives only the 60 s shape snapshot shown on Today → Agents now.')))
 }
 
+/* ------------------------------------------------------------------------ */
+/* OFFICE (/office, 2026-10-31) — the incubator: every project × the six      */
+/* disciplines, as the box's office.json says it (loop/mission/office.py in   */
+/* loop-factory, written by the 15-min mission-consolidator tick; served by   */
+/* office_api.py). This page READS that file and re-derives no state: green   */
+/* = active, amber = stale, an unlit ring = no agent. Nothing here names a    */
+/* project, an agent or a discipline — they all arrive from the box. A new    */
+/* row beside the others; nothing renamed or hidden (the 09-03 additive rule).*/
+/* /office-board is the box's phone board (board.html), shown as a picture.   */
+/* Read-only: neither page starts, stops, answers or sends anything.          */
+/* ------------------------------------------------------------------------ */
+const OFFICE_POLL_MS = 60000 // the file changes every 15 min; a minute is plenty
+const OF_STATES = ['active', 'stale', 'none']
+const OF_BOARD_CSP = "default-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; media-src data:; " +
+  "font-src data:; style-src 'unsafe-inline'"
+
+/* One read loop per open page. A refresh that fails keeps the last good sample and says so. */
+function useOfficeRead(rest, path) {
+  const [s, setS] = useState({ data: null, err: null, lastOkAt: null, errAt: null, loading: true })
+  useEffect(() => {
+    injectStyle()
+    let dead = false
+    const tick = () =>
+      rest(path)
+        .then(d => { if (!dead) setS({ data: d, err: null, lastOkAt: Date.now(), errAt: null, loading: false }) })
+        .catch(e => { if (!dead) setS(p => ({ ...p, err: String((e && e.message) || e), errAt: Date.now(), loading: false })) })
+    tick()
+    const id = setInterval(tick, OFFICE_POLL_MS)
+    return () => { dead = true; clearInterval(id) }
+  }, [path])
+  return s
+}
+const ofIso = t => (t ? new Date(t).toISOString() : null)
+const ofNum = v => (v === null || v === undefined ? 'no data' : String(v)) // unknown is never 0
+const ofCount = (v, one, many) => (v === null || v === undefined ? many + ': no data' : v + ' ' + (v === 1 ? one : many))
+const ofState = c => (c && OF_STATES.includes(c.state) ? c.state : 'unknown')
+const ofWord = st => (st === 'none' ? 'no agent' : st === 'unknown' ? 'unknown' : st)
+const ofCap = s => String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1)
+
+/* Seat grading, when the box's office.json carries it (the 2026-10-31 verification contract, as the box writes it):
+ *   agents[].verification = { seat_claude: "<passed>/<total>" | null, seat_local: "<passed>/<total>" | null,
+ *                             threshold_met_local: true | false | null, graded_on, probe, note }
+ *   verification = { replay: { claude | local: {agree, n, wilson_lb, eligible, seat},
+ *                              baseline_recommendation: {agree, n, coverage}, gate: {min_n, min_wilson_lb} },
+ *                    seats: {agents, threshold_met_local, threshold_missed_local, probes}, graded_on, note }
+ * Every field is optional: absent draws nothing; null reads "no data" (never 0). An agent with no seat score at
+ * all is "not graded" — its grid cell stays as it was and the Agents table gives the box's reason. A cell shows
+ * the scores only; the box's long note lives in the cell's tooltip and the Agents table, never in the grid.
+ * This page computes none of these numbers — it prints what the file says. */
+const ofDay = s => {
+  if (!s) return null
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(s)) ? s + 'T12:00:00' : s)
+  if (Number.isNaN(d.getTime())) return String(s)
+  const days = Math.round((new Date().setHours(12, 0, 0, 0) - new Date(d.getTime()).setHours(12, 0, 0, 0)) / 86400000)
+  return d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + (days > 0 ? ' (' + days + 'd ago)' : '')
+}
+const ofPct = v => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v <= 1 ? v * 100 : v) + '%' : null)
+/* A date in a narrow cell must not break across lines ("2026-10-" / "27"): the text is the box's, unchanged;
+ * only its date tokens are kept whole. */
+const OF_DATE_RE = /(\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?Z?)?|\d{1,2} [A-Z][a-z]{2}(?: \(\d+d ago\))?)/
+const ofKeepDates = s => String(s).split(OF_DATE_RE).map((part, i) => (i % 2 ? h('span', { key: i, className: 'of-nw' }, part) : part))
+const ofSeat = v => (v === null || v === undefined || v === '' ? 'no data' : String(v))
+const ofHas = x => x !== null && x !== undefined && x !== ''
+const ofIsNum = x => typeof x === 'number' && Number.isFinite(x)
+function ofGrade(v) {
+  if (!v || typeof v !== 'object') return null
+  const bar = v.probe === true ? 'a probe: code decides, no bar'
+    : v.threshold_met_local === true ? 'meets its bar' : v.threshold_met_local === false ? 'below its bar' : 'bar: no data'
+  return {
+    graded: ofHas(v.seat_claude) || ofHas(v.seat_local),
+    scores: 'Claude ' + ofSeat(v.seat_claude) + ' · local ' + ofSeat(v.seat_local) + ', ' + bar,
+    day: v.graded_on ? ofDay(v.graded_on) : null,
+    note: v.note ? String(v.note) : null,
+  }
+}
+const ofGradeLine = g => 'seat evals' + (g.day ? ', ' + g.day : ' (date: no data)') + ': ' + g.scores
+
+/* The strip under the stamp: the replay (how often each seat picked your own answer on cards you decided)
+ * and the box's own seat-eval counts. Both rows print the file; neither is computed here. */
+function OfficeVerifyStrip({ v }) {
+  if (!v || typeof v !== 'object') return null
+  const r = v.replay && typeof v.replay === 'object' ? v.replay : null
+  const sz = v.seats && typeof v.seats === 'object' ? v.seats : null
+  const seat = (k, label) => {
+    const x = r && r[k]
+    if (!x || typeof x !== 'object' || !ofIsNum(x.agree) || !ofIsNum(x.n)) {
+      return h('span', { key: k }, label + ': no data' + (x && x.note ? ' — ' + x.note : ''))
+    }
+    const bits = []
+    if ('wilson_lb' in x) bits.push('lower bound ' + (ofPct(x.wilson_lb) || 'no data'))
+    if (typeof x.eligible === 'boolean') bits.push(x.eligible ? 'eligible' : 'not eligible')
+    if (ofIsNum(x.coverage)) bits.push(x.coverage + ' carried one')
+    return h('span', { key: k, title: x.seat ? String(x.seat) : undefined }, label + ' ', h('b', null, x.agree + '/' + x.n),
+      bits.length ? h('small', null, ' · ' + bits.join(' · ')) : null, x.note ? h('small', null, ' — ' + x.note) : null)
+  }
+  const gate = r && r.gate && typeof r.gate === 'object' ? r.gate : null
+  const day = v.graded_on ? 'graded ' + ofDay(v.graded_on) : 'grading date: no data'
+  const rows = []
+  if (r) {
+    rows.push(h('div', { key: 'r', className: 'of-vrow' },
+      h('span', { className: 'of-vlabel' }, 'Replay vs your decisions'),
+      seat('claude', 'Claude seat agreed'),
+      seat('local', 'local seat agreed'),
+      seat('baseline_recommendation', 'the card’s own recommendation'),
+      gate ? h('small', null, 'gate: lower bound ≥ ' + (ofPct(gate.min_wilson_lb) || 'no data') + ' on ≥ ' +
+        (ofIsNum(gate.min_n) ? gate.min_n : 'no data') + ' cards') : null,
+      h('small', null, day),
+      r.note ? h('small', null, String(r.note)) : null))
+  }
+  if (sz) {
+    rows.push(h('div', { key: 's', className: 'of-vrow' },
+      h('span', { className: 'of-vlabel' }, 'Seat evals'),
+      h('span', null, 'agents graded: ', h('b', null, ofNum(sz.agents))),
+      h('span', null, 'local seat meets its bar: ', h('b', null, ofNum(sz.threshold_met_local))),
+      h('span', null, 'misses it: ', h('b', null, ofNum(sz.threshold_missed_local))),
+      'probes' in sz ? h('span', null, 'probes, where code decides: ', h('b', null, ofNum(sz.probes))) : null,
+      !r || (sz.graded_on || null) !== (v.graded_on || null) ? h('small', null, sz.graded_on ? 'graded ' + ofDay(sz.graded_on) : day) : null,
+      h('small', null, 'per agent: in its grid cell and in Agents below')))
+  }
+  if (!rows.length) rows.push(h('div', { key: 'e', className: 'of-vrow' }, h('span', { className: 'of-vlabel' }, 'Verification'),
+    h('span', null, 'office.json carries a verification block with no replay and no seat counts'), h('small', null, day)))
+  return h('div', { className: 'of-vstrip', 'aria-label': 'how the seats were graded' }, rows,
+    v.note ? h('div', { className: 'of-vrow' }, h('small', null, String(v.note))) : null)
+}
+
+/* The two bars every read page here can show: the refresh failed, or the file itself is old. */
+function OfficeBars({ s, sampledAt, ageS, staleAfterS, what }) {
+  const bars = []
+  if (s.err && s.data) {
+    bars.push(h('div', { key: 'x', className: 'tdy-stalebar', role: 'alert' },
+      'STALE — the last refresh failed ' + ago(ofIso(s.errAt)) + '. Everything below was read ' + ago(ofIso(s.lastOkAt)) +
+      ' and is NOT current.', h('small', null, 'Error: ' + s.err)))
+  }
+  if (sampledAt && ageS !== null && ageS !== undefined && ageS > (staleAfterS || 1800)) {
+    bars.push(h('div', { key: 'o', className: 'tdy-stalebar', role: 'alert' },
+      'OLD SAMPLE — ' + what + ' was written ' + ago(sampledAt) + ' (' + when(sampledAt) + '). The box rewrites it every ' +
+      '15 min, so its tick has stopped or failed. Everything below is from that moment.',
+      h('small', null, 'Check: ssh dgx-remote \'systemctl --user status mission-consolidator.timer\'')))
+  }
+  return bars.length ? bars : null
+}
+
+function OfficeCell({ c, pname, dname, grade }) {
+  const st = ofState(c)
+  const note = c && c.note ? String(c.note) : st === 'unknown' ? 'state "' + String(c && c.state) + '" is not in office v1' : ''
+  return h('td', { className: 'of-cell of-' + st, 'aria-label': pname + ' · ' + dname + ': ' + ofWord(st) + (note ? ' — ' + note : ''),
+    title: [c && c.agent_id, c && c.source, c && c.last_output_at ? 'last output ' + when(c.last_output_at) : null, note,
+      grade ? (grade.graded ? ofGradeLine(grade) : 'seat evals: not graded') + (grade.note ? ' — ' + grade.note : '') : null]
+      .filter(Boolean).join('\n') },
+    h('div', { className: 'of-cellhead' }, h('i', { className: 'of-dot of-dot-' + st, 'aria-hidden': true }), ofWord(st)),
+    c && c.agent_id ? h('div', { className: 'of-agent' }, String(c.agent_id)) : null,
+    note && note !== 'no agent' ? h('div', { className: 'of-note' }, ofKeepDates(note)) : null,
+    grade && grade.graded ? h('div', { className: 'of-grade' }, ofKeepDates(ofGradeLine(grade))) : null)
+}
+
+function OfficeDetail({ p, discs }) {
+  const ds = p.disciplines || {}
+  return h('details', { className: 'of-detail' },
+    h('summary', null, p.display_name || p.slug || '?',
+      h('small', null, [p.kind, p.stage].filter(Boolean).join(' · ') + ' · goal ' + (p.goal_or_kr || 'none registered'))),
+    h('div', { className: 'flt-scroll' },
+      h('table', { className: 'flt-table' },
+        h('thead', null, h('tr', null, ['Discipline', 'State', 'Agent', 'Source read', 'Last output', 'Note'].map(t => h('th', { key: t }, t)))),
+        h('tbody', null, discs.map(dn => {
+          const c = ds[dn]
+          const st = ofState(c)
+          return h('tr', { key: dn },
+            h('td', null, ofCap(dn)),
+            h('td', null, h('span', { className: 'of-cellhead' }, h('i', { className: 'of-dot of-dot-' + st }), ofWord(st))),
+            h('td', { className: 'flt-mono' }, (c && c.agent_id) || '—'),
+            h('td', { className: 'flt-mono flt-raw' }, (c && c.source) || '—'),
+            h('td', { className: 'flt-dim' }, c && c.last_output_at ? when(c.last_output_at) + ' · ' + ago(c.last_output_at) : 'never on record'),
+            h('td', { className: 'flt-desc' }, (c && c.note) || '—'))
+        })))),
+    h('div', { className: 'of-ids' }, 'Open cards: ' + (Array.isArray(p.open_decision_ids) ? (p.open_decision_ids.join(', ') || 'none') : 'no data')),
+    h('div', { className: 'of-ids' }, 'Open tasks: ' + (Array.isArray(p.open_task_ids) ? (p.open_task_ids.join(', ') || 'none') : 'no data')))
+}
+
+function OfficeAgents({ agents, names }) {
+  if (!Array.isArray(agents)) return h('p', { className: 'tdy-empty' }, 'office.json carries no agents list.')
+  if (!agents.length) return h('p', { className: 'tdy-empty' }, 'office.json lists no agents.')
+  return h('div', { className: 'flt-scroll' },
+    h('table', { className: 'flt-table' },
+      h('thead', null, h('tr', null, ['Agent', 'Project', 'Kind', 'State', 'Last output', 'Note', 'Checks', 'Seat grading'].map(t => h('th', { key: t }, t)))),
+      h('tbody', null, agents.map((a, i) => {
+        const st = ofState(a)
+        const ck = a.checks
+        const g = ofGrade(a.verification)
+        return h('tr', { key: (a.agent_id || '?') + i },
+          h('td', { className: 'flt-mono' }, a.agent_id || '?'),
+          h('td', null, names[a.project] || a.project || '—'),
+          h('td', { className: 'flt-dim' }, a.kind || '—'),
+          h('td', null, h('span', { className: 'of-cellhead' }, h('i', { className: 'of-dot of-dot-' + st }), st === 'none' ? 'unmeasured' : st)),
+          h('td', { className: 'flt-dim' }, a.last_output_at ? ago(a.last_output_at) : 'never on record'),
+          h('td', { className: 'flt-desc' }, a.note || '—'),
+          h('td', { className: 'flt-desc' }, ck ? (ck.state || '?') + (ck.line ? ' — ' + ck.line : '') : 'not reported'),
+          h('td', { className: g && g.graded ? 'flt-desc' : 'flt-dim' }, g && g.graded
+            ? [g.scores, h('div', { key: 'd', className: 'flt-detail' }, (g.day ? 'graded ' + g.day : 'grading date: no data') + (g.note ? ' — ' + g.note : ''))]
+            : ['not graded', g && g.note ? h('div', { key: 'd', className: 'flt-detail' }, g.note) : null]))
+      }))))
+}
+
+function officeSources(src) {
+  if (!src || typeof src !== 'object') return [h('span', { key: 'n', className: 'of-bad' }, 'office.json carries no sources block')]
+  const out = []
+  const put = (k, txt, err) => out.push(h('span', { key: k, className: err ? 'of-bad' : null }, txt + (err ? ' — ' + err : '')))
+  const st = src.status || {}
+  put('s', 'status beat ' + (st.beat ? when(st.beat) : 'no data'), st.error)
+  const v = src.vault || {}
+  put('v', 'vault ' + (v.commit ? String(v.commit).slice(0, 7) : 'no commit') + (v.committed_at ? ' · ' + when(v.committed_at) : ''), v.error)
+  const ny = src.needs_you || {}
+  put('q', 'needs-you queue updated ' + (ny.updatedAt ? when(ny.updatedAt) : 'no data'), ny.error)
+  const tk = src.tasks || {}
+  put('t', 'tasks updated ' + (tk.updatedAt ? when(tk.updatedAt) : 'no data'), tk.error)
+  const nt = src.nightly || {}
+  put('n', 'nightly ' + ofNum(nt.runs_read) + ' runs read' + (nt.newest_run ? ', newest ' + when(nt.newest_run) : ''), nt.error)
+  const rg = src.registry || {}
+  put('r', 'registry ' + ofNum(rg.projects) + ' projects · ' + ofNum(rg.agents) + ' agents', rg.error)
+  return out
+}
+
+function makeOfficePage(rest) {
+  return function OfficePage() {
+    const s = useOfficeRead(rest, '/office')
+    if (s.loading) return h('div', { className: 'tdy-root' }, h('p', null, 'Reading office.json from the box…'))
+    if (s.err && !s.data) return h('div', { className: 'tdy-root' }, h('header', null, h('h1', null, 'Office')), h(Err, { msg: s.err }))
+    const d = s.data || {}
+    const sv = d.served || {}
+    const head = h('header', null,
+      h('h1', null, 'Office'),
+      h('p', { className: 'tdy-oneline' }, 'Every project, and who works each discipline for it — as the box’s office.json reports it. Read-only.'),
+      h('div', { className: 'tdy-stamp' },
+        h('span', null, 'sampled ' + (d.sampled_at ? when(d.sampled_at) + ' · ' + ago(d.sampled_at) : 'never')),
+        sv.file_mtime ? h('span', null, 'file written ' + ago(sv.file_mtime) + (sv.file_bytes ? ' · ' + Math.round(sv.file_bytes / 1024) + ' KB' : '')) : null,
+        h('span', null, 're-read every ' + Math.round(OFFICE_POLL_MS / 1000) + 's'),
+        s.err ? h('span', { style: { color: '#e26d5c' } }, 'last refresh failed') : null))
+    if (d.error || !Array.isArray(d.projects)) {
+      return h('div', { className: 'tdy-root' }, head,
+        h('div', { className: 'tdy-err' }, 'No grid to show: ' + (d.error || 'office.json has no projects list') + '.'),
+        h('p', { className: 'tdy-note' }, 'Nothing is drawn until the file exists — no placeholder rows. Check on the box:'),
+        h('pre', { className: 'tdy-cmd' }, "ssh dgx-remote 'cd ~/Projects/loop-factory-master && python3 loop/mission/office.py --check'"))
+    }
+    const discs = Array.isArray(d.disciplines) && d.disciplines.length ? d.disciplines.map(String)
+      : Object.keys((d.projects[0] && d.projects[0].disciplines) || {})
+    const projects = d.projects.filter(p => p && typeof p === 'object')
+    const names = {}
+    projects.forEach(p => { if (p && p.slug) names[p.slug] = p.display_name || p.slug })
+    let tot = { active: 0, stale: 0, none: 0 }
+    let counted = true
+    projects.forEach(p => {
+      const c = p && p.counts
+      if (!c || OF_STATES.some(k => typeof c[k] !== 'number')) { counted = false; return }
+      OF_STATES.forEach(k => { tot[k] += c[k] })
+    })
+    const sumOf = k => projects.reduce((n, p) => (n === null || typeof p[k] !== 'number' ? null : n + p[k]), 0)
+    const cards = sumOf('open_decisions')
+    const tasks = sumOf('open_tasks')
+    const un = d.unassigned || null
+    const stale = Boolean(s.err && s.data) || Boolean(sv.stale)
+    const grades = {} // agent_id -> its seat grading, only for agents whose verification block is present
+    if (Array.isArray(d.agents)) d.agents.forEach(a => { const g = a && a.agent_id ? ofGrade(a.verification) : null; if (g) grades[a.agent_id] = g })
+    return h('div', { className: stale ? 'tdy-root tdy-stale' : 'tdy-root' },
+      h(OfficeBars, { s, sampledAt: d.sampled_at, ageS: sv.age_s, staleAfterS: sv.stale_after_s, what: 'office.json' }),
+      h('div', { className: 'tdy-body' },
+        head,
+        sv.schema_note ? h('div', { className: 'flt-warnbar' }, sv.schema_note + ' — a cell this page cannot read shows as unknown.') : null,
+        h(OfficeVerifyStrip, { v: d.verification }),
+        h('div', { className: 'of-sum', 'aria-label': 'slot counts' },
+          h('span', null, h('b', null, String(projects.length)), projects.length === 1 ? ' project' : ' projects'),
+          counted
+            ? [h('span', { key: 'a', className: 'of-n-active' }, h('b', null, String(tot.active)), ' active'),
+               h('span', { key: 's', className: 'of-n-stale' }, h('b', null, String(tot.stale)), ' stale'),
+               h('span', { key: 'n' }, h('b', null, String(tot.none)), ' no agent'),
+               h('span', { key: 't', className: 'tdy-meta', style: { marginLeft: 0 } }, 'of ' + (tot.active + tot.stale + tot.none) + ' slots')]
+            : h('span', { className: 'tdy-warn' }, 'slot counts: no data'),
+          h('span', null, ofCount(cards, 'open card', 'open cards') + ' · ' + ofCount(tasks, 'open task', 'open tasks'))),
+        un && (un.open_decisions || un.open_tasks || un.open_decisions === null || un.open_tasks === null)
+          ? h('p', { className: 'tdy-when' }, ofCount(un.open_decisions, 'open card', 'open cards') + ' and ' +
+              ofCount(un.open_tasks, 'open task', 'open tasks') + ' carry no project value: counted here, in no row.')
+          : null,
+        h('div', { className: 'of-legend', 'aria-label': 'legend' },
+          h('span', null, h('i', { className: 'of-dot of-dot-active' }), 'active — output inside its window'),
+          h('span', null, h('i', { className: 'of-dot of-dot-stale' }), 'stale — old, never, failing, or not measured on the box'),
+          h('span', null, h('i', { className: 'of-dot of-dot-none' }), 'no agent in that seat')),
+        !projects.length
+          ? h('p', { className: 'tdy-empty' }, 'office.json lists no projects. A project appears once it is added to projects/registry.json in loop-factory.')
+          : h('div', { className: 'of-scroll' },
+              h('table', { className: 'of-grid', 'aria-label': 'projects by discipline' },
+                h('thead', null, h('tr', null, h('th', { className: 'of-projcol', scope: 'col' }, 'Project'),
+                  discs.map(dn => h('th', { key: dn, scope: 'col' }, dn)))),
+                h('tbody', null, projects.map((p, i) => {
+                  const pname = p.display_name || p.slug || '?'
+                  return h('tr', { key: (p.slug || '?') + i },
+                    h('th', { scope: 'row' },
+                      h('div', { className: 'of-pname' }, pname),
+                      h('div', { className: 'of-psub' }, [p.kind, p.stage].filter(Boolean).join(' · ') || '—'),
+                      h('div', { className: 'of-pcount' }, ofCount(p.open_decisions, 'card', 'cards') + ' · ' + ofCount(p.open_tasks, 'task', 'tasks'))),
+                    discs.map(dn => {
+                      const c = (p.disciplines || {})[dn]
+                      return h(OfficeCell, { key: dn, c, pname, dname: dn, grade: c && c.agent_id ? grades[c.agent_id] : null })
+                    }))
+                })))),
+        h('p', { className: 'of-linkrow' },
+          h('a', { className: 'of-link', href: '#', onClick: e => { e.preventDefault(); navigate('/office-board') } }, 'Open the board view →'),
+          h('small', null, 'the box’s phone board, as the consolidator last rendered it')),
+        h(Section, { title: 'Each project in detail', meta: 'where every cell was read from' },
+          projects.map((p, i) => h(OfficeDetail, { key: (p.slug || '?') + i, p, discs }))),
+        h(Section, { title: 'Agents', count: Array.isArray(d.agents) ? d.agents.length : undefined, meta: 'one row per registered agent' },
+          h('details', { className: 'of-detail' }, h('summary', null, 'Show every agent, its last output, its checks and its seat grading'),
+            h(OfficeAgents, { agents: d.agents, names }))),
+        h('div', { className: 'of-srcs', 'aria-label': 'sources' }, officeSources(d.sources)),
+        h('p', { className: 'tdy-note' },
+          'Read-only: nothing on this page starts, stops, answers or sends. It shows office.json as the box wrote it and ' +
+          're-derives nothing; the rule behind each colour is in projects/README.md in loop-factory. A count the box could ' +
+          'not read says “no data”, never 0.')))
+  }
+}
+
+/* The board's HTML is not this plugin's: it is treated like any remote page. The same strip the Desktop's
+ * own remote-HTML preview does (local-preview.ts): no script, frame, form, link or href, plus a CSP that
+ * allows inline style only. The frame has no allow-scripts and takes no pointer events: a picture. */
+function ofSafeBoard(html) {
+  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html')
+  doc.querySelectorAll('script,noscript,template,iframe,frame,frameset,object,embed,link,base,form,meta[http-equiv]')
+    .forEach(el => el.remove())
+  doc.querySelectorAll('*').forEach(el => {
+    Array.from(el.attributes).forEach(a => {
+      const n = a.name.toLowerCase()
+      if (n.startsWith('on') || ['href', 'xlink:href', 'srcset', 'action', 'formaction', 'target', 'ping'].includes(n) ||
+          (n === 'src' && !/^data:/i.test(a.value))) el.removeAttribute(a.name)
+    })
+  })
+  const m = doc.createElement('meta')
+  m.setAttribute('http-equiv', 'Content-Security-Policy')
+  m.setAttribute('content', OF_BOARD_CSP)
+  doc.head.prepend(m)
+  return '<!doctype html>' + doc.documentElement.outerHTML
+}
+
+function BoardFrame({ html }) {
+  const doc = React.useMemo(() => ofSafeBoard(html), [html])
+  const [hgt, setHgt] = useState(1800)
+  const onLoad = e => {
+    try {
+      const d = e.target.contentDocument
+      const n = d && Math.max(d.documentElement.scrollHeight, d.body ? d.body.scrollHeight : 0)
+      if (n) setHgt(n)
+    } catch { /* keep the default height */ }
+  }
+  return h('div', { className: 'of-boardwrap' },
+    h('iframe', { title: 'the box’s board', sandbox: 'allow-same-origin', srcDoc: doc, onLoad, style: { height: hgt + 'px' }, tabIndex: -1 }))
+}
+
+function makeOfficeBoardPage(rest) {
+  return function OfficeBoardPage() {
+    const s = useOfficeRead(rest, '/office/board')
+    const back = h('a', { className: 'of-link', href: '#', onClick: e => { e.preventDefault(); navigate('/office') } }, '← Office')
+    if (s.loading) return h('div', { className: 'tdy-root' }, h('p', null, 'Reading board.html from the box…'))
+    if (s.err && !s.data) return h('div', { className: 'tdy-root' }, h('header', null, h('h1', null, 'Board'), back), h(Err, { msg: s.err }))
+    const d = s.data || {}
+    const stale = Boolean(s.err && s.data) || Boolean(d.stale && d.html)
+    return h('div', { className: stale ? 'tdy-root tdy-stale' : 'tdy-root' },
+      d.html ? h(OfficeBars, { s, sampledAt: d.sampled_at, ageS: d.age_s, staleAfterS: d.stale_after_s, what: 'board.html' }) : null,
+      h('div', { className: 'tdy-body' },
+        h('header', null,
+          h('h1', null, 'Board'),
+          h('p', { className: 'tdy-oneline' }, back),
+          h('div', { className: 'tdy-stamp' },
+            h('span', null, 'rendered ' + (d.sampled_at ? when(d.sampled_at) + ' · ' + ago(d.sampled_at) : 'never')),
+            d.bytes ? h('span', null, Math.round(d.bytes / 1024) + ' KB') : null,
+            h('span', null, 're-read every ' + Math.round(OFFICE_POLL_MS / 1000) + 's'),
+            s.err ? h('span', { style: { color: '#e26d5c' } }, 'last refresh failed') : null)),
+        !d.html
+          ? h('div', { className: 'tdy-err' }, 'No board to show: ' + (d.error || 'the box returned no board') + '.')
+          : [h('p', { key: 'c', className: 'tdy-note' },
+               'The box’s phone board, 390 px wide, as the consolidator rendered it. This is a picture: its buttons are drawings ' +
+               'and nothing on it can be pressed here. Links, scripts and web fonts are removed before it is shown.'),
+             h(BoardFrame, { key: 'f', html: d.html })]))
+  }
+}
+
 const plugin = {
   id: 'fleet',
   name: 'Today + Fleet',
   description:
     'Today: what needs you, what the agents did, the goals, the box — one page, also served as ' +
-    'text at /today.txt for agents. Fleet: the full view of the box, unchanged. Read-only; ' +
+    'text at /today.txt for agents. Office: every project by discipline, from the box’s office.json. ' +
+    'Fleet: the full view of the box, unchanged. Read-only; ' +
     'every action is a command you run yourself.',
   register(ctx) {
     restFn = ctx.rest
     const TodayPage = makeTodayPage(ctx.rest)
     const FleetPage = makeFleetPage(ctx.rest)
+    const OfficePage = makeOfficePage(ctx.rest)
+    const OfficeBoardPage = makeOfficeBoardPage(ctx.rest)
     const needDetail = () => {
       const n = needCount(store.data)
       return n === null ? 'not sampled yet' : n + ' need you' + (store.err ? ' · stale' : '')
@@ -3747,6 +4184,15 @@ const plugin = {
         render: () => h(Boundary, { name: 'Today' }, h(TodayPage)) },
       { id: 'today-nav', area: SIDEBAR_NAV_AREA, order: 5,
         data: { codicon: 'home', label: 'Today', path: '/today' } },
+      // Office (2026-10-31): the incubator grid from the box's office.json, and the box's board as a
+      // picture at /office-board (reached from the page). A new row under Today; nothing renamed or
+      // hidden (the 09-03 additive rule).
+      { id: 'office-page', area: ROUTES_AREA, data: { path: '/office' },
+        render: () => h(Boundary, { name: 'Office' }, h(OfficePage)) },
+      { id: 'office-board-page', area: ROUTES_AREA, data: { path: '/office-board' },
+        render: () => h(Boundary, { name: 'Office board' }, h(OfficeBoardPage)) },
+      { id: 'office-nav', area: SIDEBAR_NAV_AREA, order: 5.5,
+        data: { codicon: 'organization', label: 'Office', path: '/office' } },
       { id: 'live-page', area: ROUTES_AREA, data: { path: '/live' },
         render: () => h(Boundary, { name: 'Live' }, h(CStageLive)) },
       // the pre-C Live, kept reachable (additive rule, 09-03): /live-classic
@@ -3810,6 +4256,12 @@ const plugin = {
         { id: 'open-today', area: PALETTE_AREA,
           data: { id: 'fleet.open-today', label: 'Open Today — what needs you', keywords: ['today', 'needs', 'decide'],
             detail: needDetail, run: () => navigate('/today') } },
+        { id: 'open-office', area: PALETTE_AREA,
+          data: { id: 'fleet.open-office', label: 'Open Office — every project by discipline', keywords: ['office', 'projects', 'incubator', 'disciplines'],
+            detail: () => 'read from the box’s office.json', run: () => navigate('/office') } },
+        { id: 'open-office-board', area: PALETTE_AREA,
+          data: { id: 'fleet.open-office-board', label: 'Open the board — the box’s phone board', keywords: ['board', 'office', 'phone', 'mission'],
+            detail: () => 'board.html, as the consolidator rendered it', run: () => navigate('/office-board') } },
         { id: 'open-live', area: PALETTE_AREA,
           data: { id: 'fleet.open-live', label: 'Open Live — the call', keywords: ['live', 'call', 'cards'],
             detail: needDetail, run: () => navigate('/live') } },
