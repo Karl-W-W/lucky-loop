@@ -490,6 +490,14 @@ body {
 @media (min-width: 40rem) {
   .ll-home .ll-price-setup { grid-template-columns: auto auto 1fr; gap: 0.25rem 1rem; align-items: baseline; }
 }
+/* Setup leads the card since 2026-11-13 (Karl, setup-first): the hairline moves
+ * below it, so it separates Setup from the Hosted price that follows. */
+.ll-home .ll-price-setup--first {
+  padding: 0 0 0.9rem;
+  margin: 0 0 1.1rem;
+  border-top: 0;
+  border-bottom: 1px solid var(--ll-hairline-soft);
+}
 .ll-home .ll-price-setup-name { font-weight: 600; color: var(--ll-pine); }
 .ll-home .ll-price-setup-amount { font-family: var(--ll-mono); font-size: 0.95rem; color: var(--ll-pine); }
 .ll-home .ll-price-setup-note { font-size: 0.875rem; color: var(--ll-ink-2); }

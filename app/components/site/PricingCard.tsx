@@ -12,6 +12,13 @@ export default function PricingCard() {
   return (
     <div className="ll-price" id="pricing">
       <div className="ll-price-main">
+        {/* Setup first, then Hosted: Karl's answer "setup-first" of 2026-10-02.
+          * Order changed, wording and numbers not. */}
+        <p className="ll-price-setup ll-price-setup--first">
+          <span className="ll-price-setup-name">{setup.name}</span>
+          <span className="ll-price-setup-amount">from {eur(setup.fromEur)}</span>
+          <span className="ll-price-setup-note">one-time · quoted before you order · {setup.refund}</span>
+        </p>
         <p className="ll-price-name">{hosted.name}</p>
         <p className="ll-price-amount">
           <span className="ll-price-numeral">{eur(hosted.monthlyEur)}</span>
@@ -21,11 +28,6 @@ export default function PricingCard() {
         <p className="ll-price-included">
           One loop for one business, set up and tended for you: the agents, your written playbook, the
           decisions queue you answer with one word, and a human who reads what the loop did.
-        </p>
-        <p className="ll-price-setup">
-          <span className="ll-price-setup-name">{setup.name}</span>
-          <span className="ll-price-setup-amount">from {eur(setup.fromEur)}</span>
-          <span className="ll-price-setup-note">one-time · quoted before you order · {setup.refund}</span>
         </p>
       </div>
       <dl className="ll-price-terms">

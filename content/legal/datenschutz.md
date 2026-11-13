@@ -204,10 +204,7 @@ Die Dokumente werden nicht auf den Servern dieser Website (Vercel) gespeichert.
 Zum Stand dieser Erklärung (22. September 2026) nutzt noch kein Kunde den gehosteten Dienst. Es werden daher derzeit keine Kundendokumente verarbeitet.
 Wir aktualisieren diesen Abschnitt, sobald sich das ändert.
 
-## 9. Statusseite (/war), Quellcode und Links
-
-Die auf der Seite /war angezeigten Statuszahlen stammen aus Dateien, die zusammen mit dem Quellcode der Website veröffentlicht werden.
-Beim Aufruf dieser Seite werden keine Daten über Sie erhoben, die über die Server-Logs aus Abschnitt 4 hinausgehen.
+## 9. Quellcode und Links
 
 Der Quellcode der Website ist öffentlich unter [github.com/Karl-W-W/lucky-loop](https://github.com/Karl-W-W/lucky-loop) einsehbar.
 Wenn Sie einem Link zu GitHub oder zu einer anderen externen Website folgen, verlassen Sie unsere Website. Ab dann gilt die Datenschutzerklärung des jeweiligen Anbieters.

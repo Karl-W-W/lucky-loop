@@ -3,8 +3,8 @@ import { LEGAL_PAGES, impressum } from "@/app/lib/legal";
 import { REPO_PUBLIC } from "@/app/war/data";
 
 /* The footer every stranger-facing page carries (2026-09-22): the legal pages
- * German law requires of a commercial site, the price, the two public rooms,
- * and the source. Rendered from data/impressum.json and app/lib/legal.ts so a
+ * German law requires of a commercial site, the price and the source. The
+ * links to /war and /loop left on 2026-11-13 (Karl's ruling of 2026-10-02). Rendered from data/impressum.json and app/lib/legal.ts so a
  * page cannot drift from the legal identity it stands under. */
 export default function SiteFooter({ dark = false }: { dark?: boolean }) {
   return (
@@ -16,8 +16,6 @@ export default function SiteFooter({ dark = false }: { dark?: boolean }) {
             {p.short}
           </Link>
         ))}
-        <Link href="/war">War Room</Link>
-        <Link href="/loop">The loop</Link>
         {REPO_PUBLIC ? <a href="https://github.com/Karl-W-W/lucky-loop">Source</a> : null}
       </nav>
       <p className="ll-footer-line">

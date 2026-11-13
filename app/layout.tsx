@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "Lucky Loop",
   description:
-    "An agent harness being built in public: an autonomous loop for everyday admin. Objectives, commits and deploys are published on the Lucky Loop War Room.",
+    "An agent harness being built in public: an autonomous loop for everyday admin.",
   openGraph: {
     type: "website",
     siteName: "Lucky Loop",
@@ -42,13 +42,13 @@ export const metadata: Metadata = {
     url: "/",
     title: "Lucky Loop — an agent harness for the admin you'd rather not do",
     description:
-      "An agent harness being built in public: an autonomous loop for everyday admin. Objectives, commits and deploys are published on the Lucky Loop War Room.",
+      "An agent harness being built in public: an autonomous loop for everyday admin.",
   },
   twitter: {
     card: "summary_large_image",
     title: "Lucky Loop — an agent harness for the admin you'd rather not do",
     description:
-      "An agent harness being built in public: an autonomous loop for everyday admin. Objectives, commits and deploys are published on the Lucky Loop War Room.",
+      "An agent harness being built in public: an autonomous loop for everyday admin.",
   },
 };
 

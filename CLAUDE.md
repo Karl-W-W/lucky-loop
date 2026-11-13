@@ -45,6 +45,31 @@ met. Business customers only (Unternehmer, § 14 BGB): no Widerruf page, no
   domain in the same change that makes that domain answer 200 — never before,
   because share-card image URLs are absolute.
 
+## The dashboards left the public site; Setup is sold first (ruled 2026-10-02, carried out 2026-11-13)
+
+Karl answered two cards on 2026-10-02: `retire-war-and-loop` (the site becomes
+the offer, the legal pages and contact; every dashboard lives in Hermes) and
+`setup-first` (the one-time Setup is sold before Hosted). The page went on
+saying the opposite for six weeks. **What changed:** `app/war/page.tsx` and
+`app/loop/page.tsx` now only call `redirect("/")`, so the build writes no
+dashboard text into the HTML, the `.rsc` data route or the `.segments` routes
+(the page-path redirects alone did not match those, and the live site served
+`/war.rsc` with the whole dashboard); the former `/loop` body sits unimported in
+`app/loop/RetiredLoopPage.tsx`. As the second line, `next.config.ts` sends
+`/war`, `/loop`, everything under them and their `.rsc`/`.segments` paths to
+`/` with a TEMPORARY (307) redirect; the home page, footer, sitemap, share card and metadata no longer
+link or name either dashboard; Impressum, Datenschutz and AGB lost the
+sentences about the status page; "What is sold" and the price card list Setup
+before Hosted, and the hero's Hosted-only price line is gone. Removed and
+reordered only — no sentence was added to public text. **What stayed:** the
+route files under `app/war/` and `app/loop/` (`gen-flow.py` anchors into them,
+so deleting them breaks the drift gate) and every `data/*.json` (the Hermes
+Today page reads `data/okrs.json`). The sections below on `/war` and `/loop`
+describe code that still builds but no visitor reaches. Deleting it is a
+follow-up that must move the canvas anchors in the same commit. Undoing the
+retirement is restoring the two page files (the `/loop` one from
+`RetiredLoopPage.tsx`) and deleting the `redirects()` block.
+
 ## /war — the War Room
 
 `/war` shows **real data only — no mock telemetry**:

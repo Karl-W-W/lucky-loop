@@ -1,33 +1,13 @@
-import type { Metadata } from "next";
-import Dashboard from "./Dashboard";
-import { currentAnchor } from "./data";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-/* openGraph is restated rather than inherited: Next does not fall back to a
- * segment's own `title`/`description` when composing the parent's openGraph, so
- * without this a shared /war link would unfurl under the ROOT title and read as
- * the homepage. The image itself is inherited from app/opengraph-image.tsx. */
-export const metadata: Metadata = {
-  title: "War Room — Lucky Loop",
-  description:
-    "Lucky Loop's build log in public: progress against the MVP objective, plus every git commit and Vercel production deploy, derived from the repo at build time.",
-  openGraph: {
-    type: "website",
-    siteName: "Lucky Loop",
-    url: "/war",
-    title: "War Room — Lucky Loop",
-    description:
-      "Lucky Loop's build log in public: progress against the MVP objective, plus every git commit and Vercel production deploy, derived from the repo at build time.",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "War Room — Lucky Loop",
-    description:
-      "Lucky Loop's build log in public: progress against the MVP objective, plus every git commit and Vercel production deploy, derived from the repo at build time.",
-  },
-};
-
-export default function WarPage() {
-  return <Dashboard anchor={currentAnchor()} />;
+/* Retired from the public site by Karl's ruling of 2026-10-02 (answer
+ * retire-war-and-loop): the site is the offer, the legal pages and contact.
+ * The route itself sends a visitor home, so the build writes no dashboard text
+ * into any file a visitor can fetch (the HTML, the .rsc data route, the
+ * .segments routes). The redirects in next.config.ts are the second line.
+ * ./Dashboard.tsx, ./data.ts and ./components stay, unimported here:
+ * langflow/gen-flow.py anchors into them and the Today page reads
+ * data/okrs.json. Deleting the retired code is a follow-up. */
+export default function WarPage(): never {
+  redirect("/");
 }

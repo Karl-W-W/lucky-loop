@@ -223,8 +223,8 @@ dass wir ihm diese Dateien übergeben; wir tun das unverzüglich, spätestens in
 10.4 **Software.** Die Software hinter Lucky Loop ist öffentlich unter [github.com/Karl-W-W/lucky-loop](https://github.com/Karl-W-W/lucky-loop) einsehbar.
 Mit dem Hosted-Abonnement erhält der Kunde keine Kopie der Software und keine Rechte daran; er nutzt den gehosteten Dienst.
 
-10.5 **Kennzahlen und Referenzen.** Wir dürfen anonyme, aggregierte Kennzahlen über den Betrieb erheben und veröffentlichen, etwa die Anzahl verarbeiteter Dokumente
-auf unserer öffentlichen Statusseite. Inhalte des Kunden, Namen und Angaben, die auf den Kunden oder Dritte schließen lassen, veröffentlichen wir nicht.
+10.5 **Kennzahlen und Referenzen.** Wir dürfen anonyme, aggregierte Kennzahlen über den Betrieb erheben und veröffentlichen, etwa die Anzahl verarbeiteter Dokumente.
+Inhalte des Kunden, Namen und Angaben, die auf den Kunden oder Dritte schließen lassen, veröffentlichen wir nicht.
 Als Referenz nennen wir den Kunden nur mit seiner Zustimmung.
 
 ## 11. Haftung

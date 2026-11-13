@@ -109,7 +109,7 @@ export default function Image() {
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
           <div style={{ display: "flex", width: 56, height: 2, background: BRASS }} />
           <div style={{ display: "flex", fontSize: 24, color: BRASS, letterSpacing: 1 }}>
-            Building in public · the War Room is open
+            Building in public
           </div>
         </div>
       </div>

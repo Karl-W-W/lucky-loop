@@ -39,7 +39,6 @@ Wir sind nicht verpflichtet und nicht bereit, an Streitbeilegungsverfahren vor e
 ## Haftung für Inhalte
 
 Die Inhalte dieser Website wurden mit Sorgfalt erstellt. Für Richtigkeit, Vollständigkeit und Aktualität übernehmen wir keine Gewähr.
-Die Statuszahlen auf der Seite „/war“ werden aus Dateien im öffentlichen Quellcode gelesen und zeigen den Stand des jeweiligen Commits.
 Diese Website bietet keine Nutzerkonten und keine Möglichkeit, eigene Inhalte einzustellen.
 
 Der Quellcode der Website ist öffentlich: [github.com/Karl-W-W/lucky-loop](https://github.com/Karl-W-W/lucky-loop).
