@@ -1,6 +1,152 @@
 {
   "runs": [
     {
+      "runId": "20261111-062b4edb",
+      "idempotencyKey": "062b4edb55951907",
+      "startedAt": "2026-11-11T02:50:01Z",
+      "finishedAt": "2026-11-11T02:50:05Z",
+      "durationMs": 4120,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 2044,
+        "lines": 48,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "receipt",
+        "amountBucket": "50-500",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 2044,
+            "lines": 48,
+            "amountBucket": "50-500",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a receipt from a bank"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a bank, amount in the 50-500 band; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='50-500'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:062b4edb55951907",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261111-47ce4c25",
+      "idempotencyKey": "47ce4c25dca74f88",
+      "startedAt": "2026-11-11T02:40:00Z",
+      "finishedAt": "2026-11-11T02:40:06Z",
+      "durationMs": 5574,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1663,
+        "lines": 42,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "invoice",
+        "amountBucket": "50-500",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1663,
+            "lines": 42,
+            "amountBucket": "50-500",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "medium",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a payment request"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "medium-urgency bill from a bank, amount in the 50-500 band; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='50-500'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:47ce4c25dca74f88",
+        "source": "loop"
+      }
+    },
+    {
       "runId": "20261109-0b031c1a",
       "idempotencyKey": "0b031c1a766af605",
       "startedAt": "2026-11-09T02:50:01Z",
@@ -1675,5 +1821,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-11-09T02:50:05Z"
+  "generatedAt": "2026-11-11T02:50:05Z"
 }
