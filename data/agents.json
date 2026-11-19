@@ -41,15 +41,15 @@
     {
       "id": "herald",
       "name": "HERALD",
-      "runtime": "not yet commissioned",
-      "cadence": "dark",
+      "runtime": "not commissioned \u2014 no spec and no registry entry yet.",
+      "cadence": "dark \u2014 held by a human's hand, not by the loop's output; the gate below counts admin-bill passes only.",
       "since": "2026-08-21",
       "gate": {
         "minPasses": 5,
         "minDocTypes": 3
       },
-      "does": "Drafts the launch surface \u2014 nothing else.",
-      "cannot": "Send. Ever. Every draft queues for a human. It stays dark until the loop has produced enough to describe honestly."
+      "does": "Drafts outward text and nothing else, and states the product's real maturity in it: an early MVP, no payment link, a loop that has run on admin bills only.",
+      "cannot": "Send. Ever. Every draft queues for a human. Publish, post or commit. Decide what is sold. Claim more than the records it cites."
     },
     {
       "id": "hands",
