@@ -176,7 +176,7 @@ const CSS = `
 .tdy-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:10.5px;
   text-transform:uppercase;letter-spacing:.05em;border:1px solid currentColor;white-space:nowrap}
 .tdy-p-ok{color:#4caf6d}.tdy-p-idle{color:rgba(128,128,128,.9)}.tdy-p-quiet{color:rgba(128,128,128,.9)}
-.tdy-p-blocked{color:#d9a441}.tdy-p-failed{color:#e26d5c}.tdy-p-stopped{color:#e26d5c}.tdy-p-unknown{color:rgba(128,128,128,.9)}
+.tdy-p-blocked{color:#d9a441}.tdy-p-failed{color:#e26d5c}.tdy-p-stopped{color:#e26d5c}.tdy-p-unknown{color:rgba(128,128,128,.9)}.tdy-p-released{color:#d9a441}
 .tdy-text{grid-column:1 / -1;font-size:12.5px;white-space:pre-wrap;overflow-wrap:anywhere;opacity:.85;
   padding:8px 10px;border-radius:6px;background:rgba(128,128,128,.08);margin-top:4px;max-height:420px;overflow:auto}
 .tdy-note{font-size:12px;opacity:.55;margin:10px 0 0;max-width:80ch;line-height:1.5}
@@ -1178,10 +1178,11 @@ function oneLine(d) {
   const ran = items.filter(i => i.status === 'ok').length
   const blocked = items.filter(i => i.status === 'blocked').length
   const failed = items.filter(i => i.status === 'failed' || i.status === 'stopped').length
+  const released = items.filter(i => i.status === 'released').length
   const lp = d.loop || {}
   const bx = d.box || {}
   const parts = []
-  parts.push('Agents: ' + ran + ' ran' + (blocked ? ', ' + blocked + ' blocked' : '') + (failed ? ', ' + failed + ' FAILED' : ''))
+  parts.push('Agents: ' + ran + ' ran' + (blocked ? ', ' + blocked + ' blocked' : '') + (failed ? ', ' + failed + ' FAILED' : '') + (released ? ', ' + released + ' released' : ''))
   parts.push('Loop: ' + (lp.state || '?') + (lp.queue_depth !== undefined && lp.queue_depth !== null ? ', queue ' + lp.queue_depth : '') +
     (lp.last_pass_age_days !== undefined && lp.last_pass_age_days !== null ? ', last pass ' + lp.last_pass_age_days + ' d ago' : ''))
   parts.push('Box: ' + (bx.ok ? 'OK' : 'look'))

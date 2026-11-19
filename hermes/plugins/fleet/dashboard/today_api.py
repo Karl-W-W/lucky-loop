@@ -373,8 +373,8 @@ def agents(nightly_results: Dict[str, Dict[str, Any]], nightly_latest: Dict[str,
         items.append({
             "t": t, "kind": "delegate", "agent": r.get("bot"), "job": (r.get("task") or "")[:120],
             "status": ("ok" if r.get("ok") else "released" if r.get("released") is True else "failed"),
-            "reason": ("" if r.get("ok") else "released to open, no attempt counted" if r.get("released") is True
-                       else f"exit {r.get('exit')}"),
+            "reason": ("" if r.get("ok") else f"released to open, no attempt counted; failed with exit {r.get('exit')}"
+                       if r.get("released") is True else f"exit {r.get('exit')}"),
             "summary": "", "text": "",
             "duration_s": r.get("duration_s"), "session": r.get("session"),
             "where": _rel(DELEG_LOG),
@@ -1894,7 +1894,8 @@ def _selftest() -> int:
         finally:
             globals()["DELEG_LOG"] = _old
         _st = {i["job"]: (i["status"], i["reason"]) for i in _ag["items"] if i["kind"] == "delegate"}
-        ok(_st["t1"] == ("released", "released to open, no attempt counted"), "agents: a released row reads released, with its reason")
+        ok(_st["t1"] == ("released", "released to open, no attempt counted; failed with exit 1"),
+           "agents: a released row reads released, and its reason keeps the exit code")
         ok(_st["t2"][0] == "failed" and _st["t4"][0] == "failed" and _st["t3"][0] == "ok",
            "agents: an unreleased failure stays failed; only released is true counts; ok stays ok")
         ok(_ag["failed_count"] == 2,
