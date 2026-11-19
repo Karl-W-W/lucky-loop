@@ -372,8 +372,9 @@ def agents(nightly_results: Dict[str, Dict[str, Any]], nightly_latest: Dict[str,
             continue
         items.append({
             "t": t, "kind": "delegate", "agent": r.get("bot"), "job": (r.get("task") or "")[:120],
-            "status": "ok" if r.get("ok") else "failed",
-            "reason": "" if r.get("ok") else f"exit {r.get('exit')}",
+            "status": ("ok" if r.get("ok") else "released" if r.get("released") is True else "failed"),
+            "reason": ("" if r.get("ok") else "released to open, no attempt counted" if r.get("released") is True
+                       else f"exit {r.get('exit')}"),
             "summary": "", "text": "",
             "duration_s": r.get("duration_s"), "session": r.get("session"),
             "where": _rel(DELEG_LOG),
@@ -1877,6 +1878,27 @@ def _selftest() -> int:
     ok([(t["name"], t["every"], t["last"] is None) for t in tm["items"]]
        == [("a", "every 15min", False), ("b", "*-*-* *:00/10:00", True)], "timers: every/next/last, soonest first")
     ok(timers(_list=lambda: "[]")["items"] == [], "timers: none is an empty list")
+    # a released row (went back to open, no attempt counted) is not a failure
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as _td:
+        _dl = Path(_td) / "deleg.jsonl"
+        _dl.write_text("\n".join(json.dumps(r) for r in [
+            {"t": "2026-11-19T01:00:00Z", "bot": "foreman", "task": "t1", "ok": False, "exit": 1, "released": True},
+            {"t": "2026-11-19T02:00:00Z", "bot": "foreman", "task": "t2", "ok": False, "exit": 1},
+            {"t": "2026-11-19T03:00:00Z", "bot": "foreman", "task": "t3", "ok": True, "exit": 0},
+            {"t": "2026-11-19T04:00:00Z", "bot": "foreman", "task": "t4", "ok": False, "exit": 1, "released": "yes"}]) + "\n")
+        _old = DELEG_LOG
+        globals()["DELEG_LOG"] = _dl
+        try:
+            _ag = agents({}, {}, {})
+        finally:
+            globals()["DELEG_LOG"] = _old
+        _st = {i["job"]: (i["status"], i["reason"]) for i in _ag["items"] if i["kind"] == "delegate"}
+        ok(_st["t1"] == ("released", "released to open, no attempt counted"), "agents: a released row reads released, with its reason")
+        ok(_st["t2"][0] == "failed" and _st["t4"][0] == "failed" and _st["t3"][0] == "ok",
+           "agents: an unreleased failure stays failed; only released is true counts; ok stays ok")
+        ok(_ag["failed_count"] == 2,
+           "agents: failed_count leaves released rows out")
     print(f"selftest: {'PASS' if not fails else 'FAIL'} — {len(fails)} failure(s)")
     return 0 if not fails else 1
 
