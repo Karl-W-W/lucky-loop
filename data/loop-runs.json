@@ -1,6 +1,1685 @@
 {
   "runs": [
     {
+      "runId": "20261127-0a38f6cf",
+      "idempotencyKey": "0a38f6cf05e7f702",
+      "startedAt": "2026-11-27T02:50:00Z",
+      "finishedAt": "2026-11-27T02:50:08Z",
+      "durationMs": 8131,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1736,
+        "lines": 44,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "receipt",
+        "amountBucket": "under-50",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1736,
+            "lines": 44,
+            "amountBucket": "under-50",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document is a receipt from a bank"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:0a38f6cf05e7f702",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261127-cad74181",
+      "idempotencyKey": "cad741818351a2be",
+      "startedAt": "2026-11-27T02:40:00Z",
+      "finishedAt": "2026-11-27T02:40:05Z",
+      "durationMs": 4667,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1683,
+        "lines": 38,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "invoice",
+        "amountBucket": "under-50",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1683,
+            "lines": 38,
+            "amountBucket": "under-50",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "medium",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a payment request"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "medium-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:cad741818351a2be",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261125-e6742574",
+      "idempotencyKey": "e67425740244dd2f",
+      "startedAt": "2026-11-25T03:00:01Z",
+      "finishedAt": "2026-11-25T03:00:05Z",
+      "durationMs": 3494,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 2,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1734,
+        "lines": 51,
+        "language": "de",
+        "issuerKind": "bank",
+        "docType": "invoice",
+        "amountBucket": "none",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1734,
+            "lines": 51,
+            "amountBucket": "none",
+            "hasDueDate": false,
+            "language": "de",
+            "issuerKind": "bank",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "other",
+            "urgency": "low",
+            "assertion": "disposition_actionable",
+            "rationale": "Document lacks sufficient context for categorization"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "ignore",
+            "destination": "archive",
+            "humanSummary": "low-urgency other from a bank, no amount detected; recommended action: ignore to archive."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "disposition_actionable",
+            "passed": true,
+            "detail": "disposition 'ignore' is one of ['file', 'pay', 'reply', 'ignore', 'escalate']"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'disposition_actionable' held on iteration 2.",
+            "iterations": 2,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:e67425740244dd2f",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261125-64aaccfa",
+      "idempotencyKey": "64aaccfa510cda64",
+      "startedAt": "2026-11-25T02:50:01Z",
+      "finishedAt": "2026-11-25T02:50:03Z",
+      "durationMs": 1981,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1745,
+        "lines": 44,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "receipt",
+        "amountBucket": "50-500",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1745,
+            "lines": 44,
+            "amountBucket": "50-500",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a receipt from a bank"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a bank, amount in the 50-500 band; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='50-500'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:64aaccfa510cda64",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261125-b1e4f126",
+      "idempotencyKey": "b1e4f1264e65ed41",
+      "startedAt": "2026-11-25T02:40:01Z",
+      "finishedAt": "2026-11-25T02:40:07Z",
+      "durationMs": 5242,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1666,
+        "lines": 38,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "invoice",
+        "amountBucket": "50-500",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1666,
+            "lines": 38,
+            "amountBucket": "50-500",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "medium",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a payment request"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "medium-urgency bill from a bank, amount in the 50-500 band; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='50-500'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:b1e4f1264e65ed41",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261124-cf5e3396",
+      "idempotencyKey": "cf5e3396106fcde5",
+      "startedAt": "2026-11-24T03:00:01Z",
+      "finishedAt": "2026-11-24T03:00:05Z",
+      "durationMs": 3793,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1962,
+        "lines": 44,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "receipt",
+        "amountBucket": "under-50",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1962,
+            "lines": 44,
+            "amountBucket": "under-50",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document is a receipt from a bank"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:cf5e3396106fcde5",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261124-8cec2bda",
+      "idempotencyKey": "8cec2bda66933c9a",
+      "startedAt": "2026-11-24T02:50:00Z",
+      "finishedAt": "2026-11-24T02:50:04Z",
+      "durationMs": 3935,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1589,
+        "lines": 37,
+        "language": "en",
+        "issuerKind": "cloud-provider",
+        "docType": "invoice",
+        "amountBucket": "under-50",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1589,
+            "lines": 37,
+            "amountBucket": "under-50",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "cloud-provider",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a bill with an amount"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a cloud-provider, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:8cec2bda66933c9a",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261124-80f2ec58",
+      "idempotencyKey": "80f2ec58cddd47a9",
+      "startedAt": "2026-11-24T02:40:02Z",
+      "finishedAt": "2026-11-24T02:40:07Z",
+      "durationMs": 5244,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1966,
+        "lines": 44,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "receipt",
+        "amountBucket": "under-50",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1966,
+            "lines": 44,
+            "amountBucket": "under-50",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document is a receipt from a bank"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:80f2ec58cddd47a9",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261123-df9ce088",
+      "idempotencyKey": "df9ce0888e97a5ff",
+      "startedAt": "2026-11-23T03:00:01Z",
+      "finishedAt": "2026-11-23T03:00:05Z",
+      "durationMs": 3417,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1591,
+        "lines": 37,
+        "language": "en",
+        "issuerKind": "cloud-provider",
+        "docType": "invoice",
+        "amountBucket": "under-50",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1591,
+            "lines": 37,
+            "amountBucket": "under-50",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "cloud-provider",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a payment request"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a cloud-provider, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:df9ce0888e97a5ff",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261123-6755c9e1",
+      "idempotencyKey": "6755c9e13abf5d84",
+      "startedAt": "2026-11-23T02:50:01Z",
+      "finishedAt": "2026-11-23T02:50:05Z",
+      "durationMs": 3767,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1916,
+        "lines": 44,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "receipt",
+        "amountBucket": "under-50",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1916,
+            "lines": 44,
+            "amountBucket": "under-50",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document is a receipt from a bank"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:6755c9e13abf5d84",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261123-b70c087d",
+      "idempotencyKey": "b70c087de6224d83",
+      "startedAt": "2026-11-23T02:40:01Z",
+      "finishedAt": "2026-11-23T02:40:06Z",
+      "durationMs": 4706,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1553,
+        "lines": 37,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "invoice",
+        "amountBucket": "under-50",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1553,
+            "lines": 37,
+            "amountBucket": "under-50",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "medium",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a payment request"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "medium-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:b70c087de6224d83",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261122-c474eb64",
+      "idempotencyKey": "c474eb646938538d",
+      "startedAt": "2026-11-22T03:00:00Z",
+      "finishedAt": "2026-11-22T03:00:04Z",
+      "durationMs": 3434,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1961,
+        "lines": 44,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "receipt",
+        "amountBucket": "under-50",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1961,
+            "lines": 44,
+            "amountBucket": "under-50",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document is a receipt from a bank"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:c474eb646938538d",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261122-5554d1e7",
+      "idempotencyKey": "5554d1e789771ab0",
+      "startedAt": "2026-11-22T02:50:00Z",
+      "finishedAt": "2026-11-22T02:50:03Z",
+      "durationMs": 3637,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1588,
+        "lines": 37,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "invoice",
+        "amountBucket": "under-50",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1588,
+            "lines": 37,
+            "amountBucket": "under-50",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "medium",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains invoice details"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "medium-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:5554d1e789771ab0",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261122-57839868",
+      "idempotencyKey": "57839868f78057bb",
+      "startedAt": "2026-11-22T02:40:00Z",
+      "finishedAt": "2026-11-22T02:40:05Z",
+      "durationMs": 5301,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1962,
+        "lines": 44,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "receipt",
+        "amountBucket": "under-50",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1962,
+            "lines": 44,
+            "amountBucket": "under-50",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document is a receipt from a bank"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:57839868f78057bb",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261121-9013e682",
+      "idempotencyKey": "9013e6821d37c0a5",
+      "startedAt": "2026-11-21T03:00:00Z",
+      "finishedAt": "2026-11-21T03:00:03Z",
+      "durationMs": 3308,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1589,
+        "lines": 37,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "invoice",
+        "amountBucket": "under-50",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1589,
+            "lines": 37,
+            "amountBucket": "under-50",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "medium",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a payment request"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "medium-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:9013e6821d37c0a5",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261121-d4efac55",
+      "idempotencyKey": "d4efac55f594e559",
+      "startedAt": "2026-11-21T02:50:00Z",
+      "finishedAt": "2026-11-21T02:50:04Z",
+      "durationMs": 3539,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1855,
+        "lines": 44,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "receipt",
+        "amountBucket": "under-50",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1855,
+            "lines": 44,
+            "amountBucket": "under-50",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document is a receipt from a bank"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a bank, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:d4efac55f594e559",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261121-89993d17",
+      "idempotencyKey": "89993d17a92a605b",
+      "startedAt": "2026-11-21T02:40:00Z",
+      "finishedAt": "2026-11-21T02:40:05Z",
+      "durationMs": 4960,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1552,
+        "lines": 37,
+        "language": "en",
+        "issuerKind": "cloud-provider",
+        "docType": "invoice",
+        "amountBucket": "under-50",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1552,
+            "lines": 37,
+            "amountBucket": "under-50",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "cloud-provider",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "medium",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a bill with an amount"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "medium-urgency bill from a cloud-provider, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:89993d17a92a605b",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261119-6df76020",
+      "idempotencyKey": "6df76020d5aeda57",
+      "startedAt": "2026-11-19T02:50:01Z",
+      "finishedAt": "2026-11-19T02:50:06Z",
+      "durationMs": 4191,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 2530,
+        "lines": 53,
+        "language": "en",
+        "issuerKind": "telecom",
+        "docType": "receipt",
+        "amountBucket": "under-50",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 2530,
+            "lines": 53,
+            "amountBucket": "under-50",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "telecom",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document is a receipt with no due date"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "ignore",
+            "destination": "archive",
+            "humanSummary": "low-urgency bill from a telecom, amount under 50; recommended action: ignore to archive."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:6df76020d5aeda57",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261119-4c235b30",
+      "idempotencyKey": "4c235b301627f9d6",
+      "startedAt": "2026-11-19T02:40:01Z",
+      "finishedAt": "2026-11-19T02:40:06Z",
+      "durationMs": 5144,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 2102,
+        "lines": 44,
+        "language": "en",
+        "issuerKind": "cloud-provider",
+        "docType": "invoice",
+        "amountBucket": "under-50",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 2102,
+            "lines": 44,
+            "amountBucket": "under-50",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "cloud-provider",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a bill with an amount"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a cloud-provider, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:4c235b301627f9d6",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261118-85dd10d3",
+      "idempotencyKey": "85dd10d38ce7abdd",
+      "startedAt": "2026-11-18T02:50:02Z",
+      "finishedAt": "2026-11-18T02:50:06Z",
+      "durationMs": 4010,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 2531,
+        "lines": 53,
+        "language": "en",
+        "issuerKind": "telecom",
+        "docType": "receipt",
+        "amountBucket": "under-50",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 2531,
+            "lines": 53,
+            "amountBucket": "under-50",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "telecom",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document is a receipt with no due date"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "ignore",
+            "destination": "archive",
+            "humanSummary": "low-urgency bill from a telecom, amount under 50; recommended action: ignore to archive."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:85dd10d38ce7abdd",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261118-ef2519f3",
+      "idempotencyKey": "ef2519f3a6d1d181",
+      "startedAt": "2026-11-18T02:40:00Z",
+      "finishedAt": "2026-11-18T02:40:05Z",
+      "durationMs": 5475,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 2100,
+        "lines": 44,
+        "language": "en",
+        "issuerKind": "cloud-provider",
+        "docType": "invoice",
+        "amountBucket": "under-50",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 2100,
+            "lines": 44,
+            "amountBucket": "under-50",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "cloud-provider",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a bill with an amount"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a cloud-provider, amount under 50; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='under-50'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:ef2519f3a6d1d181",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261111-062b4edb",
+      "idempotencyKey": "062b4edb55951907",
+      "startedAt": "2026-11-11T02:50:01Z",
+      "finishedAt": "2026-11-11T02:50:05Z",
+      "durationMs": 4120,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 2044,
+        "lines": 48,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "receipt",
+        "amountBucket": "50-500",
+        "hasDueDate": false
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 2044,
+            "lines": 48,
+            "amountBucket": "50-500",
+            "hasDueDate": false,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "receipt"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "low",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a receipt from a bank"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "low-urgency bill from a bank, amount in the 50-500 band; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='50-500'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:062b4edb55951907",
+        "source": "loop"
+      }
+    },
+    {
+      "runId": "20261111-47ce4c25",
+      "idempotencyKey": "47ce4c25dca74f88",
+      "startedAt": "2026-11-11T02:40:00Z",
+      "finishedAt": "2026-11-11T02:40:06Z",
+      "durationMs": 5574,
+      "model": "llama3.2:3b",
+      "graphVersion": "1.1.0",
+      "terminationReason": "converged",
+      "iterations": 1,
+      "trigger": "schedule",
+      "item": {
+        "source": "loop/inbox (gitignored)",
+        "chars": 1663,
+        "lines": 42,
+        "language": "en",
+        "issuerKind": "bank",
+        "docType": "invoice",
+        "amountBucket": "50-500",
+        "hasDueDate": true
+      },
+      "nodes": [
+        {
+          "node": "perceive",
+          "output": {
+            "chars": 1663,
+            "lines": 42,
+            "amountBucket": "50-500",
+            "hasDueDate": true,
+            "language": "en",
+            "issuerKind": "bank",
+            "docType": "invoice"
+          }
+        },
+        {
+          "node": "decide",
+          "output": {
+            "category": "bill",
+            "urgency": "medium",
+            "assertion": "bill_has_amount",
+            "rationale": "Document contains a payment request"
+          }
+        },
+        {
+          "node": "act",
+          "output": {
+            "disposition": "file",
+            "destination": "records",
+            "humanSummary": "medium-urgency bill from a bank, amount in the 50-500 band; recommended action: file to records."
+          }
+        },
+        {
+          "node": "evaluate",
+          "output": {
+            "assertion": "bill_has_amount",
+            "passed": true,
+            "detail": "category 'bill' requires a detected amount; bucket='50-500'"
+          }
+        },
+        {
+          "node": "adapt",
+          "output": {
+            "note": "Assertion 'bill_has_amount' held on iteration 1.",
+            "iterations": 1,
+            "cap": 3
+          }
+        }
+      ],
+      "vault": {
+        "decisionId": "loop:47ce4c25dca74f88",
+        "source": "loop"
+      }
+    },
+    {
       "runId": "20261109-0b031c1a",
       "idempotencyKey": "0b031c1a766af605",
       "startedAt": "2026-11-09T02:50:01Z",
@@ -1675,5 +3354,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-11-09T02:50:05Z"
+  "generatedAt": "2026-11-27T02:50:08Z"
 }

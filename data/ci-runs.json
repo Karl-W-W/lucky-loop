@@ -1,5 +1,5 @@
 {
-  "syncedAt": "2026-11-10T02:30:26.093Z",
+  "syncedAt": "2026-11-28T02:30:07.627Z",
   "since": "2026-09-10",
   "gates": [
     {
@@ -370,6 +370,38 @@
       "run": 267,
       "sha7": "dbe5efb",
       "at": "2026-11-08T14:19:09Z",
+      "conclusion": "success"
+    },
+    {
+      "repo": "Karl-W-W/lucky-loop",
+      "workflow": "gates",
+      "run": 271,
+      "sha7": "5f0486f",
+      "at": "2026-11-10T16:00:14Z",
+      "conclusion": "success"
+    },
+    {
+      "repo": "Karl-W-W/lucky-loop",
+      "workflow": "gates",
+      "run": 280,
+      "sha7": "13df4a0",
+      "at": "2026-11-14T15:26:00Z",
+      "conclusion": "success"
+    },
+    {
+      "repo": "Karl-W-W/lucky-loop",
+      "workflow": "gates",
+      "run": 288,
+      "sha7": "1cb200e",
+      "at": "2026-11-14T16:12:31Z",
+      "conclusion": "success"
+    },
+    {
+      "repo": "Karl-W-W/polysignal-engine",
+      "workflow": "Tests",
+      "run": 169,
+      "sha7": "e2e854c",
+      "at": "2026-11-14T16:37:30Z",
       "conclusion": "success"
     }
   ]
